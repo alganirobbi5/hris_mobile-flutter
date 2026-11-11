@@ -60,7 +60,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       width: 58,
                       height: 58,
                       decoration: BoxDecoration(
-                        gradient: AppColors.primaryGradient,
                         borderRadius: BorderRadius.circular(18),
                         boxShadow: [
                           BoxShadow(
@@ -70,10 +69,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ],
                       ),
-                      child: const Icon(
-                        Icons.fingerprint_rounded,
-                        color: Colors.white,
-                        size: 30,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(18),
+                        child: Image.asset(
+                          'assets/logo/logo-hrms.png',
+                          fit: BoxFit.cover,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 30),
