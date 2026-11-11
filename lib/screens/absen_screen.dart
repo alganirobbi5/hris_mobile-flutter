@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -61,7 +63,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
         response = await http
             .post(
               Uri.parse(
-                'http://192.168.1.6/HumanResourceManagementSystem/'
+                'http://192.168.1.2/HumanResourceManagementSystem/'
                 'src/api/absen.php',
               ),
               headers: const {'Content-Type': 'application/json'},
@@ -72,11 +74,15 @@ class _AbsenScreenState extends State<AbsenScreen> {
               }),
             )
             .timeout(const Duration(seconds: 20));
-      } catch (_) {
+      } catch (error) {
+        print('HTTP Error: $error');
         if (!mounted) return;
-        _showMessage('Gagal terhubung ke server');
+        _showMessage('Gagal terhubung ke server: $error');
         return;
       }
+
+      print('Status Code: ${response.statusCode}');
+      print('Response Body: ${response.body}');
 
       if (!mounted) return;
 
@@ -104,14 +110,10 @@ class _AbsenScreenState extends State<AbsenScreen> {
       );
     } on TimeoutException {
       if (!mounted) return;
-      _showMessage(
-        'Gagal mendapatkan lokasi GPS. Coba lagi di area terbuka.',
-      );
+      _showMessage('Gagal mendapatkan lokasi GPS. Coba lagi di area terbuka.');
     } on LocationServiceDisabledException {
       if (!mounted) return;
-      _showMessage(
-        'Layanan lokasi tidak aktif. Aktifkan GPS terlebih dahulu.',
-      );
+      _showMessage('Layanan lokasi tidak aktif. Aktifkan GPS terlebih dahulu.');
     } catch (_) {
       if (!mounted) return;
       _showMessage(

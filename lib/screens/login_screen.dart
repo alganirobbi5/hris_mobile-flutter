@@ -23,7 +23,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
 
   static const String _loginUrl =
-      'http://192.168.1.6/HumanResourceManagementSystem/src/api/login.php';
+      'http://192.168.1.2/HumanResourceManagementSystem/src/api/login.php';
 
   bool _isLoading = false;
 
@@ -53,9 +53,7 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final http.Response response = await http.post(
         Uri.parse(_loginUrl),
-        headers: <String, String>{
-          'Content-Type': 'application/json',
-        },
+        headers: <String, String>{'Content-Type': 'application/json'},
         body: jsonEncode(<String, String>{
           'username': _identityController.text.trim(),
           'password': _passwordController.text,
@@ -72,18 +70,15 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       if (response.statusCode == 200) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Login Berhasil')),
-        );
+        messenger.showSnackBar(const SnackBar(content: Text('Login Berhasil')));
         Navigator.of(context).pushReplacement(
           MaterialPageRoute<void>(builder: (_) => const MainScreen()),
         );
       } else {
-        final String message = body['message'] as String? ??
+        final String message =
+            body['message'] as String? ??
             'Login gagal (${response.statusCode})';
-        messenger.showSnackBar(
-          SnackBar(content: Text(message)),
-        );
+        messenger.showSnackBar(SnackBar(content: Text(message)));
       }
     } on SocketException {
       messenger.showSnackBar(
@@ -103,9 +98,7 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     } catch (_) {
       messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Terjadi kesalahan. Silakan coba lagi.'),
-        ),
+        const SnackBar(content: Text('Terjadi kesalahan. Silakan coba lagi.')),
       );
     } finally {
       if (mounted) {
