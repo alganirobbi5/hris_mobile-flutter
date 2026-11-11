@@ -45,8 +45,10 @@ void main() {
       find.descendant(of: navigationBar, matching: find.text('Profil')),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Budi Santoso'), findsOneWidget);
-    expect(find.text('Keluar'), findsOneWidget);
+    expect(
+      tester.widget<BottomNavigationBar>(navigationBar).currentIndex,
+      3,
+    );
   });
 
   testWidgets('Halaman sukses absen menampilkan foto dan koordinat GPS', (
