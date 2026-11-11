@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hris_mobile/main.dart';
 import 'package:hris_mobile/screens/absen_success_screen.dart';
+import 'package:hris_mobile/screens/main_screen.dart';
 
 void main() {
   testWidgets('Halaman login tampil sebagai halaman awal', (
@@ -14,7 +15,7 @@ void main() {
     expect(find.text('Masuk'), findsOneWidget);
   });
 
-  testWidgets('Alur login dan navigasi tab berjalan tanpa error', (
+  testWidgets('Navigasi tab beranda berjalan tanpa error', (
     WidgetTester tester,
   ) async {
     tester.view.physicalSize = const Size(360, 740);
@@ -22,18 +23,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const HrisApp());
-
-    await tester.enterText(
-      find.byType(TextFormField).at(0),
-      'CMJ-2026',
-    );
-    await tester.enterText(find.byType(TextFormField).at(1), '3201019876540001');
-    await tester.enterText(find.byType(TextFormField).at(2), 'rahasia123');
-
-    await tester.ensureVisible(find.text('Masuk'));
-    await tester.tap(find.text('Masuk'));
-    await tester.pumpAndSettle();
+    await tester.pumpWidget(const MaterialApp(home: MainScreen()));
 
     expect(find.text('Ambil Selfie & Absen'), findsOneWidget);
 

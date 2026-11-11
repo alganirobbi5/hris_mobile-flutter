@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
 import '../theme/app_theme.dart';
@@ -53,6 +55,35 @@ class _AbsenScreenState extends State<AbsenScreen> {
         ),
       );
       if (!mounted) return;
+
+      http.Response response;
+      try {
+        response = await http
+            .post(
+              Uri.parse(
+                'http://192.168.1.6/HumanResourceManagementSystem/'
+                'src/api/absen.php',
+              ),
+              headers: const {'Content-Type': 'application/json'},
+              body: jsonEncode(<String, dynamic>{
+                'employee_id': 2,
+                'latitude': position.latitude.toString(),
+                'longitude': position.longitude.toString(),
+              }),
+            )
+            .timeout(const Duration(seconds: 20));
+      } catch (_) {
+        if (!mounted) return;
+        _showMessage('Gagal terhubung ke server');
+        return;
+      }
+
+      if (!mounted) return;
+
+      if (response.statusCode != 201) {
+        _showMessage(_apiErrorMessage(response));
+        return;
+      }
 
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
@@ -128,6 +159,28 @@ class _AbsenScreenState extends State<AbsenScreen> {
     }
 
     return true;
+  }
+
+  String _apiErrorMessage(http.Response response) {
+    final String fallback =
+        'Gagal mengirim absensi (HTTP ${response.statusCode}).';
+    final String body = response.body.trim();
+    if (body.isEmpty) return fallback;
+
+    try {
+      final dynamic decoded = jsonDecode(body);
+      if (decoded is Map<String, dynamic>) {
+        final dynamic message =
+            decoded['message'] ?? decoded['error'] ?? decoded['pesan'];
+        if (message is String && message.trim().isNotEmpty) {
+          return message.trim();
+        }
+      }
+    } on FormatException {
+      return body.length <= 140 ? body : fallback;
+    }
+
+    return body.length <= 140 ? body : fallback;
   }
 
   void _showMessage(

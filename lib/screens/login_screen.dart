@@ -1,4 +1,8 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 import '../theme/app_theme.dart';
 import '../widgets/app_text_field.dart';
@@ -18,6 +22,11 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _identityController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
+  static const String _loginUrl =
+      'http://192.168.1.6/HumanResourceManagementSystem/src/api/login.php';
+
+  bool _isLoading = false;
+
   @override
   void dispose() {
     _companyController.dispose();
@@ -33,13 +42,76 @@ class _LoginScreenState extends State<LoginScreen> {
     return null;
   }
 
-  void _submit() {
+  Future<void> _handleLogin() async {
     FocusScope.of(context).unfocus();
     if (!_formKey.currentState!.validate()) return;
 
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute<void>(builder: (_) => const MainScreen()),
-    );
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+
+    setState(() => _isLoading = true);
+
+    try {
+      final http.Response response = await http.post(
+        Uri.parse(_loginUrl),
+        headers: <String, String>{
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(<String, String>{
+          'username': _identityController.text.trim(),
+          'password': _passwordController.text,
+        }),
+      );
+
+      if (!mounted) return;
+
+      Map<String, dynamic> body = <String, dynamic>{};
+      try {
+        body = jsonDecode(response.body) as Map<String, dynamic>;
+      } catch (_) {
+        body = <String, dynamic>{};
+      }
+
+      if (response.statusCode == 200) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Login Berhasil')),
+        );
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute<void>(builder: (_) => const MainScreen()),
+        );
+      } else {
+        final String message = body['message'] as String? ??
+            'Login gagal (${response.statusCode})';
+        messenger.showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+      }
+    } on SocketException {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Tidak dapat terhubung ke server. Periksa koneksi Wi-Fi dan pastikan server aktif.',
+          ),
+        ),
+      );
+    } on http.ClientException {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Tidak dapat terhubung ke server. Periksa koneksi Wi-Fi dan pastikan server aktif.',
+          ),
+        ),
+      );
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Terjadi kesalahan. Silakan coba lagi.'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
@@ -130,7 +202,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     PrimaryButton(
                       label: 'Masuk',
                       icon: Icons.login_rounded,
-                      onPressed: _submit,
+                      isLoading: _isLoading,
+                      onPressed: _handleLogin,
                     ),
                     const SizedBox(height: 22),
                     const Center(
