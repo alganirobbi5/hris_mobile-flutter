@@ -2,14 +2,15 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart'; // Tambahan untuk logout
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/api_config.dart';
 import '../theme/app_theme.dart';
 import '../widgets/info_row.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/section_card.dart';
 import 'login_screen.dart';
-import 'tambah_karyawan_screen.dart'; // Import halaman tambah karyawan
+import 'tambah_karyawan_screen.dart';
 
 class ProfilScreen extends StatefulWidget {
   const ProfilScreen({super.key});
@@ -19,30 +20,16 @@ class ProfilScreen extends StatefulWidget {
 }
 
 class _ProfilScreenState extends State<ProfilScreen> {
-  // Sesuaikan URL dengan IP Laptop Anda saat ini
-  static const String _profilUrl =
-      'http://192.168.110.159/HumanResourceManagementSystem/src/api/'
-      'profil.php?employee_id=2';
-
   bool _isLoading = true;
   String? _error;
   Map<String, dynamic>? _profil;
   String _roleUser = '';
+  int? _userId;
 
   @override
   void initState() {
     super.initState();
     _fetchProfil();
-    _loadRole();
-  }
-
-  Future<void> _loadRole() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (mounted) {
-      setState(() {
-        _roleUser = prefs.getString('role') ?? '';
-      });
-    }
   }
 
   Future<void> _fetchProfil() async {
@@ -52,8 +39,24 @@ class _ProfilScreenState extends State<ProfilScreen> {
     });
 
     try {
+      // 1. Ambil data user dari penyimpanan HP
+      final prefs = await SharedPreferences.getInstance();
+      _userId = prefs.getInt('user_id');
+      _roleUser = prefs.getString('role') ?? '';
+
+      if (_userId == null) {
+        setState(() {
+          _error = 'Sesi login tidak ditemukan. Silakan login ulang.';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // 2. Buat URL dinamis menggunakan _userId
+      final String url = '${ApiConfig.baseUrl}/profil.php?employee_id=$_userId';
+
       final http.Response response = await http
-          .get(Uri.parse(_profilUrl))
+          .get(Uri.parse(url))
           .timeout(const Duration(seconds: 20));
 
       if (!mounted) return;
@@ -339,12 +342,12 @@ class _ProfilScreenState extends State<ProfilScreen> {
                 const InfoRow(
                   icon: Icons.apartment_rounded,
                   label: 'Nama Perusahaan',
-                  value: 'PT Contoh Maju Sejahtera', // Bisa disesuaikan
+                  value: 'PT Contoh Maju Sejahtera',
                 ),
                 const InfoRow(
                   icon: Icons.badge_outlined,
                   label: 'Kode Perusahaan',
-                  value: 'CMJ-2026', // Bisa disesuaikan
+                  value: 'CMJ-2026',
                 ),
                 InfoRow(
                   icon: Icons.mail_outline_rounded,
@@ -413,11 +416,9 @@ class _ProfilScreenState extends State<ProfilScreen> {
                     ),
                     TextButton(
                       onPressed: () async {
-                        // Hapus sesi login di HP
                         final prefs = await SharedPreferences.getInstance();
                         await prefs.clear();
 
-                        // Arahkan kembali ke Login
                         if (!context.mounted) return;
                         Navigator.of(context).pushAndRemoveUntil(
                           MaterialPageRoute<void>(

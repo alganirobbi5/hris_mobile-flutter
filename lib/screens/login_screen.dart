@@ -84,9 +84,11 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       if (response.statusCode == 200) {
-        await _saveSession(body);
+        // Simpan sesi login (username, role, dan user_id)
+        await _saveSession(body!);
 
         if (!mounted) return;
+
         messenger.showSnackBar(const SnackBar(content: Text('Login Berhasil')));
         Navigator.of(context).pushReplacement(
           MaterialPageRoute<void>(builder: (_) => const MainScreen()),
