@@ -203,15 +203,22 @@ class _AbsenSuccessScreenState extends State<AbsenSuccessScreen> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.green.withValues(alpha: 0.1),
+                          // Cek jam: jika lewat jam 8, warna merah (Terlambat)
+                          color: widget.takenAt.hour >= 8
+                              ? Colors.red.withValues(alpha: 0.1)
+                              : Colors.green.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: const Text(
-                          '✓ Tepat waktu',
+                        child: Text(
+                          widget.takenAt.hour >= 8
+                              ? '❌ Terlambat'
+                              : '✓ Tepat waktu',
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: Colors.green,
+                            color: widget.takenAt.hour >= 8
+                                ? Colors.red
+                                : Colors.green,
                           ),
                         ),
                       ),
