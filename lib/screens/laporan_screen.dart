@@ -16,7 +16,7 @@ class LaporanScreen extends StatefulWidget {
 
 class _LaporanScreenState extends State<LaporanScreen> {
   static const String _laporanUrl =
-      'http://192.168.1.2/HumanResourceManagementSystem/src/api/'
+      'http://127.0.0.1/HumanResourceManagementSystem/src/api/'
       'laporan_absensi.php';
 
   static const List<String> _shortMonthNames = [

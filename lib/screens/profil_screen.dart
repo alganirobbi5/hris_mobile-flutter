@@ -18,7 +18,7 @@ class ProfilScreen extends StatefulWidget {
 
 class _ProfilScreenState extends State<ProfilScreen> {
   static const String _profilUrl =
-      'http://192.168.1.2/HumanResourceManagementSystem/src/api/'
+      'http://127.0.0.1/HumanResourceManagementSystem/src/api/'
       'profil.php?employee_id=2';
 
   bool _isLoading = true;

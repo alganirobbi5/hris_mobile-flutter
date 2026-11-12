@@ -63,7 +63,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
         response = await http
             .post(
               Uri.parse(
-                'http://192.168.1.2/HumanResourceManagementSystem/'
+                'http://127.0.0.1/HumanResourceManagementSystem/'
                 'src/api/absen.php',
               ),
               headers: const {'Content-Type': 'application/json'},

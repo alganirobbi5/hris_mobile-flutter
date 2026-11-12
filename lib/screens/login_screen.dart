@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -23,7 +24,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _passwordController = TextEditingController();
 
   static const String _loginUrl =
-      'http://192.168.1.2/HumanResourceManagementSystem/src/api/login.php';
+      'http://127.0.0.1/HumanResourceManagementSystem/src/api/login.php';
 
   bool _isLoading = false;
 
@@ -51,36 +52,63 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final http.Response response = await http.post(
-        Uri.parse(_loginUrl),
-        headers: <String, String>{'Content-Type': 'application/json'},
-        body: jsonEncode(<String, String>{
-          'username': _identityController.text.trim(),
-          'password': _passwordController.text,
-        }),
-      );
+      debugPrint('Login URL: $_loginUrl');
+
+      final http.Response response = await http
+          .post(
+            Uri.parse(_loginUrl),
+            headers: <String, String>{'Content-Type': 'application/json'},
+            body: jsonEncode(<String, String>{
+              'username': _identityController.text.trim(),
+              'password': _passwordController.text,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      debugPrint('Login status code: ${response.statusCode}');
+      debugPrint('Login response body: ${response.body}');
 
       if (!mounted) return;
 
-      Map<String, dynamic> body = <String, dynamic>{};
+      Map<String, dynamic>? body;
       try {
-        body = jsonDecode(response.body) as Map<String, dynamic>;
-      } catch (_) {
-        body = <String, dynamic>{};
+        final Object? decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) {
+          body = decoded;
+        } else {
+          debugPrint('Login JSON error: respons bukan objek JSON');
+        }
+      } on FormatException catch (e, stackTrace) {
+        debugPrint('Login JSON error: $e');
+        debugPrintStack(stackTrace: stackTrace);
       }
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 200 && body?['status'] == 'success') {
         messenger.showSnackBar(const SnackBar(content: Text('Login Berhasil')));
         Navigator.of(context).pushReplacement(
           MaterialPageRoute<void>(builder: (_) => const MainScreen()),
         );
+      } else if (response.statusCode == 200 && body == null) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Respons server tidak valid.')),
+        );
       } else {
         final String message =
-            body['message'] as String? ??
+            body?['message'] as String? ??
             'Login gagal (${response.statusCode})';
         messenger.showSnackBar(SnackBar(content: Text(message)));
       }
-    } on SocketException {
+    } on TimeoutException catch (e, stackTrace) {
+      debugPrint('Login timeout: $e');
+      debugPrintStack(stackTrace: stackTrace);
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Koneksi ke server timeout. Silakan coba lagi.'),
+        ),
+      );
+    } on SocketException catch (e, stackTrace) {
+      debugPrint('Login SocketException: $e');
+      debugPrintStack(stackTrace: stackTrace);
       messenger.showSnackBar(
         const SnackBar(
           content: Text(
@@ -88,7 +116,9 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       );
-    } on http.ClientException {
+    } on http.ClientException catch (e, stackTrace) {
+      debugPrint('Login ClientException: $e');
+      debugPrintStack(stackTrace: stackTrace);
       messenger.showSnackBar(
         const SnackBar(
           content: Text(
@@ -96,7 +126,15 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ),
       );
-    } catch (_) {
+    } on FormatException catch (e, stackTrace) {
+      debugPrint('Login FormatException: $e');
+      debugPrintStack(stackTrace: stackTrace);
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Respons server tidak valid.')),
+      );
+    } catch (e, stackTrace) {
+      debugPrint('Login error: $e');
+      debugPrintStack(stackTrace: stackTrace);
       messenger.showSnackBar(
         const SnackBar(content: Text('Terjadi kesalahan. Silakan coba lagi.')),
       );

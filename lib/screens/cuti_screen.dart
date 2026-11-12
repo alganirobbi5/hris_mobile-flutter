@@ -18,9 +18,9 @@ class CutiScreen extends StatefulWidget {
 
 class _CutiScreenState extends State<CutiScreen> {
   static const String _cutiUrl =
-      'http://192.168.1.2/HumanResourceManagementSystem/src/api/cuti.php';
+      'http://127.0.0.1/HumanResourceManagementSystem/src/api/cuti.php';
   static const String _riwayatUrl =
-      'http://192.168.1.2/HumanResourceManagementSystem/src/api/'
+      'http://127.0.0.1/HumanResourceManagementSystem/src/api/'
       'riwayat_cuti.php?employee_id=2';
 
   static const List<String> _replacementOptions = [
