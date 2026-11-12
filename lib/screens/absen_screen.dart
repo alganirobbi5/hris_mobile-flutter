@@ -1,15 +1,13 @@
-// ignore_for_file: avoid_print
-
 import 'dart:async';
 import 'dart:convert';
+
+import 'package:http/http.dart' as http;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
-import '../config/api_config.dart';
 import '../theme/app_theme.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/section_card.dart';
@@ -27,6 +25,99 @@ class _AbsenScreenState extends State<AbsenScreen> {
   final ImagePicker _imagePicker = ImagePicker();
 
   bool _isProcessing = false;
+
+  // Variabel untuk menyimpan lokasi asli
+  String _lokasiTeks = 'Mencari lokasi...';
+  String _koordinatTeks = 'Mengambil koordinat...';
+
+  @override
+  void initState() {
+    super.initState();
+    _dapatkanLokasi(); // Ambil lokasi saat layar dibuka
+  }
+
+  Future<void> _dapatkanLokasi() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        setState(() {
+          _lokasiTeks = 'GPS Tidak Aktif';
+          _koordinatTeks = 'Aktifkan GPS di HP Anda';
+        });
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.whileInUse ||
+          permission == LocationPermission.always) {
+        Position position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 10),
+          ),
+        );
+
+        if (mounted) {
+          setState(() {
+            _koordinatTeks =
+                '${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}';
+            _lokasiTeks = 'Mencari nama jalan...';
+          });
+
+          // --- TAMBAHKAN KODE INI UNTUK MENCARI NAMA JALAN ---
+          try {
+            final url = Uri.parse(
+              'https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.latitude}&lon=${position.longitude}',
+            );
+            final response = await http.get(
+              url,
+              headers: {
+                'User-Agent': 'HRIS-Mobile-App', // Wajib untuk API Nominatim
+              },
+            );
+
+            if (response.statusCode == 200) {
+              final data = jsonDecode(response.body);
+              final displayName = data['display_name'];
+
+              if (mounted) {
+                setState(() {
+                  // Ambil nama jalan yang paling spesifik saja (sebelum koma pertama)
+                  _lokasiTeks = displayName.toString().split(',')[0];
+                });
+              }
+            } else {
+              throw Exception('Gagal load alamat');
+            }
+          } catch (e) {
+            if (mounted) {
+              setState(() {
+                _lokasiTeks =
+                    'Nama jalan tidak ditemukan'; // Fallback jika internet mati
+              });
+            }
+          }
+          // ----------------------------------------------------
+        }
+      } else {
+        setState(() {
+          _lokasiTeks = 'Izin Lokasi Ditolak';
+          _koordinatTeks = 'Buka pengaturan untuk mengizinkan';
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _lokasiTeks = 'Gagal Mendapatkan Lokasi';
+          _koordinatTeks = 'Pastikan Anda di area terbuka';
+        });
+      }
+    }
+  }
 
   Future<void> _handleAbsen() async {
     if (_isProcessing) return;
@@ -58,39 +149,6 @@ class _AbsenScreenState extends State<AbsenScreen> {
         ),
       );
       if (!mounted) return;
-
-      http.Response response;
-      try {
-        response = await http
-            .post(
-              Uri.parse(
-                'http://127.0.0.1/HumanResourceManagementSystem/'
-                'src/api/absen.php',
-              ),
-              headers: const {'Content-Type': 'application/json'},
-              body: jsonEncode(<String, dynamic>{
-                'employee_id': 2,
-                'latitude': position.latitude.toString(),
-                'longitude': position.longitude.toString(),
-              }),
-            )
-            .timeout(const Duration(seconds: 20));
-      } catch (error) {
-        print('HTTP Error: $error');
-        if (!mounted) return;
-        _showMessage('Gagal terhubung ke server: $error');
-        return;
-      }
-
-      print('Status Code: ${response.statusCode}');
-      print('Response Body: ${response.body}');
-
-      if (!mounted) return;
-
-      if (response.statusCode != 201) {
-        _showMessage(_apiErrorMessage(response));
-        return;
-      }
 
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
@@ -164,28 +222,6 @@ class _AbsenScreenState extends State<AbsenScreen> {
     return true;
   }
 
-  String _apiErrorMessage(http.Response response) {
-    final String fallback =
-        'Gagal mengirim absensi (HTTP ${response.statusCode}).';
-    final String body = response.body.trim();
-    if (body.isEmpty) return fallback;
-
-    try {
-      final dynamic decoded = jsonDecode(body);
-      if (decoded is Map<String, dynamic>) {
-        final dynamic message =
-            decoded['message'] ?? decoded['error'] ?? decoded['pesan'];
-        if (message is String && message.trim().isNotEmpty) {
-          return message.trim();
-        }
-      }
-    } on FormatException {
-      return body.length <= 140 ? body : fallback;
-    }
-
-    return body.length <= 140 ? body : fallback;
-  }
-
   void _showMessage(
     String message, {
     String? actionLabel,
@@ -247,11 +283,11 @@ class _AbsenScreenState extends State<AbsenScreen> {
                   children: [
                     const _IconBox(icon: Icons.location_on_outlined),
                     const SizedBox(width: 12),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
+                          const Text(
                             'LOKASI TERDETEKSI',
                             style: TextStyle(
                               fontSize: 10,
@@ -260,20 +296,20 @@ class _AbsenScreenState extends State<AbsenScreen> {
                               color: AppColors.textSecondary,
                             ),
                           ),
-                          SizedBox(height: 5),
+                          const SizedBox(height: 5),
                           Text(
-                            'Jl. Jenderal Sudirman, Jakarta',
-                            style: TextStyle(
+                            _lokasiTeks, // Menggunakan variabel lokasi dinamis
+                            style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                               height: 1.35,
                               color: AppColors.textPrimary,
                             ),
                           ),
-                          SizedBox(height: 4),
+                          const SizedBox(height: 4),
                           Text(
-                            'Koordinat diambil saat absensi',
-                            style: TextStyle(
+                            _koordinatTeks, // Menggunakan variabel koordinat dinamis
+                            style: const TextStyle(
                               fontSize: 12,
                               color: AppColors.textSecondary,
                             ),
