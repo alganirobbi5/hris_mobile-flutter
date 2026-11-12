@@ -13,6 +13,7 @@ class AbsenSuccessScreen extends StatefulWidget {
   final double latitude;
   final double longitude;
   final DateTime takenAt;
+  final String jamMasuk;
 
   const AbsenSuccessScreen({
     super.key,
@@ -20,6 +21,7 @@ class AbsenSuccessScreen extends StatefulWidget {
     required this.latitude,
     required this.longitude,
     required this.takenAt,
+    required this.jamMasuk,
   });
 
   @override
@@ -196,7 +198,7 @@ class _AbsenSuccessScreenState extends State<AbsenSuccessScreen> {
                     _buildDetailRow(
                       icon: Icons.access_time_rounded,
                       label: 'Waktu absen',
-                      value: _formatWaktu(widget.takenAt),
+                      value: widget.jamMasuk,
                       trailing: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
