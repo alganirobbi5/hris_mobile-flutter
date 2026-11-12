@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../config/api_config.dart';
 import '../theme/app_theme.dart';
 import '../widgets/section_card.dart';
 
@@ -12,15 +13,9 @@ class LaporanScreen extends StatefulWidget {
 }
 
 class _LaporanScreenState extends State<LaporanScreen> {
-<<<<<<< HEAD
-  static const String _laporanUrl =
-      'http://127.0.0.1/HumanResourceManagementSystem/src/api/'
-      'laporan_absensi.php';
-=======
-  // URL API Export Excel
-  static const String _exportUrl =
-      'http://192.168.110.159/HumanResourceManagementSystem/src/api/export_excel.php';
->>>>>>> 3f09f03 (Feat: Menyelesaikan semua fitur (Absensi, Cuti, Profil, Approval, Laporan Excel, Validasi, Logout))
+  static const String _laporanUrl = '${ApiConfig.baseUrl}/laporan_absensi.php';
+
+  static const String _exportUrl = '${ApiConfig.baseUrl}/export_excel.php';
 
   bool _isLoading = false;
 

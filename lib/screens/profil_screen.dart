@@ -21,11 +21,7 @@ class ProfilScreen extends StatefulWidget {
 class _ProfilScreenState extends State<ProfilScreen> {
   // Sesuaikan URL dengan IP Laptop Anda saat ini
   static const String _profilUrl =
-<<<<<<< HEAD
-      'http://127.0.0.1/HumanResourceManagementSystem/src/api/'
-=======
       'http://192.168.110.159/HumanResourceManagementSystem/src/api/'
->>>>>>> 3f09f03 (Feat: Menyelesaikan semua fitur (Absensi, Cuti, Profil, Approval, Laporan Excel, Validasi, Logout))
       'profil.php?employee_id=2';
 
   bool _isLoading = true;

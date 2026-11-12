@@ -19,17 +19,11 @@ class CutiScreen extends StatefulWidget {
 }
 
 class _CutiScreenState extends State<CutiScreen> {
-<<<<<<< HEAD
   static const String _cutiUrl =
       'http://127.0.0.1/HumanResourceManagementSystem/src/api/cuti.php';
   static const String _riwayatUrl =
       'http://127.0.0.1/HumanResourceManagementSystem/src/api/'
       'riwayat_cuti.php?employee_id=2';
-=======
-  static const String _cutiUrl = '${ApiConfig.baseUrl}/cuti.php';
-  static const String _riwayatUrl =
-      '${ApiConfig.baseUrl}/riwayat_cuti.php?employee_id=2';
->>>>>>> 3f09f03 (Feat: Menyelesaikan semua fitur (Absensi, Cuti, Profil, Approval, Laporan Excel, Validasi, Logout))
 
   static const List<String> _replacementOptions = [
     'Siti Aminah',

@@ -25,12 +25,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _identityController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-<<<<<<< HEAD
-  static const String _loginUrl =
-      'http://127.0.0.1/HumanResourceManagementSystem/src/api/login.php';
-=======
   static const String _loginUrl = '${ApiConfig.baseUrl}/login.php';
->>>>>>> 3f09f03 (Feat: Menyelesaikan semua fitur (Absensi, Cuti, Profil, Approval, Laporan Excel, Validasi, Logout))
 
   bool _isLoading = false;
 
@@ -54,7 +49,6 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
-
     setState(() => _isLoading = true);
 
     try {
@@ -89,15 +83,10 @@ class _LoginScreenState extends State<LoginScreen> {
         debugPrintStack(stackTrace: stackTrace);
       }
 
-<<<<<<< HEAD
-      if (response.statusCode == 200 && body?['status'] == 'success') {
-=======
       if (response.statusCode == 200) {
         await _saveSession(body);
 
         if (!mounted) return;
-
->>>>>>> 3f09f03 (Feat: Menyelesaikan semua fitur (Absensi, Cuti, Profil, Approval, Laporan Excel, Validasi, Logout))
         messenger.showSnackBar(const SnackBar(content: Text('Login Berhasil')));
         Navigator.of(context).pushReplacement(
           MaterialPageRoute<void>(builder: (_) => const MainScreen()),
