@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../theme/app_theme.dart';
 import 'absen_screen.dart';
+import 'approval_cuti_screen.dart';
 import 'cuti_screen.dart';
 import 'laporan_screen.dart';
 import 'profil_screen.dart';
@@ -15,13 +17,34 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
+  bool _isHr = false;
 
-  static const List<Widget> _screens = [
-    AbsenScreen(),
-    CutiScreen(),
-    LaporanScreen(),
-    ProfilScreen(),
+  List<Widget> get _screens => <Widget>[
+    const AbsenScreen(),
+    const CutiScreen(),
+    const LaporanScreen(),
+    const ProfilScreen(),
+    if (_isHr) const ApprovalCutiScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRole();
+  }
+
+  Future<void> _loadRole() async {
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final String role = (prefs.getString('role') ?? '').trim().toLowerCase();
+      if (!mounted) return;
+      if (role == 'hr' && !_isHr) {
+        setState(() => _isHr = true);
+      }
+    } catch (_) {
+      // Abaikan kegagalan membaca preferensi; tampilkan tab default.
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,27 +66,33 @@ class _MainScreenState extends State<MainScreen> {
           fontSize: 11,
           fontWeight: FontWeight.w500,
         ),
-        items: const [
-          BottomNavigationBarItem(
+        items: [
+          const BottomNavigationBarItem(
             icon: Icon(Icons.camera_alt_outlined),
             activeIcon: Icon(Icons.camera_alt_rounded),
             label: 'Absen',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.calendar_today_outlined),
             activeIcon: Icon(Icons.calendar_today_rounded),
             label: 'Cuti',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.description_outlined),
             activeIcon: Icon(Icons.description_rounded),
             label: 'Laporan',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.person_outline_rounded),
             activeIcon: Icon(Icons.person_rounded),
             label: 'Profil',
           ),
+          if (_isHr)
+            const BottomNavigationBarItem(
+              icon: Icon(Icons.fact_check_outlined),
+              activeIcon: Icon(Icons.fact_check_rounded),
+              label: 'Persetujuan',
+            ),
         ],
       ),
     );

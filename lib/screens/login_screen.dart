@@ -4,7 +4,9 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/api_config.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/primary_button.dart';
@@ -23,8 +25,12 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _identityController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
+<<<<<<< HEAD
   static const String _loginUrl =
       'http://127.0.0.1/HumanResourceManagementSystem/src/api/login.php';
+=======
+  static const String _loginUrl = '${ApiConfig.baseUrl}/login.php';
+>>>>>>> 3f09f03 (Feat: Menyelesaikan semua fitur (Absensi, Cuti, Profil, Approval, Laporan Excel, Validasi, Logout))
 
   bool _isLoading = false;
 
@@ -83,7 +89,15 @@ class _LoginScreenState extends State<LoginScreen> {
         debugPrintStack(stackTrace: stackTrace);
       }
 
+<<<<<<< HEAD
       if (response.statusCode == 200 && body?['status'] == 'success') {
+=======
+      if (response.statusCode == 200) {
+        await _saveSession(body);
+
+        if (!mounted) return;
+
+>>>>>>> 3f09f03 (Feat: Menyelesaikan semua fitur (Absensi, Cuti, Profil, Approval, Laporan Excel, Validasi, Logout))
         messenger.showSnackBar(const SnackBar(content: Text('Login Berhasil')));
         Navigator.of(context).pushReplacement(
           MaterialPageRoute<void>(builder: (_) => const MainScreen()),
@@ -143,6 +157,55 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  Future<void> _saveSession(Map<String, dynamic> body) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    final dynamic userIdValue = _bodyValue(body, <String>[
+      'user_id',
+      'id',
+      'employee_id',
+    ]);
+    final dynamic usernameValue = _bodyValue(body, <String>[
+      'username',
+      'user_name',
+      'name',
+    ]);
+    final dynamic roleValue = _bodyValue(body, <String>['role', 'user_role']);
+
+    final int? userId = int.tryParse(userIdValue?.toString() ?? '');
+    if (userId != null) {
+      await prefs.setInt('user_id', userId);
+    } else if (userIdValue != null) {
+      await prefs.setString('user_id', userIdValue.toString());
+    }
+
+    await prefs.setString(
+      'username',
+      usernameValue?.toString() ?? _identityController.text.trim(),
+    );
+    await prefs.setString('role', roleValue?.toString() ?? '');
+  }
+
+  dynamic _bodyValue(Map<String, dynamic> body, List<String> keys) {
+    dynamic source = body;
+    for (final String container in <String>['data', 'user', 'result']) {
+      final dynamic nested = body[container];
+      if (nested is Map<String, dynamic>) {
+        source = nested;
+        break;
+      }
+    }
+
+    for (final String key in keys) {
+      final dynamic value = source[key] ?? body[key];
+      if (value != null && value.toString().trim().isNotEmpty) {
+        return value;
+      }
+    }
+
+    return null;
   }
 
   @override

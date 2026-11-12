@@ -2,12 +2,14 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart'; // Tambahan untuk logout
 
 import '../theme/app_theme.dart';
 import '../widgets/info_row.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/section_card.dart';
 import 'login_screen.dart';
+import 'tambah_karyawan_screen.dart'; // Import halaman tambah karyawan
 
 class ProfilScreen extends StatefulWidget {
   const ProfilScreen({super.key});
@@ -17,18 +19,34 @@ class ProfilScreen extends StatefulWidget {
 }
 
 class _ProfilScreenState extends State<ProfilScreen> {
+  // Sesuaikan URL dengan IP Laptop Anda saat ini
   static const String _profilUrl =
+<<<<<<< HEAD
       'http://127.0.0.1/HumanResourceManagementSystem/src/api/'
+=======
+      'http://192.168.110.159/HumanResourceManagementSystem/src/api/'
+>>>>>>> 3f09f03 (Feat: Menyelesaikan semua fitur (Absensi, Cuti, Profil, Approval, Laporan Excel, Validasi, Logout))
       'profil.php?employee_id=2';
 
   bool _isLoading = true;
   String? _error;
   Map<String, dynamic>? _profil;
+  String _roleUser = '';
 
   @override
   void initState() {
     super.initState();
     _fetchProfil();
+    _loadRole();
+  }
+
+  Future<void> _loadRole() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _roleUser = prefs.getString('role') ?? '';
+      });
+    }
   }
 
   Future<void> _fetchProfil() async {
@@ -127,18 +145,16 @@ class _ProfilScreenState extends State<ProfilScreen> {
   }
 
   String get _name => _profileValue('nama_lengkap');
-
   String get _role => _profileValue('role');
-
   String get _email => _profileValue('email');
-
   String get _username => _profileValue('username');
 
   String get _leaveQuota {
     final Map<String, dynamic>? data = _profil;
     if (data == null) return 'Belum tersedia';
 
-    final dynamic value = data['sisa_kuota_cuti'] ??
+    final dynamic value =
+        data['sisa_kuota_cuti'] ??
         data['sisa_cuti'] ??
         data['kuota_cuti'] ??
         data['leave_quota'] ??
@@ -199,10 +215,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
             SizedBox(height: 14),
             Text(
               'Memuat profil...',
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.textSecondary,
-              ),
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
           ],
         ),
@@ -330,17 +343,12 @@ class _ProfilScreenState extends State<ProfilScreen> {
                 const InfoRow(
                   icon: Icons.apartment_rounded,
                   label: 'Nama Perusahaan',
-                  value: 'Belum tersedia',
+                  value: 'PT Contoh Maju Sejahtera', // Bisa disesuaikan
                 ),
                 const InfoRow(
                   icon: Icons.badge_outlined,
                   label: 'Kode Perusahaan',
-                  value: 'Belum tersedia',
-                ),
-                const InfoRow(
-                  icon: Icons.credit_card_outlined,
-                  label: 'NIK',
-                  value: 'Belum tersedia',
+                  value: 'CMJ-2026', // Bisa disesuaikan
                 ),
                 InfoRow(
                   icon: Icons.mail_outline_rounded,
@@ -351,11 +359,6 @@ class _ProfilScreenState extends State<ProfilScreen> {
                   icon: Icons.person_outline_rounded,
                   label: 'Username',
                   value: _username,
-                ),
-                const InfoRow(
-                  icon: Icons.event_available_outlined,
-                  label: 'Tanggal Bergabung',
-                  value: 'Belum tersedia',
                 ),
                 InfoRow(
                   icon: Icons.beach_access_outlined,
@@ -368,15 +371,72 @@ class _ProfilScreenState extends State<ProfilScreen> {
             ),
           ),
           const SizedBox(height: 24),
+
+          // TOMBOL TAMBAH KARYAWAN (Hanya muncul jika role == hr)
+          if (_roleUser == 'hr') ...[
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const TambahKaryawanScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.person_add_alt_1_rounded),
+                label: const Text('Tambah Karyawan'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+
+          // TOMBOL KELUAR (Dengan konfirmasi & hapus sesi)
           DangerButton(
             label: 'Keluar',
             icon: Icons.logout_rounded,
             onPressed: () {
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute<void>(
-                  builder: (_) => const LoginScreen(),
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Konfirmasi'),
+                  content: const Text('Apakah Anda yakin ingin keluar?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Batal'),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        // Hapus sesi login di HP
+                        final prefs = await SharedPreferences.getInstance();
+                        await prefs.clear();
+
+                        // Arahkan kembali ke Login
+                        if (!context.mounted) return;
+                        Navigator.of(context).pushAndRemoveUntil(
+                          MaterialPageRoute<void>(
+                            builder: (_) => const LoginScreen(),
+                          ),
+                          (route) => false,
+                        );
+                      },
+                      child: const Text(
+                        'Ya',
+                        style: TextStyle(color: Colors.red),
+                      ),
+                    ),
+                  ],
                 ),
-                (route) => false,
               );
             },
           ),
@@ -384,10 +444,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
           const Center(
             child: Text(
               'HRIS Mobile v1.0.0',
-              style: TextStyle(
-                fontSize: 11,
-                color: AppColors.textSecondary,
-              ),
+              style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
             ),
           ),
         ],

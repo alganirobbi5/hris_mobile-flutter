@@ -9,6 +9,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
+import '../config/api_config.dart';
 import '../theme/app_theme.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/section_card.dart';
@@ -62,10 +63,14 @@ class _AbsenScreenState extends State<AbsenScreen> {
       try {
         response = await http
             .post(
+<<<<<<< HEAD
               Uri.parse(
                 'http://127.0.0.1/HumanResourceManagementSystem/'
                 'src/api/absen.php',
               ),
+=======
+              Uri.parse('${ApiConfig.baseUrl}/absen.php'),
+>>>>>>> 3f09f03 (Feat: Menyelesaikan semua fitur (Absensi, Cuti, Profil, Approval, Laporan Excel, Validasi, Logout))
               headers: const {'Content-Type': 'application/json'},
               body: jsonEncode(<String, dynamic>{
                 'employee_id': 2,

@@ -3,12 +3,17 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hris_mobile/main.dart';
 import 'package:hris_mobile/screens/absen_success_screen.dart';
 import 'package:hris_mobile/screens/main_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+  });
+
   testWidgets('Halaman login tampil sebagai halaman awal', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(const HrisApp());
+    await tester.pumpWidget(const HrisApp(isLoggedIn: false));
 
     expect(find.text('Selamat datang'), findsOneWidget);
     expect(find.text('KODE PERUSAHAAN'), findsOneWidget);
@@ -49,6 +54,17 @@ void main() {
       tester.widget<BottomNavigationBar>(navigationBar).currentIndex,
       3,
     );
+  });
+
+  testWidgets('Tab Persetujuan Cuti tampil untuk role HR', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{'role': 'hr'});
+
+    await tester.pumpWidget(const MaterialApp(home: MainScreen()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Persetujuan'), findsOneWidget);
   });
 
   testWidgets('Halaman sukses absen menampilkan foto dan koordinat GPS', (

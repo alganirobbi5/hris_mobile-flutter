@@ -2,7 +2,9 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 
+import '../config/api_config.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/primary_button.dart';
@@ -17,32 +19,23 @@ class CutiScreen extends StatefulWidget {
 }
 
 class _CutiScreenState extends State<CutiScreen> {
+<<<<<<< HEAD
   static const String _cutiUrl =
       'http://127.0.0.1/HumanResourceManagementSystem/src/api/cuti.php';
   static const String _riwayatUrl =
       'http://127.0.0.1/HumanResourceManagementSystem/src/api/'
       'riwayat_cuti.php?employee_id=2';
+=======
+  static const String _cutiUrl = '${ApiConfig.baseUrl}/cuti.php';
+  static const String _riwayatUrl =
+      '${ApiConfig.baseUrl}/riwayat_cuti.php?employee_id=2';
+>>>>>>> 3f09f03 (Feat: Menyelesaikan semua fitur (Absensi, Cuti, Profil, Approval, Laporan Excel, Validasi, Logout))
 
   static const List<String> _replacementOptions = [
     'Siti Aminah',
     'Andi Wijaya',
     'Rina Kartika',
     'Dewi Lestari',
-  ];
-
-  static const List<String> _shortMonthNames = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'Mei',
-    'Jun',
-    'Jul',
-    'Agu',
-    'Sep',
-    'Okt',
-    'Nov',
-    'Des',
   ];
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
@@ -137,14 +130,29 @@ class _CutiScreenState extends State<CutiScreen> {
   Future<void> _submit() async {
     FocusScope.of(context).unfocus();
     if (_isSubmitting) return;
-    if (!_formKey.currentState!.validate()) return;
 
+    final String reason = _reasonController.text.trim();
     final DateTime? startDate = _startDate;
     final DateTime? endDate = _endDate;
-    if (startDate == null || endDate == null) {
-      _showMessage('Pilih tanggal mulai dan tanggal selesai terlebih dahulu.');
+
+    if (reason.isEmpty) {
+      _formKey.currentState?.validate();
+      _showMessage('Alasan cuti tidak boleh kosong');
       return;
     }
+
+    if (startDate == null || endDate == null) {
+      _formKey.currentState?.validate();
+      _showMessage('Tanggal mulai dan selesai harus dipilih');
+      return;
+    }
+
+    if (endDate.isBefore(startDate)) {
+      _showMessage('Tanggal selesai tidak boleh sebelum tanggal mulai');
+      return;
+    }
+
+    if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isSubmitting = true);
 
@@ -159,7 +167,7 @@ class _CutiScreenState extends State<CutiScreen> {
                 'employee_id': 2,
                 'start_date': _formatApiDate(startDate),
                 'end_date': _formatApiDate(endDate),
-                'reason': _reasonController.text.trim(),
+                'reason': reason,
               }),
             )
             .timeout(const Duration(seconds: 20));
@@ -200,7 +208,8 @@ class _CutiScreenState extends State<CutiScreen> {
   }
 
   String _apiErrorMessage(http.Response response, {String? fallbackMessage}) {
-    final String fallback = fallbackMessage ??
+    final String fallback =
+        fallbackMessage ??
         'Gagal mengirim pengajuan cuti (HTTP ${response.statusCode}).';
     final String body = response.body.trim();
     if (body.isEmpty) return fallback;
@@ -277,7 +286,8 @@ class _CutiScreenState extends State<CutiScreen> {
     dynamic rawData = decoded;
 
     if (decoded is Map<String, dynamic>) {
-      rawData = decoded['data'] ??
+      rawData =
+          decoded['data'] ??
           decoded['riwayat'] ??
           decoded['result'] ??
           decoded['riwayat_cuti'];
@@ -295,16 +305,31 @@ class _CutiScreenState extends State<CutiScreen> {
     final String trimmed = value.trim();
     if (trimmed.isEmpty || trimmed == '-') return '-';
 
-    final DateTime? parsed = DateTime.tryParse(trimmed);
+    final DateTime? parsed = _parseDateValue(trimmed);
     if (parsed == null) return trimmed;
 
-    return '${parsed.day} ${_shortMonthNames[parsed.month - 1]} ${parsed.year}';
+    return DateFormat('d MMMM yyyy', 'id_ID').format(parsed);
+  }
+
+  DateTime? _parseDateValue(String value) {
+    final DateTime? parsed = DateTime.tryParse(value);
+    if (parsed != null) return parsed;
+
+    final int? timestamp = int.tryParse(value);
+    if (timestamp == null) return null;
+
+    final bool inSeconds = timestamp.abs() < 100000000000;
+    return DateTime.fromMillisecondsSinceEpoch(
+      inSeconds ? timestamp * 1000 : timestamp,
+    );
   }
 
   String _statusLabel(String status) {
     final String normalized = status.trim().toLowerCase();
 
-    if (normalized.isEmpty || normalized == '-' || normalized == 'menunggu' ||
+    if (normalized.isEmpty ||
+        normalized == '-' ||
+        normalized == 'menunggu' ||
         normalized == 'pending') {
       return 'Menunggu';
     }
@@ -380,10 +405,7 @@ class _CutiScreenState extends State<CutiScreen> {
             child: Text(
               'Belum ada riwayat cuti',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.textSecondary,
-              ),
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
           ),
         ),
@@ -531,7 +553,7 @@ class _CutiScreenState extends State<CutiScreen> {
                         maxLines: 4,
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
-                            return 'Alasan cuti wajib diisi';
+                            return 'Alasan cuti tidak boleh kosong';
                           }
                           return null;
                         },
@@ -666,7 +688,7 @@ class _CutiScreenState extends State<CutiScreen> {
                         label: _isSubmitting ? 'Mengirim...' : 'Ajukan Cuti',
                         icon: Icons.send_rounded,
                         isLoading: _isSubmitting,
-                        onPressed: _submit,
+                        onPressed: _isSubmitting ? null : _submit,
                       ),
                     ],
                   ),
