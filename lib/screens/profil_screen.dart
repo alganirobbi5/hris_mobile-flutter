@@ -11,6 +11,7 @@ import '../widgets/primary_button.dart';
 import '../widgets/section_card.dart';
 import 'login_screen.dart';
 import 'tambah_karyawan_screen.dart';
+import 'tambah_lokasi_screen.dart';
 
 class ProfilScreen extends StatefulWidget {
   const ProfilScreen({super.key});
@@ -386,6 +387,30 @@ class _ProfilScreenState extends State<ProfilScreen> {
                 },
                 icon: const Icon(Icons.person_add_alt_1_rounded),
                 label: const Text('Tambah Karyawan'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const TambahLokasiScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.add_location_alt_rounded),
+                label: const Text('Tambah Lokasi Absensi'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,

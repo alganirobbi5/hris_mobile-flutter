@@ -1,14 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
 
-import '../config/api_config.dart';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/api_config.dart';
 import '../theme/app_theme.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/section_card.dart';
@@ -26,18 +26,50 @@ class _AbsenScreenState extends State<AbsenScreen> {
   final ImagePicker _imagePicker = ImagePicker();
 
   bool _isProcessing = false;
+  bool _sudahAbsenMasuk = false; // Status untuk tombol pulang
 
-  // Variabel untuk menyimpan lokasi asli
   String _lokasiTeks = 'Mencari lokasi...';
   String _koordinatTeks = 'Mengambil koordinat...';
-
-  // Variabel untuk menyimpan jam masuk real-time
   String _jamAbsenTeks = '--:--';
+  String _jamPulangTeks = '--:--';
 
   @override
   void initState() {
     super.initState();
-    _dapatkanLokasi(); // Ambil lokasi saat layar dibuka
+    _dapatkanLokasi();
+    _cekStatusAbsen(); // Cek apakah sudah absen hari ini
+  }
+
+  Future<void> _cekStatusAbsen() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getInt('user_id') ?? 2;
+
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/status_absen.php?employee_id=$userId'),
+      );
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (mounted) {
+          setState(() {
+            _sudahAbsenMasuk =
+                data['sudah_masuk'] == true && data['sudah_pulang'] == false;
+
+            // Ambil jam masuk dan pulang dari API
+            if (data['jam_masuk'] != null) {
+              _jamAbsenTeks =
+                  data['jam_masuk'].toString().substring(0, 5) + " WIB";
+            }
+            if (data['jam_pulang'] != null) {
+              _jamPulangTeks =
+                  data['jam_pulang'].toString().substring(0, 5) + " WIB";
+            }
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Gagal cek status absen: $e');
+    }
   }
 
   void _updateJamAbsen() {
@@ -82,7 +114,6 @@ class _AbsenScreenState extends State<AbsenScreen> {
             _lokasiTeks = 'Mencari nama jalan...';
           });
 
-          // Mengambil nama jalan asli via OpenStreetMap
           try {
             final url = Uri.parse(
               'https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.latitude}&lon=${position.longitude}',
@@ -95,28 +126,17 @@ class _AbsenScreenState extends State<AbsenScreen> {
             if (response.statusCode == 200) {
               final data = jsonDecode(response.body);
               final displayName = data['display_name'];
-
               if (mounted) {
                 setState(() {
                   _lokasiTeks = displayName.toString().split(',')[0];
                 });
               }
-            } else {
-              throw Exception('Gagal load alamat');
             }
           } catch (e) {
-            if (mounted) {
-              setState(() {
-                _lokasiTeks = 'Nama jalan tidak ditemukan';
-              });
-            }
+            if (mounted)
+              setState(() => _lokasiTeks = 'Nama jalan tidak ditemukan');
           }
         }
-      } else {
-        setState(() {
-          _lokasiTeks = 'Izin Lokasi Ditolak';
-          _koordinatTeks = 'Buka pengaturan untuk mengizinkan';
-        });
       }
     } catch (e) {
       if (mounted) {
@@ -128,13 +148,13 @@ class _AbsenScreenState extends State<AbsenScreen> {
     }
   }
 
-  Future<void> _handleAbsen() async {
+  Future<void> _handleAbsenMasuk() async {
     if (_isProcessing) return;
-
     setState(() => _isProcessing = true);
 
     try {
-      _updateJamAbsen();
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id') ?? 2;
 
       final bool hasLocationPermission = await _ensureLocationPermission();
       if (!mounted) return;
@@ -153,12 +173,6 @@ class _AbsenScreenState extends State<AbsenScreen> {
         return;
       }
 
-      final now = DateTime.now();
-      setState(() {
-        _jamAbsenTeks =
-            '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')} WIB';
-      });
-
       final Position position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
@@ -167,18 +181,22 @@ class _AbsenScreenState extends State<AbsenScreen> {
       );
       if (!mounted) return;
 
-      // FORMAT WAKTU LOKAL UNTUK DIKIRIM KE API
+      final now = DateTime.now();
       final String tanggalLokal =
           "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
       final String waktuLokal =
           "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
 
-      final url = Uri.parse('${ApiConfig.baseUrl}/absen.php');
+      setState(() {
+        _jamAbsenTeks =
+            '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')} WIB';
+      });
+
       final response = await http.post(
-        url,
+        Uri.parse('${ApiConfig.baseUrl}/absen.php'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'employee_id': 2,
+          'employee_id': userId,
           'latitude': position.latitude.toString(),
           'longitude': position.longitude.toString(),
           'tanggal_lokal': tanggalLokal,
@@ -189,8 +207,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
       if (!mounted) return;
 
       if (response.statusCode == 201) {
-        final data = jsonDecode(response.body);
-        final jamMasuk = data['jam_masuk'] ?? '--:--';
+        setState(() => _sudahAbsenMasuk = true);
 
         await Navigator.of(context).push(
           MaterialPageRoute<void>(
@@ -199,35 +216,65 @@ class _AbsenScreenState extends State<AbsenScreen> {
               latitude: position.latitude,
               longitude: position.longitude,
               takenAt: now,
-              jamMasuk: jamMasuk,
+              jamMasuk: _jamAbsenTeks,
             ),
           ),
         );
       } else {
-        _showMessage('Gagal menyimpan absen ke server.');
+        final data = jsonDecode(response.body);
+        _showMessage(data['message'] ?? 'Gagal menyimpan absen.');
       }
-    } on PlatformException catch (error) {
-      if (!mounted) return;
-      _showMessage(
-        error.code == 'camera_access_denied'
-            ? 'Akses kamera ditolak. Aktifkan izin kamera di pengaturan.'
-            : 'Kamera tidak dapat dibuka. Silakan coba lagi.',
-      );
-    } on TimeoutException {
-      if (!mounted) return;
-      _showMessage('Gagal mendapatkan lokasi GPS. Coba lagi di area terbuka.');
-    } on LocationServiceDisabledException {
-      if (!mounted) return;
-      _showMessage('Layanan lokasi tidak aktif. Aktifkan GPS terlebih dahulu.');
-    } catch (_) {
-      if (!mounted) return;
-      _showMessage(
-        'Terjadi kesalahan saat memproses absensi. Silakan coba lagi.',
-      );
+    } catch (e) {
+      if (mounted) _showMessage('Terjadi kesalahan: $e');
     } finally {
-      if (mounted) {
-        setState(() => _isProcessing = false);
+      if (mounted) setState(() => _isProcessing = false);
+    }
+  }
+
+  Future<void> _handleAbsenPulang() async {
+    if (_isProcessing) return;
+    setState(() => _isProcessing = true);
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('user_id') ?? 2;
+
+      final Position position = await Geolocator.getCurrentPosition();
+      final now = DateTime.now();
+      final String waktuLokal =
+          "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
+
+      final response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/absen_pulang.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'employee_id': userId,
+          'latitude': position.latitude.toString(),
+          'longitude': position.longitude.toString(),
+          'waktu_lokal': waktuLokal,
+        }),
+      );
+
+      if (!mounted) return;
+
+      // Tambahkan pengecekan: Jika response bukan JSON, jangan di-parse
+      if (response.headers['content-type']?.contains('application/json') !=
+          true) {
+        _showMessage('File API absen_pulang.php belum tersedia di server.');
+        return;
       }
+
+      if (response.statusCode == 200) {
+        _showMessage('Absen pulang berhasil!');
+        setState(() => _sudahAbsenMasuk = false);
+      } else {
+        final data = jsonDecode(response.body);
+        _showMessage(data['message'] ?? 'Gagal absen pulang.');
+      }
+    } catch (e) {
+      if (mounted) _showMessage('Terjadi kesalahan: $e');
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
     }
   }
 
@@ -316,7 +363,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
       body: SafeArea(
         top: false,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -429,7 +476,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
               ),
               const SizedBox(height: 14),
 
-              // Card Jam Masuk Saat Ini (Fitur Baru)
+              // Card Jam Masuk Saat Ini
               SectionCard(
                 padding: const EdgeInsets.all(18),
                 child: Row(
@@ -470,14 +517,80 @@ class _AbsenScreenState extends State<AbsenScreen> {
 
               const SizedBox(height: 24),
 
-              // Tombol Absen
+              // Card Jam Pulang
+              SectionCard(
+                padding: const EdgeInsets.all(18),
+                child: Row(
+                  children: [
+                    const _IconBox(icon: Icons.logout_rounded),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Waktu keluar saat ini',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            _jamPulangTeks == '--:--'
+                                ? 'Belum melakukan absen pulang'
+                                : _jamPulangTeks,
+                            style: TextStyle(
+                              fontSize: _jamPulangTeks == '--:--' ? 14 : 18,
+                              fontWeight: FontWeight.w800,
+                              color: _jamPulangTeks == '--:--'
+                                  ? AppColors.textSecondary
+                                  : AppColors.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Tombol Aksi (Masuk & Pulang)
               PrimaryButton(
-                label: _isProcessing ? 'Memproses...' : 'Ambil Selfie & Absen',
+                label: _isProcessing
+                    ? 'Memproses...'
+                    : 'Ambil Selfie & Absen Masuk',
                 icon: Icons.camera_front_rounded,
                 isLoading: _isProcessing,
-                onPressed: _handleAbsen,
+                onPressed: _isProcessing ? null : _handleAbsenMasuk,
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
+
+              // Tombol Absen Pulang (Hanya muncul jika sudah absen masuk)
+              if (_sudahAbsenMasuk) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: _isProcessing ? null : _handleAbsenPulang,
+                    icon: const Icon(Icons.logout_rounded),
+                    label: const Text('Absen Pulang'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      side: const BorderSide(
+                        color: AppColors.primary,
+                        width: 2,
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+              ],
+
               const Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -489,8 +602,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
                   SizedBox(width: 6),
                   Expanded(
                     child: Text(
-                      'Pastikan kamu berada di area kantor dan izinkan akses '
-                      'kamera serta lokasi saat melakukan absensi.',
+                      'Pastikan kamu berada di area kantor dan izinkan akses kamera serta lokasi saat melakukan absensi.',
                       style: TextStyle(
                         fontSize: 12,
                         height: 1.4,
