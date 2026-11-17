@@ -501,7 +501,7 @@ class _CutiScreenState extends State<CutiScreen> {
       body: SafeArea(
         top: false,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
           child: Form(
             key: _formKey,
             child: Column(
