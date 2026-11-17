@@ -18,6 +18,7 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
   bool _isHr = false;
+  final PageController _pageController = PageController();
 
   List<Widget> get _screens => <Widget>[
     const AbsenScreen(),
@@ -31,6 +32,22 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _loadRole();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _goToPage(int index) {
+    if (index == _currentIndex) return;
+    setState(() => _currentIndex = index);
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 380),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   Future<void> _loadRole() async {
@@ -81,19 +98,52 @@ class _MainScreenState extends State<MainScreen> {
       extendBody: true,
       body: Stack(
         children: [
-          IndexedStack(index: _currentIndex, children: _screens),
+          PageView(
+            controller: _pageController,
+            physics: const NeverScrollableScrollPhysics(),
+            onPageChanged: (int index) {
+              if (index != _currentIndex) {
+                setState(() => _currentIndex = index);
+              }
+            },
+            children: [
+              for (final Widget screen in _screens)
+                _KeepAlivePage(child: screen),
+            ],
+          ),
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
             child: GlassBottomNav(
               currentIndex: _currentIndex,
-              onTap: (index) => setState(() => _currentIndex = index),
+              onTap: _goToPage,
               items: _navItems,
             ),
           ),
         ],
       ),
     );
+  }
+}
+
+class _KeepAlivePage extends StatefulWidget {
+  const _KeepAlivePage({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_KeepAlivePage> createState() => _KeepAlivePageState();
+}
+
+class _KeepAlivePageState extends State<_KeepAlivePage>
+    with AutomaticKeepAliveClientMixin<_KeepAlivePage> {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }

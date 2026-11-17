@@ -57,7 +57,6 @@ class GlassBottomNav extends StatelessWidget {
             filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
             child: Container(
               height: 68,
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 7),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
@@ -73,20 +72,53 @@ class GlassBottomNav extends StatelessWidget {
                   width: 1.2,
                 ),
               ),
-              child: Row(
-                children: [
-                  for (int i = 0; i < items.length; i++)
-                    Expanded(
-                      child: _NavButton(
-                        item: items[i],
-                        selected: i == currentIndex,
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          onTap(i);
-                        },
+              child: LayoutBuilder(
+                builder: (BuildContext context, BoxConstraints constraints) {
+                  final double itemWidth = constraints.maxWidth / items.length;
+                  return Stack(
+                    children: [
+                      AnimatedPositioned(
+                        duration: const Duration(milliseconds: 380),
+                        curve: Curves.easeOutCubic,
+                        left: currentIndex * itemWidth + 4,
+                        top: 7,
+                        bottom: 7,
+                        width: itemWidth - 8,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: AppColors.primaryGradient,
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary.withValues(
+                                  alpha: 0.38,
+                                ),
+                                blurRadius: 14,
+                                offset: const Offset(0, 5),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                ],
+                      Row(
+                        children: [
+                          for (int i = 0; i < items.length; i++)
+                            Expanded(
+                              child: _NavButton(
+                                item: items[i],
+                                selected: i == currentIndex,
+                                onTap: () {
+                                  if (i == currentIndex) return;
+                                  HapticFeedback.lightImpact();
+                                  onTap(i);
+                                },
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
           ),
@@ -112,47 +144,36 @@ class _NavButton extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
+      child: TweenAnimationBuilder<double>(
+        tween: Tween<double>(begin: 0, end: selected ? 1 : 0),
+        duration: const Duration(milliseconds: 320),
         curve: Curves.easeOutCubic,
-        margin: const EdgeInsets.symmetric(horizontal: 2),
-        decoration: BoxDecoration(
-          gradient: selected ? AppColors.primaryGradient : null,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.38),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
-                  ),
-                ]
-              : null,
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            AnimatedRotation(
-              turns: selected ? 1 / 48 : 0,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOutCubic,
-              child: Center(
+        builder: (BuildContext context, double t, Widget? child) {
+          final Color color = Color.lerp(
+            AppColors.textSecondary.withValues(alpha: 0.9),
+            Colors.white,
+            t,
+          )!;
+
+          return Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
                 child: Icon(
                   selected ? item.activeIcon : item.icon,
-                  size: selected ? 24 : 22,
-                  color: selected
-                      ? Colors.white
-                      : AppColors.textSecondary.withValues(alpha: 0.85),
+                  size: 22 + 2 * t,
+                  color: color,
                 ),
               ),
-            ),
-            AnimatedSize(
-              duration: const Duration(milliseconds: 260),
-              curve: Curves.easeOutCubic,
-              child: selected
-                  ? Padding(
-                      padding: const EdgeInsets.only(top: 2),
+              ClipRect(
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  heightFactor: t,
+                  child: Opacity(
+                    opacity: t,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 2, left: 2, right: 2),
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(
@@ -166,11 +187,13 @@ class _NavButton extends StatelessWidget {
                           ),
                         ),
                       ),
-                    )
-                  : const SizedBox.shrink(),
-            ),
-          ],
-        ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
