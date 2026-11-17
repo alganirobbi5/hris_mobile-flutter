@@ -5,7 +5,10 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/api_config.dart';
+import '../config/avatar_catalog.dart';
+import '../services/profile_avatar_store.dart';
 import '../theme/app_theme.dart';
+import '../widgets/avatar_picker_sheet.dart';
 import '../widgets/info_row.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/section_card.dart';
@@ -25,6 +28,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
   Map<String, dynamic>? _profil;
   String _roleUser = '';
   int? _userId;
+  String? _selectedAvatarId;
 
   @override
   void initState() {
@@ -43,6 +47,13 @@ class _ProfilScreenState extends State<ProfilScreen> {
       final prefs = await SharedPreferences.getInstance();
       _userId = prefs.getInt('user_id');
       _roleUser = prefs.getString('role') ?? '';
+      final String? savedAvatar = await ProfileAvatarStore.load(_userId);
+
+      if (!mounted) return;
+
+      setState(() {
+        _selectedAvatarId = savedAvatar;
+      });
 
       if (_userId == null) {
         setState(() {
@@ -183,6 +194,100 @@ class _ProfilScreenState extends State<ProfilScreen> {
     return '$first$last';
   }
 
+  Future<void> _openAvatarPicker() async {
+    final String? result = await showAvatarPicker(
+      context,
+      selectedId: _selectedAvatarId,
+    );
+    if (result == null) return;
+
+    final String? avatarId = result.isEmpty ? null : result;
+    await ProfileAvatarStore.save(_userId, avatarId);
+    if (!mounted) return;
+
+    setState(() => _selectedAvatarId = avatarId);
+  }
+
+  Widget _buildAvatar() {
+    final ProfileAvatarEntry? avatar = ProfileAvatarCatalog.byId(
+      _selectedAvatarId,
+    );
+
+    return Semantics(
+      button: true,
+      label: 'Ubah foto profil',
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          GestureDetector(
+            onTap: _openAvatarPicker,
+            child: Container(
+              width: 96,
+              height: 96,
+              padding: EdgeInsets.all(avatar == null ? 0 : 3),
+              decoration: BoxDecoration(
+                gradient: avatar == null ? AppColors.primaryGradient : null,
+                color: avatar == null ? null : AppColors.surface,
+                shape: BoxShape.circle,
+                border: avatar == null
+                    ? null
+                    : Border.all(color: AppColors.border),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.28),
+                    blurRadius: 22,
+                    offset: const Offset(0, 9),
+                  ),
+                ],
+              ),
+              alignment: Alignment.center,
+              child: avatar == null
+                  ? Text(
+                      _initials,
+                      style: const TextStyle(
+                        fontSize: 30,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1,
+                        color: Colors.white,
+                      ),
+                    )
+                  : ClipOval(
+                      child: Image.asset(
+                        avatar.assetPath,
+                        width: 90,
+                        height: 90,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+            ),
+          ),
+          Positioned(
+            right: -2,
+            bottom: -2,
+            child: Material(
+              color: AppColors.primary,
+              shape: const CircleBorder(),
+              elevation: 3,
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: _openAvatarPicker,
+                child: const SizedBox(
+                  width: 30,
+                  height: 30,
+                  child: Icon(
+                    Icons.edit_rounded,
+                    size: 15,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -266,31 +371,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
           Center(
             child: Column(
               children: [
-                Container(
-                  width: 92,
-                  height: 92,
-                  decoration: BoxDecoration(
-                    gradient: AppColors.primaryGradient,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.28),
-                        blurRadius: 22,
-                        offset: const Offset(0, 9),
-                      ),
-                    ],
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    _initials,
-                    style: const TextStyle(
-                      fontSize: 30,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
+                _buildAvatar(),
                 const SizedBox(height: 16),
                 Text(
                   _name,
@@ -318,6 +399,17 @@ class _ProfilScreenState extends State<ProfilScreen> {
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: AppColors.primary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                GestureDetector(
+                  onTap: _openAvatarPicker,
+                  child: const Text(
+                    'Ketuk foto untuk mengubah',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: AppColors.textSecondary,
                     ),
                   ),
                 ),
