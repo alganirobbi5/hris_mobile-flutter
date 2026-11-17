@@ -23,12 +23,24 @@ dependencies:
   shared_preferences: ^2.3.3
   
   url_launcher: ^6.3.0
+  # Library untuk export laporan Excel
+  excel: ^4.0.6
+  path_provider: ^2.1.6
+  share_plus: ^13.3.1
+
+dependency_overrides:
+  # `excel` masih butuh archive 3.x, sedangkan `image` (dipakai tooling
+  # flutter_launcher_icons saja, bukan runtime) menarik archive 4.x.
+  image: 4.3.0
+  archive: 3.6.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.3
+  # Untuk membaca isi file xlsx di test export laporan.
+  archive: ^3.6.1
 
 flutter_launcher_icons:
   android: "ic_launcher"

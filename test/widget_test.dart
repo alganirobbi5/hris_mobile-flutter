@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hris_mobile/main.dart';
 import 'package:hris_mobile/screens/absen_success_screen.dart';
 import 'package:hris_mobile/screens/main_screen.dart';
+import 'package:hris_mobile/widgets/glass_bottom_nav.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -32,25 +33,34 @@ void main() {
 
     expect(find.text('Ambil Selfie & Absen'), findsOneWidget);
 
-    final Finder navigationBar = find.byType(BottomNavigationBar);
+    final Finder navigationBar = find.byType(GlassBottomNav);
 
     await tester.tap(
-      find.descendant(of: navigationBar, matching: find.text('Cuti')),
+      find.descendant(
+        of: navigationBar,
+        matching: find.byIcon(Icons.calendar_today_outlined),
+      ),
     );
     await tester.pumpAndSettle();
     expect(find.text('Pengajuan Cuti'), findsOneWidget);
 
     await tester.tap(
-      find.descendant(of: navigationBar, matching: find.text('Laporan')),
+      find.descendant(
+        of: navigationBar,
+        matching: find.byIcon(Icons.description_outlined),
+      ),
     );
     await tester.pumpAndSettle();
     expect(find.text('Laporan Absensi'), findsOneWidget);
 
     await tester.tap(
-      find.descendant(of: navigationBar, matching: find.text('Profil')),
+      find.descendant(
+        of: navigationBar,
+        matching: find.byIcon(Icons.person_outline_rounded),
+      ),
     );
     await tester.pumpAndSettle();
-    expect(tester.widget<BottomNavigationBar>(navigationBar).currentIndex, 3);
+    expect(tester.widget<GlassBottomNav>(navigationBar).currentIndex, 3);
   });
 
   testWidgets('Tab Persetujuan Cuti tampil untuk role HR', (
