@@ -25,7 +25,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _identityController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  static const String _loginUrl = '${ApiConfig.baseUrl}/login.php';
+  static Uri get _loginUrl => ApiConfig.uri('login.php');
 
   bool _isLoading = false;
 
@@ -56,14 +56,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
       final http.Response response = await http
           .post(
-            Uri.parse(_loginUrl),
+            _loginUrl,
             headers: <String, String>{'Content-Type': 'application/json'},
             body: jsonEncode(<String, String>{
               'username': _identityController.text.trim(),
               'password': _passwordController.text,
             }),
           )
-          .timeout(const Duration(seconds: 60));
+          .timeout(ApiConfig.requestTimeout);
 
       debugPrint('Login status code: ${response.statusCode}');
       debugPrint('Login response body: ${response.body}');
@@ -83,13 +83,12 @@ class _LoginScreenState extends State<LoginScreen> {
         debugPrintStack(stackTrace: stackTrace);
       }
 
-      if (response.statusCode == 200) {
-        if (body == null) {
-          messenger.showSnackBar(
-            SnackBar(content: Text('Server membalas: ${response.body}')),
-          );
-          return;
-        }
+      if (body == null) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Respons server tidak valid.')),
+        );
+      } else if (response.statusCode == 200) {
+        // Simpan sesi login (username, role, dan user_id)
         await _saveSession(body);
 
         if (!mounted) return;
@@ -98,13 +97,9 @@ class _LoginScreenState extends State<LoginScreen> {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute<void>(builder: (_) => const MainScreen()),
         );
-      } else if (response.statusCode == 200 && body == null) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Respons server tidak valid.')),
-        );
       } else {
         final String message =
-            body?['message'] as String? ??
+            body['message'] as String? ??
             'Login gagal (${response.statusCode})';
         messenger.showSnackBar(SnackBar(content: Text(message)));
       }
@@ -112,17 +107,21 @@ class _LoginScreenState extends State<LoginScreen> {
       debugPrint('Login timeout: $e');
       debugPrintStack(stackTrace: stackTrace);
       messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Koneksi ke server timeout. Silakan coba lagi.'),
+        SnackBar(
+          content: Text(
+            'Koneksi ke server timeout (${ApiConfig.baseUrl}). '
+            'Pastikan HP dan server berada di jaringan yang sama.',
+          ),
         ),
       );
     } on SocketException catch (e, stackTrace) {
       debugPrint('Login SocketException: $e');
       debugPrintStack(stackTrace: stackTrace);
       messenger.showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Tidak dapat terhubung ke server. Periksa koneksi Wi-Fi dan pastikan server aktif.',
+            'Tidak dapat terhubung ke ${ApiConfig.baseUrl}. '
+            'Periksa koneksi Wi-Fi dan pastikan server aktif.',
           ),
         ),
       );
@@ -130,9 +129,10 @@ class _LoginScreenState extends State<LoginScreen> {
       debugPrint('Login ClientException: $e');
       debugPrintStack(stackTrace: stackTrace);
       messenger.showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Tidak dapat terhubung ke server. Periksa koneksi Wi-Fi dan pastikan server aktif.',
+            'Tidak dapat terhubung ke ${ApiConfig.baseUrl}. '
+            'Periksa koneksi Wi-Fi dan pastikan server aktif.',
           ),
         ),
       );

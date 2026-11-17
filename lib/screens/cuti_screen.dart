@@ -19,11 +19,9 @@ class CutiScreen extends StatefulWidget {
 }
 
 class _CutiScreenState extends State<CutiScreen> {
-  static const String _cutiUrl =
-      'http://192.168.110.159/HumanResourceManagementSystem/src/api/cuti.php';
-  static const String _riwayatUrl =
-      'http://192.168.110.159/HumanResourceManagementSystem/src/api/'
-      'riwayat_cuti.php?employee_id=2';
+  static String get _cutiUrl => ApiConfig.uri('cuti.php').toString();
+  static String get _riwayatUrl =>
+      '${ApiConfig.uri('riwayat_cuti.php')}?employee_id=2';
 
   static const List<String> _replacementOptions = [
     'Siti Aminah',
@@ -238,7 +236,7 @@ class _CutiScreenState extends State<CutiScreen> {
 
     try {
       final http.Response response = await http
-          .get(Uri.parse('${ApiConfig.baseUrl}/riwayat_cuti.php?employee_id=2'))
+          .get(Uri.parse(_riwayatUrl))
           .timeout(const Duration(seconds: 30));
 
       if (!mounted) return;

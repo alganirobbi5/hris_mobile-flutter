@@ -50,10 +50,7 @@ void main() {
       find.descendant(of: navigationBar, matching: find.text('Profil')),
     );
     await tester.pumpAndSettle();
-    expect(
-      tester.widget<BottomNavigationBar>(navigationBar).currentIndex,
-      3,
-    );
+    expect(tester.widget<BottomNavigationBar>(navigationBar).currentIndex, 3);
   });
 
   testWidgets('Tab Persetujuan Cuti tampil untuk role HR', (
@@ -77,6 +74,7 @@ void main() {
           latitude: -6.123456,
           longitude: 106.654321,
           takenAt: DateTime(2026, 11, 11, 8, 2, 17),
+          jamMasuk: '08:02:17 WIB',
         ),
       ),
     );
