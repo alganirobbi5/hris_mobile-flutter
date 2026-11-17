@@ -238,7 +238,7 @@ class _CutiScreenState extends State<CutiScreen> {
 
     try {
       final http.Response response = await http
-          .get(Uri.parse(_riwayatUrl))
+          .get(Uri.parse('${ApiConfig.baseUrl}/riwayat_cuti.php?employee_id=2'))
           .timeout(const Duration(seconds: 30));
 
       if (!mounted) return;

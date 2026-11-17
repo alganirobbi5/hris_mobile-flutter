@@ -134,7 +134,6 @@ class _AbsenScreenState extends State<AbsenScreen> {
     setState(() => _isProcessing = true);
 
     try {
-      // Update jam terakhir sebelum submit
       _updateJamAbsen();
 
       final bool hasLocationPermission = await _ensureLocationPermission();
@@ -153,7 +152,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
         _showMessage('Pengambilan foto dibatalkan.');
         return;
       }
-      // Rekam jam saat tombol absen ditekan dan foto diambil
+
       final now = DateTime.now();
       setState(() {
         _jamAbsenTeks =
@@ -168,15 +167,22 @@ class _AbsenScreenState extends State<AbsenScreen> {
       );
       if (!mounted) return;
 
-      // --- TAMBAHKAN KODE API POST DI SINI ---
+      // FORMAT WAKTU LOKAL UNTUK DIKIRIM KE API
+      final String tanggalLokal =
+          "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
+      final String waktuLokal =
+          "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
+
       final url = Uri.parse('${ApiConfig.baseUrl}/absen.php');
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'employee_id': 2, // ID hardcode untuk testing
+          'employee_id': 2,
           'latitude': position.latitude.toString(),
           'longitude': position.longitude.toString(),
+          'tanggal_lokal': tanggalLokal,
+          'waktu_lokal': waktuLokal,
         }),
       );
 
@@ -186,14 +192,13 @@ class _AbsenScreenState extends State<AbsenScreen> {
         final data = jsonDecode(response.body);
         final jamMasuk = data['jam_masuk'] ?? '--:--';
 
-        // Pindah ke halaman sukses dengan membawa jamMasuk
         await Navigator.of(context).push(
           MaterialPageRoute<void>(
             builder: (_) => AbsenSuccessScreen(
               photoPath: photo.path,
               latitude: position.latitude,
               longitude: position.longitude,
-              takenAt: DateTime.now(),
+              takenAt: now,
               jamMasuk: jamMasuk,
             ),
           ),
@@ -201,7 +206,6 @@ class _AbsenScreenState extends State<AbsenScreen> {
       } else {
         _showMessage('Gagal menyimpan absen ke server.');
       }
-      // -----------------------------------------
     } on PlatformException catch (error) {
       if (!mounted) return;
       _showMessage(
