@@ -164,7 +164,7 @@ class _CutiScreenState extends State<CutiScreen> {
                 'reason': reason,
               }),
             )
-            .timeout(const Duration(seconds: 20));
+            .timeout(const Duration(seconds: 30));
       } catch (_) {
         if (!mounted) return;
         _showMessage('Gagal terhubung ke server');
@@ -239,7 +239,7 @@ class _CutiScreenState extends State<CutiScreen> {
     try {
       final http.Response response = await http
           .get(Uri.parse(_riwayatUrl))
-          .timeout(const Duration(seconds: 20));
+          .timeout(const Duration(seconds: 30));
 
       if (!mounted) return;
 

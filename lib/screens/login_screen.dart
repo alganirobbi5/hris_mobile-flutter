@@ -63,7 +63,7 @@ class _LoginScreenState extends State<LoginScreen> {
               'password': _passwordController.text,
             }),
           )
-          .timeout(const Duration(seconds: 15));
+          .timeout(const Duration(seconds: 60));
 
       debugPrint('Login status code: ${response.statusCode}');
       debugPrint('Login response body: ${response.body}');
@@ -84,8 +84,13 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       if (response.statusCode == 200) {
-        // Simpan sesi login (username, role, dan user_id)
-        await _saveSession(body!);
+        if (body == null) {
+          messenger.showSnackBar(
+            SnackBar(content: Text('Server membalas: ${response.body}')),
+          );
+          return;
+        }
+        await _saveSession(body);
 
         if (!mounted) return;
 
@@ -140,9 +145,10 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e, stackTrace) {
       debugPrint('Login error: $e');
       debugPrintStack(stackTrace: stackTrace);
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Terjadi kesalahan. Silakan coba lagi.')),
-      );
+
+      if (!mounted) return;
+      // UBAH BARIS INI UNTUK MENAMPILKAN ERROR ASLI
+      messenger.showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);

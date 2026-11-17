@@ -1,6 +1,5 @@
 class ApiConfig {
   const ApiConfig._();
 
-  static const String baseUrl =
-      'http://192.168.110.159/HumanResourceManagementSystem/src/api';
+  static const String baseUrl = 'http://31.97.199.58/HRM/src/api';
 }
