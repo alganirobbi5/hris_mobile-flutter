@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-import '../config/api_config.dart';
+import '../services/laporan_excel_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/section_card.dart';
 
@@ -13,30 +12,28 @@ class LaporanScreen extends StatefulWidget {
 }
 
 class _LaporanScreenState extends State<LaporanScreen> {
-  static const String _laporanUrl = '${ApiConfig.baseUrl}/laporan_absensi.php';
-
-  static const String _exportUrl = '${ApiConfig.baseUrl}/export_excel.php';
+  final LaporanExcelService _excelService = LaporanExcelService();
 
   bool _isLoading = false;
 
   Future<void> _downloadExcel() async {
     setState(() => _isLoading = true);
-    final Uri url = Uri.parse(_exportUrl);
 
     try {
-      // Membuka URL di browser bawaan HP untuk memicu unduhan
-      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
-        throw Exception('Tidak bisa membuka browser');
-      }
+      await _excelService.exportAndShare();
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('File Laporan-Absensi sedang diunduh...')),
+        const SnackBar(content: Text('Laporan Excel berhasil dibuat.')),
       );
+    } on LaporanExcelException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(e.message)));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Gagal mengunduh: $e')));
+          .showSnackBar(SnackBar(content: Text('Gagal membuat laporan: $e')));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -57,25 +54,27 @@ class _LaporanScreenState extends State<LaporanScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Laporan Absensi',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Laporan Absensi',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Export data absensi ke file Excel',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textSecondary,
+                        SizedBox(height: 4),
+                        Text(
+                          'Export data absensi ke file Excel',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textSecondary,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -119,25 +118,27 @@ class _LaporanScreenState extends State<LaporanScreen> {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        const Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Export data absensi',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Export data absensi',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
-                            ),
-                            SizedBox(height: 2),
-                            Text(
-                              'Format file: .csv (bisa dibuka di Excel)',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textSecondary,
+                              SizedBox(height: 2),
+                              Text(
+                                'Format file: .xlsx (Microsoft Excel)',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.textSecondary,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -194,7 +195,10 @@ class _LaporanScreenState extends State<LaporanScreen> {
                     SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'Data yang diekspor mencakup tanggal, nama karyawan, jam masuk, jam keluar, dan status kehadiran.',
+                        'Laporan dibuat langsung di perangkat dalam format Excel '
+                        '(.xlsx) yang rapi dan siap dicetak, mencakup tanggal, '
+                        'nama karyawan, jam masuk, jam keluar, status kehadiran, '
+                        'foto, alamat, dan koordinat.',
                         style: TextStyle(
                           fontSize: 12,
                           height: 1.4,

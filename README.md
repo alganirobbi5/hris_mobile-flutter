@@ -2,6 +2,17 @@
 
 A new Flutter project.
 
+## Konfigurasi API
+
+Alamat backend diatur di `lib/config/api_config.dart` dan bisa dioverride saat
+menjalankan aplikasi tanpa mengubah kode:
+
+```
+flutter run --dart-define=API_BASE_URL=http://192.168.1.10/HumanResourceManagementSystem/src/api
+```
+
+HP dan laptop server harus berada di jaringan Wi-Fi yang sama.
+
 ## Getting Started
 
 This project is a starting point for a Flutter application.

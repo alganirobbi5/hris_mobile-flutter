@@ -1,6 +1,6 @@
 {
-    "name": "hris_mobile",
-    "short_name": "hris_mobile",
+    "name": "HRIS Mobile",
+    "short_name": "HRIS Mobile",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#ffffff",
