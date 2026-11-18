@@ -534,6 +534,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
               ),
               const SizedBox(height: 14),
 
+              // Card Jam Pulang
               SectionCard(
                 padding: const EdgeInsets.all(18),
                 child: Row(
@@ -572,7 +573,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 14),
 
               // LOGIKA TOMBOL DINAMIS
               // Tombol "Absen Masuk" hanya muncul jika belum absen masuk
