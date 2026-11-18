@@ -25,26 +25,66 @@ class _AbsenScreenState extends State<AbsenScreen> {
   final ImagePicker _imagePicker = ImagePicker();
 
   bool _isProcessing = false;
-  bool _sudahAbsenMasuk = false; // Status untuk tombol pulang
+  bool _sudahAbsenMasuk = false;
+  bool _sudahAbsenPulang = false; // Tambahan status pulang
 
   String _lokasiTeks = 'Mencari lokasi...';
   String _koordinatTeks = 'Mengambil koordinat...';
   String _jamAbsenTeks = '--:--';
   String _jamPulangTeks = '--:--';
+  String _jamMasukKerja = '--:--';
+  String _jamKeluarKerja = '--:--';
 
   @override
   void initState() {
     super.initState();
     _dapatkanLokasi();
-    _cekStatusAbsen(); // Cek apakah sudah absen hari ini
+    _cekStatusAbsen();
+    _fetchJamKerja();
   }
 
-  String _formatJamApi(dynamic nilai) {
-    final String teks = nilai.toString();
-    if (teks.length >= 5) {
-      return '${teks.substring(0, 5)} WIB';
+  String? _formatJamKerja(dynamic nilai) {
+    if (nilai == null) return null;
+    final String teks = nilai.toString().trim();
+    if (teks.isEmpty) return null;
+    return teks.length >= 5 ? teks.substring(0, 5) : teks;
+  }
+
+  Future<void> _fetchJamKerja() async {
+    try {
+      final response = await http
+          .get(Uri.parse('${ApiConfig.baseUrl}/get_jam_kerja.php'))
+          .timeout(const Duration(seconds: 20));
+
+      if (response.statusCode != 200) return;
+
+      final dynamic decoded = jsonDecode(response.body);
+      dynamic data = decoded;
+
+      if (decoded is Map<String, dynamic>) {
+        final dynamic nested = decoded['data'];
+        if (nested is Map<String, dynamic>) {
+          data = nested;
+        } else if (nested is List &&
+            nested.isNotEmpty &&
+            nested.first is Map<String, dynamic>) {
+          data = nested.first;
+        }
+      }
+
+      if (data is! Map<String, dynamic>) return;
+
+      final String? jamMasuk = _formatJamKerja(data['jam_masuk']);
+      final String? jamKeluar = _formatJamKerja(data['jam_keluar']);
+
+      if (!mounted) return;
+      setState(() {
+        if (jamMasuk != null) _jamMasukKerja = jamMasuk;
+        if (jamKeluar != null) _jamKeluarKerja = jamKeluar;
+      });
+    } catch (e) {
+      debugPrint('Gagal memuat jam kerja: $e');
     }
-    return '$teks WIB';
   }
 
   Future<void> _cekStatusAbsen() async {
@@ -59,14 +99,16 @@ class _AbsenScreenState extends State<AbsenScreen> {
         final data = jsonDecode(response.body);
         if (mounted) {
           setState(() {
-            _sudahAbsenMasuk =
-                data['sudah_masuk'] == true && data['sudah_pulang'] == false;
+            _sudahAbsenMasuk = data['sudah_masuk'] == true;
+            _sudahAbsenPulang = data['sudah_pulang'] == true;
 
             if (data['jam_masuk'] != null) {
-              _jamAbsenTeks = _formatJamApi(data['jam_masuk']);
+              _jamAbsenTeks =
+                  '${data['jam_masuk'].toString().substring(0, 5)} WIB';
             }
             if (data['jam_pulang'] != null) {
-              _jamPulangTeks = _formatJamApi(data['jam_pulang']);
+              _jamPulangTeks =
+                  '${data['jam_pulang'].toString().substring(0, 5)} WIB';
             }
           });
         }
@@ -162,7 +204,6 @@ class _AbsenScreenState extends State<AbsenScreen> {
         maxWidth: 1600,
       );
       if (!mounted) return;
-
       if (photo == null) {
         _showMessage('Pengambilan foto dibatalkan.');
         return;
@@ -182,11 +223,6 @@ class _AbsenScreenState extends State<AbsenScreen> {
       final String waktuLokal =
           "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
 
-      setState(() {
-        _jamAbsenTeks =
-            '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')} WIB';
-      });
-
       final response = await http.post(
         Uri.parse('${ApiConfig.baseUrl}/absen.php'),
         headers: {'Content-Type': 'application/json'},
@@ -202,7 +238,9 @@ class _AbsenScreenState extends State<AbsenScreen> {
       if (!mounted) return;
 
       if (response.statusCode == 201) {
-        setState(() => _sudahAbsenMasuk = true);
+        // Refresh status setelah absen masuk
+        await _cekStatusAbsen();
+        if (!mounted) return;
 
         await Navigator.of(context).push(
           MaterialPageRoute<void>(
@@ -254,9 +292,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
 
       if (response.statusCode == 200) {
         _showMessage('Absen pulang berhasil!');
-
-        // PENTING: Panggil ulang fungsi cek status agar UI ter-update
-        await _cekStatusAbsen();
+        await _cekStatusAbsen(); // Refresh UI setelah pulang
       } else {
         final data = jsonDecode(response.body);
         _showMessage(data['message'] ?? 'Gagal absen pulang.');
@@ -273,14 +309,11 @@ class _AbsenScreenState extends State<AbsenScreen> {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
-
     if (!mounted) return false;
-
     if (permission == LocationPermission.denied) {
       _showMessage('Izin lokasi diperlukan untuk melakukan absensi.');
       return false;
     }
-
     if (permission == LocationPermission.deniedForever) {
       _showMessage(
         'Izin lokasi ditolak permanen. Aktifkan lewat pengaturan aplikasi.',
@@ -289,10 +322,8 @@ class _AbsenScreenState extends State<AbsenScreen> {
       );
       return false;
     }
-
     final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!mounted) return false;
-
     if (!serviceEnabled) {
       _showMessage(
         'Layanan lokasi tidak aktif. Aktifkan GPS terlebih dahulu.',
@@ -301,7 +332,6 @@ class _AbsenScreenState extends State<AbsenScreen> {
       );
       return false;
     }
-
     return true;
   }
 
@@ -357,10 +387,10 @@ class _AbsenScreenState extends State<AbsenScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Jarak antar card dibuat konsisten (14)
               const _CameraPlaceholder(),
               const SizedBox(height: 16),
 
-              // Card Lokasi
               SectionCard(
                 padding: const EdgeInsets.all(18),
                 child: Row(
@@ -412,18 +442,17 @@ class _AbsenScreenState extends State<AbsenScreen> {
               ),
               const SizedBox(height: 14),
 
-              // Card Jam Kerja
               SectionCard(
                 padding: const EdgeInsets.all(18),
                 child: Row(
                   children: [
                     const _IconBox(icon: Icons.schedule_rounded),
                     const SizedBox(width: 12),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
+                          const Text(
                             'Jam kerja hari ini',
                             style: TextStyle(
                               fontSize: 12,
@@ -431,10 +460,10 @@ class _AbsenScreenState extends State<AbsenScreen> {
                               color: AppColors.textSecondary,
                             ),
                           ),
-                          SizedBox(height: 3),
+                          const SizedBox(height: 3),
                           Text(
-                            '08:00 - 17:00',
-                            style: TextStyle(
+                            '$_jamMasukKerja - $_jamKeluarKerja',
+                            style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w800,
                               color: AppColors.textPrimary,
@@ -466,7 +495,6 @@ class _AbsenScreenState extends State<AbsenScreen> {
               ),
               const SizedBox(height: 14),
 
-              // Card Jam Masuk Saat Ini
               SectionCard(
                 padding: const EdgeInsets.all(18),
                 child: Row(
@@ -504,10 +532,8 @@ class _AbsenScreenState extends State<AbsenScreen> {
                   ],
                 ),
               ),
+              const SizedBox(height: 14),
 
-              const SizedBox(height: 24),
-
-              // Card Jam Pulang
               SectionCard(
                 padding: const EdgeInsets.all(18),
                 child: Row(
@@ -546,21 +572,22 @@ class _AbsenScreenState extends State<AbsenScreen> {
                 ),
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
 
-              // Tombol Aksi (Masuk & Pulang)
-              PrimaryButton(
-                label: _isProcessing
-                    ? 'Memproses...'
-                    : 'Ambil Selfie & Absen Masuk',
-                icon: Icons.camera_front_rounded,
-                isLoading: _isProcessing,
-                onPressed: _isProcessing ? null : _handleAbsenMasuk,
-              ),
-              const SizedBox(height: 16),
-
-              // Tombol Absen Pulang (muncul jika sudah absen masuk)
-              if (_sudahAbsenMasuk) ...[
+              // LOGIKA TOMBOL DINAMIS
+              // Tombol "Absen Masuk" hanya muncul jika belum absen masuk
+              if (!_sudahAbsenMasuk) ...[
+                PrimaryButton(
+                  label: _isProcessing
+                      ? 'Memproses...'
+                      : 'Ambil Selfie & Absen Masuk',
+                  icon: Icons.camera_front_rounded,
+                  isLoading: _isProcessing,
+                  onPressed: _isProcessing ? null : _handleAbsenMasuk,
+                ),
+              ]
+              // Tombol "Absen Pulang" hanya muncul jika sudah absen masuk TAPI belum absen pulang
+              else if (!_sudahAbsenPulang) ...[
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
@@ -580,9 +607,21 @@ class _AbsenScreenState extends State<AbsenScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+              ]
+              // Jika sudah absen pulang, tampilkan teks status
+              else ...[
+                const Center(
+                  child: Text(
+                    'Anda sudah menyelesaikan absensi hari ini.',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green,
+                    ),
+                  ),
+                ),
               ],
 
+              const SizedBox(height: 14),
               const Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

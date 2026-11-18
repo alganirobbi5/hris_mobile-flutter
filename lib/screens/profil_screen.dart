@@ -17,6 +17,7 @@ import '../widgets/section_card.dart';
 import 'login_screen.dart';
 import 'tambah_karyawan_screen.dart';
 import 'tambah_lokasi_screen.dart';
+import 'atur_jam_screen.dart';
 
 class ProfilScreen extends StatefulWidget {
   const ProfilScreen({super.key});
@@ -27,6 +28,7 @@ class ProfilScreen extends StatefulWidget {
 
 class _ProfilScreenState extends State<ProfilScreen> {
   static const String _uploadsBaseUrl = 'http://31.97.199.58/HRM/uploads';
+  static const String _avatarPrefsKey = 'user_avatar';
 
   final ImagePicker _imagePicker = ImagePicker();
 
@@ -57,11 +59,15 @@ class _ProfilScreenState extends State<ProfilScreen> {
       _userId = prefs.getInt('user_id');
       _roleUser = prefs.getString('role') ?? '';
       final String? savedAvatar = await ProfileAvatarStore.load(_userId);
+      final String? savedAvatarFile = prefs.getString(_avatarPrefsKey);
 
       if (!mounted) return;
 
       setState(() {
         _selectedAvatarId = savedAvatar;
+        _avatarUrl = (savedAvatarFile == null || savedAvatarFile.trim().isEmpty)
+            ? null
+            : _resolveAvatarUrl(savedAvatarFile);
       });
 
       if (_userId == null) {
@@ -283,8 +289,13 @@ class _ProfilScreenState extends State<ProfilScreen> {
           return;
         }
 
+        final String avatarFileName = _avatarFileName(avatarValue);
+        await prefs.setString(_avatarPrefsKey, avatarFileName);
+
+        if (!mounted) return;
+
         setState(() {
-          _avatarUrl = _resolveAvatarUrl(avatarValue);
+          _avatarUrl = _resolveAvatarUrl(avatarFileName);
           _selectedAvatarId = null;
         });
         _showMessage('Avatar berhasil diperbarui.');
@@ -313,7 +324,9 @@ class _ProfilScreenState extends State<ProfilScreen> {
 
       if (decoded is Map<String, dynamic>) {
         final dynamic nested = decoded['data'];
-        if (nested is Map<String, dynamic>) {
+        if (nested is String && nested.trim().isNotEmpty) {
+          return nested.trim();
+        } else if (nested is Map<String, dynamic>) {
           data = nested;
         } else if (nested is List &&
             nested.isNotEmpty &&
@@ -348,12 +361,21 @@ class _ProfilScreenState extends State<ProfilScreen> {
     return null;
   }
 
+  String _avatarFileName(String value) {
+    final String trimmed = value.trim();
+    final Uri? uri = Uri.tryParse(trimmed);
+    if (uri != null && uri.pathSegments.isNotEmpty) {
+      return uri.pathSegments.last;
+    }
+    return trimmed.split('/').last;
+  }
+
   String _resolveAvatarUrl(String value) {
     final String trimmed = value.trim();
     if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
       return trimmed;
     }
-    final String fileName = trimmed.split('/').last;
+    final String fileName = _avatarFileName(trimmed);
     return '$_uploadsBaseUrl/$fileName';
   }
 
@@ -713,6 +735,30 @@ class _ProfilScreenState extends State<ProfilScreen> {
               ),
             ),
             const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AturJamScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.schedule_rounded),
+                label: const Text('Atur Jam Kerja'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
           ],
 
           // TOMBOL KELUAR (Dengan konfirmasi & hapus sesi)
@@ -733,6 +779,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
                     TextButton(
                       onPressed: () async {
                         final prefs = await SharedPreferences.getInstance();
+                        await prefs.remove(_avatarPrefsKey);
                         await prefs.clear();
 
                         if (!context.mounted) return;
