@@ -6,6 +6,7 @@ import 'absen_screen.dart';
 import 'approval_cuti_screen.dart';
 import 'cuti_screen.dart';
 import 'laporan_screen.dart';
+import 'pengumuman_screen.dart';
 import 'profil_screen.dart';
 
 class MainScreen extends StatefulWidget {
@@ -23,6 +24,7 @@ class _MainScreenState extends State<MainScreen> {
   List<Widget> get _screens => <Widget>[
     const AbsenScreen(),
     const CutiScreen(),
+    const PengumumanScreen(),
     const LaporanScreen(),
     const ProfilScreen(),
     if (_isHr) const ApprovalCutiScreen(),
@@ -73,6 +75,11 @@ class _MainScreenState extends State<MainScreen> {
       icon: Icons.calendar_today_outlined,
       activeIcon: Icons.calendar_today_rounded,
       label: 'Cuti',
+    ),
+    const AppNavItem(
+      icon: Icons.campaign_outlined,
+      activeIcon: Icons.campaign_rounded,
+      label: 'Pengumuman',
     ),
     const AppNavItem(
       icon: Icons.description_outlined,

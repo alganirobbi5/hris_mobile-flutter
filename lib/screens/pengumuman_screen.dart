@@ -1,0 +1,403 @@
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
+
+import '../config/api_config.dart';
+import '../theme/app_theme.dart';
+import '../widgets/section_card.dart';
+
+class PengumumanScreen extends StatefulWidget {
+  const PengumumanScreen({super.key});
+
+  @override
+  State<PengumumanScreen> createState() => _PengumumanScreenState();
+}
+
+class _PengumumanScreenState extends State<PengumumanScreen> {
+  static const String _pengumumanUrl = '${ApiConfig.baseUrl}/pengumuman.php';
+
+  bool _isLoading = true;
+  String? _error;
+  List<_Pengumuman> _daftarPengumuman = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPengumuman();
+  }
+
+  Future<void> _fetchPengumuman() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final http.Response response = await http
+          .get(Uri.parse(_pengumumanUrl))
+          .timeout(const Duration(seconds: 20));
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        setState(() {
+          _daftarPengumuman = _parsePengumuman(response.body);
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _error = _apiErrorMessage(
+            response,
+            'Gagal memuat pengumuman (HTTP ${response.statusCode}).',
+          );
+          _isLoading = false;
+        });
+      }
+    } on FormatException {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Format data pengumuman tidak valid.';
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Gagal terhubung ke server';
+        _isLoading = false;
+      });
+    }
+  }
+
+  List<_Pengumuman> _parsePengumuman(String body) {
+    if (body.trim().isEmpty) return const [];
+
+    final dynamic decoded = jsonDecode(body);
+    dynamic rawData = decoded;
+
+    if (decoded is Map<String, dynamic>) {
+      rawData =
+          decoded['data'] ??
+          decoded['pengumuman'] ??
+          decoded['result'] ??
+          decoded['list'];
+    }
+
+    if (rawData is! List) return const [];
+
+    return rawData
+        .whereType<Map<String, dynamic>>()
+        .map(_Pengumuman.fromJson)
+        .toList();
+  }
+
+  String _apiErrorMessage(http.Response response, String fallback) {
+    final String body = response.body.trim();
+    if (body.isEmpty) return fallback;
+
+    try {
+      final dynamic decoded = jsonDecode(body);
+      if (decoded is Map<String, dynamic>) {
+        final dynamic message =
+            decoded['message'] ?? decoded['error'] ?? decoded['pesan'];
+        if (message is String && message.trim().isNotEmpty) {
+          return message.trim();
+        }
+      }
+    } on FormatException {
+      return body.length <= 140 ? body : fallback;
+    }
+
+    return body.length <= 140 ? body : fallback;
+  }
+
+  String _formatTanggal(String value) {
+    final String trimmed = value.trim();
+    if (trimmed.isEmpty || trimmed == '-') return '-';
+
+    final DateTime? parsed = _parseTanggal(trimmed);
+    if (parsed == null) return trimmed;
+
+    return DateFormat('d MMMM yyyy', 'id_ID').format(parsed);
+  }
+
+  DateTime? _parseTanggal(String value) {
+    final DateTime? parsed = DateTime.tryParse(value);
+    if (parsed != null) return parsed;
+
+    final int? timestamp = int.tryParse(value);
+    if (timestamp == null) return null;
+
+    final bool inSeconds = timestamp.abs() < 100000000000;
+    return DateTime.fromMillisecondsSinceEpoch(
+      inSeconds ? timestamp * 1000 : timestamp,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Pengumuman'),
+        actions: [
+          if (!_isLoading)
+            IconButton(
+              onPressed: _fetchPengumuman,
+              tooltip: 'Muat ulang pengumuman',
+              icon: const Icon(
+                Icons.refresh_rounded,
+                color: AppColors.textSecondary,
+              ),
+            ),
+        ],
+      ),
+      body: SafeArea(
+        top: false,
+        child: RefreshIndicator(
+          onRefresh: _fetchPengumuman,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Pengumuman',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.4,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Informasi dan pengumuman terbaru dari perusahaan.',
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Daftar Pengumuman',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                    if (!_isLoading && _error == null)
+                      Text(
+                        '${_daftarPengumuman.length} data',
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                _buildList(),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildList() {
+    if (_isLoading) {
+      return const SectionCard(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 32),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    if (_error != null) {
+      return SectionCard(
+        child: Column(
+          children: [
+            const Icon(
+              Icons.cloud_off_rounded,
+              size: 32,
+              color: AppColors.textSecondary,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: _fetchPengumuman,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('Coba lagi'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_daftarPengumuman.isEmpty) {
+      return const SectionCard(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 28),
+          child: Center(
+            child: Text(
+              'Belum ada pengumuman',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _daftarPengumuman.length,
+      itemBuilder: (BuildContext context, int index) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: _buildItem(_daftarPengumuman[index]),
+        );
+      },
+    );
+  }
+
+  Widget _buildItem(_Pengumuman item) {
+    return SectionCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: const Icon(
+                  Icons.campaign_outlined,
+                  size: 21,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.judul,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.calendar_today_outlined,
+                          size: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            _formatTanggal(item.tanggal),
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const Divider(height: 20, color: AppColors.border),
+          Text(
+            item.isi,
+            style: const TextStyle(
+              fontSize: 13,
+              height: 1.5,
+              color: AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Pengumuman {
+  const _Pengumuman({
+    required this.id,
+    required this.judul,
+    required this.isi,
+    required this.tanggal,
+  });
+
+  final int? id;
+  final String judul;
+  final String isi;
+  final String tanggal;
+
+  factory _Pengumuman.fromJson(Map<String, dynamic> json) {
+    final dynamic idValue = json['id'] ?? json['pengumuman_id'];
+
+    return _Pengumuman(
+      id: idValue is int ? idValue : int.tryParse(idValue?.toString() ?? ''),
+      judul: _textOf(
+        json['judul'] ?? json['title'] ?? json['nama_pengumuman'],
+        'Tanpa Judul',
+      ),
+      isi: _textOf(
+        json['isi'] ??
+            json['pesan'] ??
+            json['content'] ??
+            json['message'] ??
+            json['deskripsi'],
+        'Tidak ada isi pengumuman.',
+      ),
+      tanggal: _textOf(
+        json['tanggal'] ??
+            json['date'] ??
+            json['created_at'] ??
+            json['tanggal_post'],
+        '-',
+      ),
+    );
+  }
+
+  static String _textOf(dynamic value, String fallback) {
+    if (value == null) return fallback;
+    final String text = value.toString().trim();
+    return text.isEmpty ? fallback : text;
+  }
+}

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
@@ -40,6 +39,14 @@ class _AbsenScreenState extends State<AbsenScreen> {
     _cekStatusAbsen(); // Cek apakah sudah absen hari ini
   }
 
+  String _formatJamApi(dynamic nilai) {
+    final String teks = nilai.toString();
+    if (teks.length >= 5) {
+      return '${teks.substring(0, 5)} WIB';
+    }
+    return '$teks WIB';
+  }
+
   Future<void> _cekStatusAbsen() async {
     final prefs = await SharedPreferences.getInstance();
     final userId = prefs.getInt('user_id') ?? 2;
@@ -55,30 +62,17 @@ class _AbsenScreenState extends State<AbsenScreen> {
             _sudahAbsenMasuk =
                 data['sudah_masuk'] == true && data['sudah_pulang'] == false;
 
-            // Ambil jam masuk dan pulang dari API
             if (data['jam_masuk'] != null) {
-              _jamAbsenTeks =
-                  data['jam_masuk'].toString().substring(0, 5) + " WIB";
+              _jamAbsenTeks = _formatJamApi(data['jam_masuk']);
             }
             if (data['jam_pulang'] != null) {
-              _jamPulangTeks =
-                  data['jam_pulang'].toString().substring(0, 5) + " WIB";
+              _jamPulangTeks = _formatJamApi(data['jam_pulang']);
             }
           });
         }
       }
     } catch (e) {
       debugPrint('Gagal cek status absen: $e');
-    }
-  }
-
-  void _updateJamAbsen() {
-    final now = DateTime.now();
-    if (mounted) {
-      setState(() {
-        _jamAbsenTeks =
-            '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')} WIB';
-      });
     }
   }
 
@@ -133,8 +127,9 @@ class _AbsenScreenState extends State<AbsenScreen> {
               }
             }
           } catch (e) {
-            if (mounted)
+            if (mounted) {
               setState(() => _lokasiTeks = 'Nama jalan tidak ditemukan');
+            }
           }
         }
       }
@@ -257,16 +252,11 @@ class _AbsenScreenState extends State<AbsenScreen> {
 
       if (!mounted) return;
 
-      // Tambahkan pengecekan: Jika response bukan JSON, jangan di-parse
-      if (response.headers['content-type']?.contains('application/json') !=
-          true) {
-        _showMessage('File API absen_pulang.php belum tersedia di server.');
-        return;
-      }
-
       if (response.statusCode == 200) {
         _showMessage('Absen pulang berhasil!');
-        setState(() => _sudahAbsenMasuk = false);
+
+        // PENTING: Panggil ulang fungsi cek status agar UI ter-update
+        await _cekStatusAbsen();
       } else {
         final data = jsonDecode(response.body);
         _showMessage(data['message'] ?? 'Gagal absen pulang.');
@@ -556,6 +546,8 @@ class _AbsenScreenState extends State<AbsenScreen> {
                 ),
               ),
 
+              const SizedBox(height: 16),
+
               // Tombol Aksi (Masuk & Pulang)
               PrimaryButton(
                 label: _isProcessing
@@ -565,9 +557,9 @@ class _AbsenScreenState extends State<AbsenScreen> {
                 isLoading: _isProcessing,
                 onPressed: _isProcessing ? null : _handleAbsenMasuk,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
 
-              // Tombol Absen Pulang (Hanya muncul jika sudah absen masuk)
+              // Tombol Absen Pulang (muncul jika sudah absen masuk)
               if (_sudahAbsenMasuk) ...[
                 SizedBox(
                   width: double.infinity,
@@ -588,7 +580,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
               ],
 
               const Row(

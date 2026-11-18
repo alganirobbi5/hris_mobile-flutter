@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/api_config.dart';
@@ -24,12 +25,18 @@ class ProfilScreen extends StatefulWidget {
 }
 
 class _ProfilScreenState extends State<ProfilScreen> {
+  static const String _uploadsBaseUrl = 'http://31.97.199.58/HRM/uploads';
+
+  final ImagePicker _imagePicker = ImagePicker();
+
   bool _isLoading = true;
+  bool _isUploadingAvatar = false;
   String? _error;
   Map<String, dynamic>? _profil;
   String _roleUser = '';
   int? _userId;
   String? _selectedAvatarId;
+  String? _avatarUrl;
 
   @override
   void initState() {
@@ -125,11 +132,11 @@ class _ProfilScreenState extends State<ProfilScreen> {
     return data;
   }
 
-  String _apiErrorMessage(http.Response response) {
-    final String fallback =
-        'Gagal memuat profil (HTTP ${response.statusCode}).';
+  String _apiErrorMessage(http.Response response, {String? fallback}) {
+    final String fallbackMessage =
+        fallback ?? 'Gagal memuat profil (HTTP ${response.statusCode}).';
     final String body = response.body.trim();
-    if (body.isEmpty) return fallback;
+    if (body.isEmpty) return fallbackMessage;
 
     try {
       final dynamic decoded = jsonDecode(body);
@@ -141,10 +148,10 @@ class _ProfilScreenState extends State<ProfilScreen> {
         }
       }
     } on FormatException {
-      return body.length <= 140 ? body : fallback;
+      return body.length <= 140 ? body : fallbackMessage;
     }
 
-    return body.length <= 140 ? body : fallback;
+    return body.length <= 140 ? body : fallbackMessage;
   }
 
   String _profileValue(String key) {
@@ -195,6 +202,166 @@ class _ProfilScreenState extends State<ProfilScreen> {
     return '$first$last';
   }
 
+  Future<void> _pickAndUploadAvatar() async {
+    if (_isUploadingAvatar) return;
+
+    final ImageSource? source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.photo_camera_outlined),
+                title: const Text('Kamera'),
+                onTap: () => Navigator.pop(context, ImageSource.camera),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library_outlined),
+                title: const Text('Galeri'),
+                onTap: () => Navigator.pop(context, ImageSource.gallery),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    if (source == null) return;
+
+    XFile? photo;
+    try {
+      photo = await _imagePicker.pickImage(
+        source: source,
+        imageQuality: 85,
+        maxWidth: 1600,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      _showMessage('Tidak dapat membuka kamera/galeri.');
+      return;
+    }
+    if (photo == null) return;
+
+    await _uploadAvatar(photo);
+  }
+
+  Future<void> _uploadAvatar(XFile photo) async {
+    final prefs = await SharedPreferences.getInstance();
+    final int? userId = prefs.getInt('user_id');
+    if (userId == null) {
+      if (!mounted) return;
+      _showMessage('Sesi login tidak ditemukan. Silakan login ulang.');
+      return;
+    }
+
+    setState(() => _isUploadingAvatar = true);
+
+    try {
+      final http.MultipartRequest request =
+          http.MultipartRequest(
+              'POST',
+              Uri.parse('${ApiConfig.baseUrl}/upload_avatar.php'),
+            )
+            ..fields['employee_id'] = userId.toString()
+            ..files.add(
+              await http.MultipartFile.fromPath('avatar', photo.path),
+            );
+
+      final http.StreamedResponse streamed = await request.send().timeout(
+        const Duration(seconds: 60),
+      );
+      final http.Response response = await http.Response.fromStream(streamed);
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        final String? avatarValue = _extractAvatarValue(response.body);
+        if (avatarValue == null) {
+          _showMessage('Respons server tidak berisi nama file avatar.');
+          return;
+        }
+
+        setState(() {
+          _avatarUrl = _resolveAvatarUrl(avatarValue);
+          _selectedAvatarId = null;
+        });
+        _showMessage('Avatar berhasil diperbarui.');
+      } else {
+        _showMessage(
+          _apiErrorMessage(
+            response,
+            fallback: 'Gagal mengunggah avatar (HTTP ${response.statusCode}).',
+          ),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      _showMessage('Gagal mengunggah avatar. Periksa koneksi Anda.');
+    } finally {
+      if (mounted) setState(() => _isUploadingAvatar = false);
+    }
+  }
+
+  String? _extractAvatarValue(String body) {
+    if (body.trim().isEmpty) return null;
+
+    try {
+      final dynamic decoded = jsonDecode(body);
+      dynamic data = decoded;
+
+      if (decoded is Map<String, dynamic>) {
+        final dynamic nested = decoded['data'];
+        if (nested is Map<String, dynamic>) {
+          data = nested;
+        } else if (nested is List &&
+            nested.isNotEmpty &&
+            nested.first is Map<String, dynamic>) {
+          data = nested.first;
+        }
+      }
+
+      if (data is Map<String, dynamic>) {
+        for (final String key in const <String>[
+          'file',
+          'filename',
+          'file_name',
+          'nama_file',
+          'avatar',
+          'avatar_url',
+          'foto',
+          'photo',
+          'path',
+          'url',
+        ]) {
+          final dynamic value = data[key];
+          if (value is String && value.trim().isNotEmpty) {
+            return value.trim();
+          }
+        }
+      }
+    } on FormatException {
+      return null;
+    }
+
+    return null;
+  }
+
+  String _resolveAvatarUrl(String value) {
+    final String trimmed = value.trim();
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    final String fileName = trimmed.split('/').last;
+    return '$_uploadsBaseUrl/$fileName';
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
   Future<void> _openAvatarPicker() async {
     final String? result = await showAvatarPicker(
       context,
@@ -213,6 +380,16 @@ class _ProfilScreenState extends State<ProfilScreen> {
     final ProfileAvatarEntry? avatar = ProfileAvatarCatalog.byId(
       _selectedAvatarId,
     );
+    final bool hasImage = _avatarUrl != null || avatar != null;
+    final Widget initials = Text(
+      _initials,
+      style: const TextStyle(
+        fontSize: 30,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 1,
+        color: Colors.white,
+      ),
+    );
 
     return Semantics(
       button: true,
@@ -225,14 +402,12 @@ class _ProfilScreenState extends State<ProfilScreen> {
             child: Container(
               width: 96,
               height: 96,
-              padding: EdgeInsets.all(avatar == null ? 0 : 3),
+              padding: EdgeInsets.all(hasImage ? 3 : 0),
               decoration: BoxDecoration(
-                gradient: avatar == null ? AppColors.primaryGradient : null,
-                color: avatar == null ? null : AppColors.surface,
+                gradient: hasImage ? null : AppColors.primaryGradient,
+                color: hasImage ? AppColors.surface : null,
                 shape: BoxShape.circle,
-                border: avatar == null
-                    ? null
-                    : Border.all(color: AppColors.border),
+                border: hasImage ? Border.all(color: AppColors.border) : null,
                 boxShadow: [
                   BoxShadow(
                     color: AppColors.primary.withValues(alpha: 0.28),
@@ -242,24 +417,34 @@ class _ProfilScreenState extends State<ProfilScreen> {
                 ],
               ),
               alignment: Alignment.center,
-              child: avatar == null
-                  ? Text(
-                      _initials,
-                      style: const TextStyle(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1,
-                        color: Colors.white,
+              child: _isUploadingAvatar
+                  ? CircularProgressIndicator(
+                      color: hasImage ? AppColors.primary : Colors.white,
+                    )
+                  : _avatarUrl != null
+                  ? ClipOval(
+                      child: Image.network(
+                        _avatarUrl!,
+                        width: 90,
+                        height: 90,
+                        fit: BoxFit.cover,
+                        errorBuilder: (
+                          BuildContext context,
+                          Object error,
+                          StackTrace? stackTrace,
+                        ) => initials,
                       ),
                     )
-                  : ClipOval(
+                  : avatar != null
+                  ? ClipOval(
                       child: Image.asset(
                         avatar.assetPath,
                         width: 90,
                         height: 90,
                         fit: BoxFit.cover,
                       ),
-                    ),
+                    )
+                  : initials,
             ),
           ),
           Positioned(
@@ -373,7 +558,20 @@ class _ProfilScreenState extends State<ProfilScreen> {
             child: Column(
               children: [
                 _buildAvatar(),
-                const SizedBox(height: 16),
+                const SizedBox(height: 8),
+                TextButton.icon(
+                  onPressed: _isUploadingAvatar ? null : _pickAndUploadAvatar,
+                  icon: Icon(
+                    _isUploadingAvatar
+                        ? Icons.hourglass_top_rounded
+                        : Icons.add_a_photo_outlined,
+                    size: 16,
+                  ),
+                  label: Text(
+                    _isUploadingAvatar ? 'Mengunggah...' : 'Ganti Avatar',
+                  ),
+                ),
+                const SizedBox(height: 4),
                 Text(
                   _name,
                   textAlign: TextAlign.center,

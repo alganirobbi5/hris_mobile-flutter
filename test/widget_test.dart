@@ -31,7 +31,7 @@ void main() {
 
     await tester.pumpWidget(const MaterialApp(home: MainScreen()));
 
-    expect(find.text('Ambil Selfie & Absen'), findsOneWidget);
+    expect(find.text('Ambil Selfie & Absen Masuk'), findsOneWidget);
 
     final Finder navigationBar = find.byType(GlassBottomNav);
 
@@ -43,6 +43,15 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Pengajuan Cuti'), findsOneWidget);
+
+    await tester.tap(
+      find.descendant(
+        of: navigationBar,
+        matching: find.byIcon(Icons.campaign_outlined),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Daftar Pengumuman'), findsOneWidget);
 
     await tester.tap(
       find.descendant(
@@ -60,7 +69,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(tester.widget<GlassBottomNav>(navigationBar).currentIndex, 3);
+    expect(tester.widget<GlassBottomNav>(navigationBar).currentIndex, 4);
   });
 
   testWidgets('Tab Persetujuan Cuti tampil untuk role HR', (

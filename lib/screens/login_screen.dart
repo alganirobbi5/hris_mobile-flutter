@@ -85,7 +85,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (body == null) {
         messenger.showSnackBar(
-          const SnackBar(content: Text('Respons server tidak valid.')),
+          SnackBar(content: Text('Server balas: ${response.body}')),
         );
       } else if (response.statusCode == 200) {
         // Simpan sesi login (username, role, dan user_id)
