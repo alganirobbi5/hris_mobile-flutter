@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/api_config.dart';
 import '../config/avatar_catalog.dart';
+import '../config/company_config.dart';
 import '../services/profile_avatar_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/avatar_picker_sheet.dart';
@@ -633,12 +634,12 @@ class _ProfilScreenState extends State<ProfilScreen> {
                 const InfoRow(
                   icon: Icons.apartment_rounded,
                   label: 'Nama Perusahaan',
-                  value: 'PT Contoh Maju Sejahtera',
+                  value: CompanyConfig.namaPerusahaan,
                 ),
                 const InfoRow(
                   icon: Icons.badge_outlined,
                   label: 'Kode Perusahaan',
-                  value: 'CMJ-2026',
+                  value: CompanyConfig.kodePerusahaan,
                 ),
                 InfoRow(
                   icon: Icons.mail_outline_rounded,

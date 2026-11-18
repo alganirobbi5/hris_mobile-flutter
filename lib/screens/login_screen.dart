@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/api_config.dart';
+import '../config/company_config.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/primary_button.dart';
@@ -22,7 +23,7 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _companyController = TextEditingController();
-  final TextEditingController _identityController = TextEditingController();
+  final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
   static Uri get _loginUrl => ApiConfig.uri('login.php');
@@ -32,7 +33,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void dispose() {
     _companyController.dispose();
-    _identityController.dispose();
+    _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -44,11 +45,32 @@ class _LoginScreenState extends State<LoginScreen> {
     return null;
   }
 
+  String? _validateCompany(String? value) {
+    final String? requiredError = _required(value);
+    if (requiredError != null) return requiredError;
+
+    if (value!.trim().toUpperCase() !=
+        CompanyConfig.kodePerusahaan.toUpperCase()) {
+      return 'Kode perusahaan tidak sesuai dengan data HR';
+    }
+    return null;
+  }
+
   Future<void> _handleLogin() async {
     FocusScope.of(context).unfocus();
     if (!_formKey.currentState!.validate()) return;
 
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    if (_companyController.text.trim().toUpperCase() !=
+        CompanyConfig.kodePerusahaan.toUpperCase()) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Kode perusahaan tidak sesuai dengan data HR.'),
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
@@ -59,7 +81,8 @@ class _LoginScreenState extends State<LoginScreen> {
             _loginUrl,
             headers: <String, String>{'Content-Type': 'application/json'},
             body: jsonEncode(<String, String>{
-              'username': _identityController.text.trim(),
+              'company_code': CompanyConfig.kodePerusahaan,
+              'username': _usernameController.text.trim(),
               'password': _passwordController.text,
             }),
           )
@@ -180,7 +203,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     await prefs.setString(
       'username',
-      usernameValue?.toString() ?? _identityController.text.trim(),
+      usernameValue?.toString() ?? _usernameController.text.trim(),
     );
     await prefs.setString('role', roleValue?.toString() ?? '');
   }
@@ -267,15 +290,15 @@ class _LoginScreenState extends State<LoginScreen> {
                       controller: _companyController,
                       prefixIcon: Icons.business_outlined,
                       textInputAction: TextInputAction.next,
-                      validator: _required,
+                      validator: _validateCompany,
                     ),
                     const SizedBox(height: 18),
                     AppTextField(
-                      label: 'NIK atau Email',
-                      hint: 'Masukkan NIK atau email',
-                      controller: _identityController,
+                      label: 'Nama User',
+                      hint: 'Masukkan nama user dari HR',
+                      controller: _usernameController,
                       prefixIcon: Icons.person_outline_rounded,
-                      keyboardType: TextInputType.emailAddress,
+                      keyboardType: TextInputType.text,
                       textInputAction: TextInputAction.next,
                       validator: _required,
                     ),

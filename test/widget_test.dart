@@ -21,6 +21,30 @@ void main() {
     expect(find.text('Masuk'), findsOneWidget);
   });
 
+  testWidgets('Login menolak kode perusahaan yang tidak sesuai HR', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 740);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const HrisApp(isLoggedIn: false));
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'SALAH-2026');
+    await tester.enterText(find.byType(TextFormField).at(1), 'razu');
+    await tester.enterText(find.byType(TextFormField).at(2), 'rahasia');
+    await tester.ensureVisible(find.text('Masuk'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Masuk'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Kode perusahaan tidak sesuai dengan data HR'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('Navigasi tab beranda berjalan tanpa error', (
     WidgetTester tester,
   ) async {
