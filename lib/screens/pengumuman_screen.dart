@@ -3,10 +3,12 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/api_config.dart';
 import '../theme/app_theme.dart';
 import '../widgets/section_card.dart';
+import 'tambah_pengumuman_screen.dart';
 
 class PengumumanScreen extends StatefulWidget {
   const PengumumanScreen({super.key});
@@ -20,12 +22,38 @@ class _PengumumanScreenState extends State<PengumumanScreen> {
 
   bool _isLoading = true;
   String? _error;
+  String _roleUser = '';
   List<_Pengumuman> _daftarPengumuman = const [];
 
   @override
   void initState() {
     super.initState();
+    _loadRole();
     _fetchPengumuman();
+  }
+
+  Future<void> _loadRole() async {
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
+      setState(() {
+        _roleUser = (prefs.getString('role') ?? '').trim().toLowerCase();
+      });
+    } catch (_) {
+      // Abaikan kegagalan membaca preferensi; tombol HR tetap tersembunyi.
+    }
+  }
+
+  Future<void> _bukaTambahPengumuman() async {
+    final bool? berhasil = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (BuildContext context) => const TambahPengumumanScreen(),
+      ),
+    );
+    if (!mounted) return;
+    if (berhasil == true) {
+      await _fetchPengumuman();
+    }
   }
 
   Future<void> _fetchPengumuman() async {
@@ -210,6 +238,18 @@ class _PengumumanScreenState extends State<PengumumanScreen> {
           ),
         ),
       ),
+      floatingActionButton: _roleUser == 'hr'
+          ? Padding(
+              padding: const EdgeInsets.only(bottom: 88),
+              child: FloatingActionButton(
+                onPressed: _bukaTambahPengumuman,
+                tooltip: 'Buat pengumuman',
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                child: const Icon(Icons.add),
+              ),
+            )
+          : null,
     );
   }
 
