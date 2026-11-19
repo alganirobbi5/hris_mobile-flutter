@@ -13,6 +13,7 @@ import '../widgets/primary_button.dart';
 import '../widgets/section_card.dart';
 import '../widgets/status_badge.dart';
 import 'absen_success_screen.dart';
+import 'cuti_screen.dart';
 
 class AbsenScreen extends StatefulWidget {
   const AbsenScreen({super.key});
@@ -689,6 +690,11 @@ class _AbsenScreenState extends State<AbsenScreen> {
                     ),
                   ],
                 ),
+
+                const SizedBox(height: 28),
+                const Divider(color: AppColors.border),
+                const SizedBox(height: 20),
+                const CutiScreen(embedded: true),
               ],
             ),
           ),

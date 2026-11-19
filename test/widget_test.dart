@@ -60,13 +60,6 @@ void main() {
 
     final Finder navigationBar = find.byType(GlassBottomNav);
 
-    await tester.tap(
-      find.descendant(
-        of: navigationBar,
-        matching: find.byIcon(Icons.calendar_today_outlined),
-      ),
-    );
-    await tester.pumpAndSettle();
     expect(find.text('Pengajuan Cuti'), findsOneWidget);
 
     await tester.tap(
@@ -94,7 +87,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(tester.widget<GlassBottomNav>(navigationBar).currentIndex, 4);
+    expect(tester.widget<GlassBottomNav>(navigationBar).currentIndex, 3);
   });
 
   testWidgets('Tab Persetujuan Cuti tampil untuk role HR', (
