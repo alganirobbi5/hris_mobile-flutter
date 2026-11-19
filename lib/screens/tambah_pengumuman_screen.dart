@@ -1,10 +1,11 @@
 import 'dart:convert';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:image_picker/image_picker.dart';
 
 import '../config/api_config.dart';
+import '../models/lampiran_pengumuman.dart';
 import '../services/pengumuman_overlay.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/primary_button.dart';
@@ -32,8 +33,7 @@ class TambahPengumumanScreen extends StatefulWidget {
 class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
   late final TextEditingController _titleController;
   late final TextEditingController _messageController;
-  final ImagePicker _imagePicker = ImagePicker();
-  String? _lampiran;
+  LampiranPengumuman? _lampiran;
   bool _isLoading = false;
 
   @override
@@ -41,7 +41,7 @@ class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
     super.initState();
     _titleController = TextEditingController(text: widget.judulAwal ?? '');
     _messageController = TextEditingController(text: widget.isiAwal ?? '');
-    _lampiran = widget.lampiranAwal;
+    _lampiran = LampiranPengumuman.fromJsonValue(widget.lampiranAwal);
   }
 
   @override
@@ -52,20 +52,45 @@ class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
   }
 
   Future<void> _pilihLampiran() async {
-    final XFile? photo = await _imagePicker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 85,
-      maxWidth: 1600,
-    );
-    if (photo == null || !mounted) return;
+    final PlatformFile? file = await FilePicker.pickFile(type: FileType.any);
+    if (file == null || !mounted) return;
+    final List<int> bytes = await file.readAsBytes();
 
-    final List<int> bytes = await photo.readAsBytes();
-    final String? mime = photo.mimeType;
-    final String effectiveMime =
-        (mime == null || mime.isEmpty) ? 'image/jpeg' : mime;
+    final String ext = (file.extension ?? '').toLowerCase();
+    final String mime = _mimeFromExtension(ext);
     setState(() {
-      _lampiran = 'data:$effectiveMime;base64,${base64Encode(bytes)}';
+      _lampiran = LampiranPengumuman(
+        dataUrl: 'data:$mime;base64,${base64Encode(bytes)}',
+        namaFile: file.name,
+        mime: mime,
+      );
     });
+  }
+
+  String _mimeFromExtension(String ext) {
+    switch (ext) {
+      case 'pdf':
+        return 'application/pdf';
+      case 'doc':
+        return 'application/msword';
+      case 'docx':
+        return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      case 'xls':
+        return 'application/vnd.ms-excel';
+      case 'xlsx':
+        return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      case 'png':
+        return 'image/png';
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'webp':
+        return 'image/webp';
+      case 'txt':
+        return 'text/plain';
+      default:
+        return 'application/octet-stream';
+    }
   }
 
   Future<void> _simpanPengumuman() async {
@@ -87,7 +112,7 @@ class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
       'title': title,
       'message': message,
     };
-    if (_lampiran != null) body['attachment'] = _lampiran;
+    if (_lampiran != null) body['attachment'] = _lampiran!.toJsonValue();
     if (widget.isEdit) body['id'] = widget.id;
 
     bool serverBerhasil = false;
@@ -107,7 +132,7 @@ class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
         id: widget.id!,
         judul: title,
         isi: message,
-        lampiran: _lampiran,
+        lampiran: _lampiran?.toJsonValue(),
       );
     }
 
@@ -145,21 +170,42 @@ class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
         ),
         const SizedBox(height: 8),
         if (_lampiran != null)
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Image.memory(
-              base64Decode(_lampiran!.split(',').last),
-              height: 140,
-              width: double.infinity,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => Container(
-                height: 140,
-                alignment: Alignment.center,
-                color: Colors.grey.shade200,
-                child: const Text('Pratinjau tidak tersedia'),
-              ),
-            ),
-          ),
+          _lampiran!.isImage
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.memory(
+                    base64Decode(_lampiran!.dataUrl.split(',').last),
+                    height: 140,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => Container(
+                      height: 140,
+                      alignment: Alignment.center,
+                      color: Colors.grey.shade200,
+                      child: const Text('Pratinjau tidak tersedia'),
+                    ),
+                  ),
+                )
+              : Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.insert_drive_file_rounded),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _lampiran!.namaFile,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
         const SizedBox(height: 8),
         Row(
           children: [
@@ -167,7 +213,7 @@ class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
               child: OutlinedButton.icon(
                 onPressed: _pilihLampiran,
                 icon: const Icon(Icons.attach_file_rounded),
-                label: Text(_lampiran == null ? 'Pilih Gambar' : 'Ganti Gambar'),
+                label: Text(_lampiran == null ? 'Pilih File' : 'Ganti File'),
               ),
             ),
             if (_lampiran != null)
