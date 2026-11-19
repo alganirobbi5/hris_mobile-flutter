@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -10,11 +12,13 @@ class DetailPengumumanScreen extends StatelessWidget {
     required this.judul,
     required this.isi,
     required this.tanggal,
+    this.lampiran,
   });
 
   final String judul;
   final String isi;
   final String tanggal;
+  final String? lampiran;
 
   @override
   Widget build(BuildContext context) {
@@ -75,13 +79,44 @@ class DetailPengumumanScreen extends StatelessWidget {
               const SizedBox(height: 24),
               SectionCard(
                 padding: const EdgeInsets.all(20),
-                child: Text(
-                  isi,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    height: 1.6,
-                    color: AppColors.textPrimary,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isi,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        height: 1.6,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    if (lampiran != null && lampiran!.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      const Divider(color: AppColors.border),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Lampiran',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.memory(
+                          base64Decode(lampiran!.split(',').last),
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => const Text(
+                            'Pratinjau lampiran tidak tersedia',
+                            style: TextStyle(color: AppColors.textSecondary),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ],
