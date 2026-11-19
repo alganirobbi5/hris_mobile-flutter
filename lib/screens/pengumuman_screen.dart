@@ -65,6 +65,7 @@ class _PengumumanScreenState extends State<PengumumanScreen> {
           judul: item.judul,
           isi: item.isi,
           tanggal: item.tanggal,
+          lampiran: item.lampiran,
         ),
       ),
     );
@@ -78,6 +79,7 @@ class _PengumumanScreenState extends State<PengumumanScreen> {
           id: item.id,
           judulAwal: item.judul,
           isiAwal: item.isi,
+          lampiranAwal: item.lampiran,
         ),
       ),
     );
@@ -202,6 +204,7 @@ class _PengumumanScreenState extends State<PengumumanScreen> {
         judul: (perubahan['judul'] as String?) ?? item.judul,
         isi: (perubahan['isi'] as String?) ?? item.isi,
         tanggal: item.tanggal,
+        lampiran: (perubahan['lampiran'] as String?) ?? item.lampiran,
       );
     }).toList();
   }
@@ -519,6 +522,19 @@ class _PengumumanScreenState extends State<PengumumanScreen> {
                 color: AppColors.textSecondary,
               ),
             ),
+            if (item.lampiran != null && item.lampiran!.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.memory(
+                  base64Decode(item.lampiran!.split(',').last),
+                  height: 90,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -532,12 +548,14 @@ class _Pengumuman {
     required this.judul,
     required this.isi,
     required this.tanggal,
+    this.lampiran,
   });
 
   final int? id;
   final String judul;
   final String isi;
   final String tanggal;
+  final String? lampiran;
 
   factory _Pengumuman.fromJson(Map<String, dynamic> json) {
     final dynamic idValue = json['id'] ?? json['pengumuman_id'];
@@ -563,7 +581,16 @@ class _Pengumuman {
             json['tanggal_post'],
         '-',
       ),
+      lampiran: _lampiranDari(json),
     );
+  }
+
+  static String? _lampiranDari(Map<String, dynamic> json) {
+    final String value = _textOf(
+      json['attachment'] ?? json['lampiran'] ?? json['file'],
+      '',
+    );
+    return value.isEmpty ? null : value;
   }
 
   static String _textOf(dynamic value, String fallback) {
