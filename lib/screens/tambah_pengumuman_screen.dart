@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 
 import '../config/api_config.dart';
 import '../services/pengumuman_overlay.dart';
@@ -14,11 +15,13 @@ class TambahPengumumanScreen extends StatefulWidget {
     this.id,
     this.judulAwal,
     this.isiAwal,
+    this.lampiranAwal,
   });
 
   final int? id;
   final String? judulAwal;
   final String? isiAwal;
+  final String? lampiranAwal;
 
   bool get isEdit => id != null;
 
@@ -29,6 +32,8 @@ class TambahPengumumanScreen extends StatefulWidget {
 class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
   late final TextEditingController _titleController;
   late final TextEditingController _messageController;
+  final ImagePicker _imagePicker = ImagePicker();
+  String? _lampiran;
   bool _isLoading = false;
 
   @override
@@ -36,6 +41,7 @@ class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
     super.initState();
     _titleController = TextEditingController(text: widget.judulAwal ?? '');
     _messageController = TextEditingController(text: widget.isiAwal ?? '');
+    _lampiran = widget.lampiranAwal;
   }
 
   @override
@@ -43,6 +49,23 @@ class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
     _titleController.dispose();
     _messageController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pilihLampiran() async {
+    final XFile? photo = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+      maxWidth: 1600,
+    );
+    if (photo == null || !mounted) return;
+
+    final List<int> bytes = await photo.readAsBytes();
+    final String? mime = photo.mimeType;
+    final String effectiveMime =
+        (mime == null || mime.isEmpty) ? 'image/jpeg' : mime;
+    setState(() {
+      _lampiran = 'data:$effectiveMime;base64,${base64Encode(bytes)}';
+    });
   }
 
   Future<void> _simpanPengumuman() async {
@@ -64,6 +87,7 @@ class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
       'title': title,
       'message': message,
     };
+    if (_lampiran != null) body['attachment'] = _lampiran;
     if (widget.isEdit) body['id'] = widget.id;
 
     bool serverBerhasil = false;
@@ -83,6 +107,7 @@ class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
         id: widget.id!,
         judul: title,
         isi: message,
+        lampiran: _lampiran,
       );
     }
 
@@ -110,6 +135,53 @@ class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
     if (mounted) setState(() => _isLoading = false);
   }
 
+  Widget _buildLampiran() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Lampiran (opsional)',
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 8),
+        if (_lampiran != null)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.memory(
+              base64Decode(_lampiran!.split(',').last),
+              height: 140,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => Container(
+                height: 140,
+                alignment: Alignment.center,
+                color: Colors.grey.shade200,
+                child: const Text('Pratinjau tidak tersedia'),
+              ),
+            ),
+          ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _pilihLampiran,
+                icon: const Icon(Icons.attach_file_rounded),
+                label: Text(_lampiran == null ? 'Pilih Gambar' : 'Ganti Gambar'),
+              ),
+            ),
+            if (_lampiran != null)
+              IconButton(
+                onPressed: () => setState(() => _lampiran = null),
+                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                tooltip: 'Hapus lampiran',
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -132,6 +204,8 @@ class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
               controller: _messageController,
               maxLines: 5,
             ),
+            const SizedBox(height: 16),
+            _buildLampiran(),
             const SizedBox(height: 32),
             PrimaryButton(
               label: widget.isEdit ? 'Simpan Perubahan' : 'Simpan Pengumuman',
