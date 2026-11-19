@@ -26,7 +26,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  static Uri get _loginUrl => ApiConfig.uri('mobile-login.php');
+  static Uri get _loginUrl => ApiConfig.uri('login.php');
 
   bool _isLoading = false;
 
@@ -81,6 +81,7 @@ class _LoginScreenState extends State<LoginScreen> {
             _loginUrl,
             headers: <String, String>{'Content-Type': 'application/json'},
             body: jsonEncode(<String, String>{
+              'company_code': CompanyConfig.kodePerusahaan,
               'username': _usernameController.text.trim(),
               'password': _passwordController.text,
             }),
@@ -88,7 +89,6 @@ class _LoginScreenState extends State<LoginScreen> {
           .timeout(ApiConfig.requestTimeout);
 
       debugPrint('Login status code: ${response.statusCode}');
-      debugPrint('Login response body: ${response.body}');
 
       if (!mounted) return;
 
@@ -212,6 +212,13 @@ class _LoginScreenState extends State<LoginScreen> {
     if (tokenValue != null && tokenValue.toString().trim().isNotEmpty) {
       await prefs.setString(ApiConfig.tokenPrefKey, tokenValue.toString().trim());
     }
+
+    // Simpan nama lengkap dari user jika ada.
+    final dynamic namaLengkapValue = _bodyValue(body, <String>['nama_lengkap', 'full_name']);
+    if (namaLengkapValue != null && namaLengkapValue.toString().trim().isNotEmpty) {
+      await prefs.setString('nama_lengkap', namaLengkapValue.toString().trim());
+    }
+
     final int? employeeId = int.tryParse(employeeIdValue?.toString() ?? '');
     if (employeeId != null) {
       await prefs.setInt(ApiConfig.employeeIdPrefKey, employeeId);

@@ -514,7 +514,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              'Waktu masuk saat ini',
+                              'Waktu masuk hari ini',
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
@@ -553,7 +553,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              'Waktu keluar saat ini',
+                              'Waktu keluar hari ini',
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
