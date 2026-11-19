@@ -376,6 +376,56 @@ class _CutiScreenState extends State<CutiScreen> {
     }
   }
 
+  Future<void> _tampilkanDetailCuti(_RiwayatCuti item) async {
+    await showDialog<void>(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
+        title: Text(item.type),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _detailRow('Status', _statusLabel(item.status)),
+              _detailRow('Tanggal', '${item.leavFrom} s.d. ${item.leavTo}'),
+              if (item.alasan != null && item.alasan!.isNotEmpty)
+                _detailRow('Alasan', item.alasan!),
+              if (item.komentar != null && item.komentar!.isNotEmpty)
+                _detailRow('Komentar HR', item.komentar!),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Tutup'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _detailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(value, style: const TextStyle(fontSize: 14)),
+        ],
+      ),
+    );
+  }
+
   Widget _buildRiwayatCuti() {
     if (_isLoadingRiwayat) {
       return const SectionCard(
@@ -441,7 +491,10 @@ class _CutiScreenState extends State<CutiScreen> {
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
-          child: SectionCard(
+          child: InkWell(
+            onTap: () => _tampilkanDetailCuti(item),
+            borderRadius: BorderRadius.circular(20),
+            child: SectionCard(
             padding: const EdgeInsets.all(16),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -520,10 +573,23 @@ class _CutiScreenState extends State<CutiScreen> {
                           ),
                         ),
                       ],
+                      if (item.komentar != null && item.komentar!.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Komentar HR: ${item.komentar}',
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
               ],
+            ),
             ),
           ),
         );
@@ -895,6 +961,7 @@ class _RiwayatCuti {
     required this.leavTo,
     required this.status,
     this.alasan,
+    this.komentar,
   });
 
   factory _RiwayatCuti.fromJson(Map<String, dynamic> json) {
@@ -910,6 +977,7 @@ class _RiwayatCuti {
       ),
       status: _stringValue(json['staus'] ?? json['status'], '-'),
       alasan: _stringValue(json['reason'] ?? json['alasan'], ''),
+      komentar: _stringValue(json['comment'] ?? json['komentar'], ''),
     );
   }
 
@@ -918,6 +986,7 @@ class _RiwayatCuti {
   final String leavTo;
   final String status;
   final String? alasan;
+  final String? komentar;
 
   static String _stringValue(dynamic value, String fallback) {
     if (value == null) return fallback;
