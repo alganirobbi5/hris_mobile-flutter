@@ -42,6 +42,7 @@ class PengumumanOverlay {
     required int id,
     String? judul,
     String? isi,
+    String? lampiran,
     bool? dihapus,
   }) async {
     final Map<String, Map<String, dynamic>> overlay = await load();
@@ -51,6 +52,7 @@ class PengumumanOverlay {
 
     if (judul != null) entry['judul'] = judul;
     if (isi != null) entry['isi'] = isi;
+    if (lampiran != null) entry['lampiran'] = lampiran;
     if (dihapus != null) entry['dihapus'] = dihapus;
 
     overlay[key] = entry;
