@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/laporan_excel_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/section_card.dart';
+import 'semua_absensi_screen.dart';
 
 class LaporanScreen extends StatefulWidget {
   const LaporanScreen({super.key});
@@ -13,8 +14,22 @@ class LaporanScreen extends StatefulWidget {
 
 class _LaporanScreenState extends State<LaporanScreen> {
   final LaporanExcelService _excelService = LaporanExcelService();
+  final GlobalKey<SemuaAbsensiViewState> _absensiKey =
+      GlobalKey<SemuaAbsensiViewState>();
 
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchSemuaAbsensi();
+    });
+  }
+
+  void _fetchSemuaAbsensi() {
+    _absensiKey.currentState?.reload();
+  }
 
   Future<void> _downloadExcel() async {
     setState(() => _isLoading = true);
@@ -179,7 +194,16 @@ class _LaporanScreenState extends State<LaporanScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
+
+              // Tabel absensi seluruh karyawan
+              SemuaAbsensiView(
+                key: _absensiKey,
+                autoFetch: false,
+                showHeader: false,
+              ),
+
+              const SizedBox(height: 24),
 
               // Info Card
               SectionCard(

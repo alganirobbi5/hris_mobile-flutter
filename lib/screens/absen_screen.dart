@@ -382,268 +382,277 @@ class _AbsenScreenState extends State<AbsenScreen> {
       ),
       body: SafeArea(
         top: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Jarak antar card dibuat konsisten (14)
-              const _CameraPlaceholder(),
-              const SizedBox(height: 16),
+        child: RefreshIndicator(
+          onRefresh: () async {
+            await Future.wait(<Future<void>>[
+              _fetchJamKerja(),
+              _cekStatusAbsen(),
+            ]);
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Jarak antar card dibuat konsisten (14)
+                const _CameraPlaceholder(),
+                const SizedBox(height: 16),
 
-              SectionCard(
-                padding: const EdgeInsets.all(18),
-                child: Row(
+                SectionCard(
+                  padding: const EdgeInsets.all(18),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const _IconBox(icon: Icons.location_on_outlined),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'LOKASI TERDETEKSI',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.7,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              _lokasiTeks,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                height: 1.35,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _koordinatTeks,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const StatusBadge(
+                        label: 'GPS aktif',
+                        color: AppColors.success,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                SectionCard(
+                  padding: const EdgeInsets.all(18),
+                  child: Row(
+                    children: [
+                      const _IconBox(icon: Icons.schedule_rounded),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Jam kerja hari ini',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              '$_jamMasukKerja - $_jamKeluarKerja',
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.09),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: const Text(
+                          'Shift Pagi',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                SectionCard(
+                  padding: const EdgeInsets.all(18),
+                  child: Row(
+                    children: [
+                      const _IconBox(icon: Icons.access_time_filled_rounded),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Waktu masuk saat ini',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              _jamAbsenTeks == '--:--'
+                                  ? 'Belum melakukan absen'
+                                  : _jamAbsenTeks,
+                              style: TextStyle(
+                                fontSize: _jamAbsenTeks == '--:--' ? 14 : 18,
+                                fontWeight: FontWeight.w800,
+                                color: _jamAbsenTeks == '--:--'
+                                    ? AppColors.textSecondary
+                                    : AppColors.textPrimary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                SectionCard(
+                  padding: const EdgeInsets.all(18),
+                  child: Row(
+                    children: [
+                      const _IconBox(icon: Icons.logout_rounded),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Waktu keluar saat ini',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              _jamPulangTeks == '--:--'
+                                  ? 'Belum melakukan absen pulang'
+                                  : _jamPulangTeks,
+                              style: TextStyle(
+                                fontSize: _jamPulangTeks == '--:--' ? 14 : 18,
+                                fontWeight: FontWeight.w800,
+                                color: _jamPulangTeks == '--:--'
+                                    ? AppColors.textSecondary
+                                    : AppColors.textPrimary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // LOGIKA TOMBOL DINAMIS
+                // Tombol "Absen Masuk" hanya muncul jika belum absen masuk
+                if (!_sudahAbsenMasuk) ...[
+                  PrimaryButton(
+                    label: _isProcessing
+                        ? 'Memproses...'
+                        : 'Ambil Selfie & Absen Masuk',
+                    icon: Icons.camera_front_rounded,
+                    isLoading: _isProcessing,
+                    onPressed: _isProcessing ? null : _handleAbsenMasuk,
+                  ),
+                ]
+                // Tombol "Absen Pulang" hanya muncul jika sudah absen masuk TAPI belum absen pulang
+                else if (!_sudahAbsenPulang) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _isProcessing ? null : _handleAbsenPulang,
+                      icon: const Icon(Icons.logout_rounded),
+                      label: const Text('Absen Pulang'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: const BorderSide(
+                          color: AppColors.primary,
+                          width: 2,
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                ]
+                // Jika sudah absen pulang, tampilkan teks status
+                else ...[
+                  const Center(
+                    child: Text(
+                      'Anda sudah menyelesaikan absensi hari ini.',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.green,
+                      ),
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 14),
+                const Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const _IconBox(icon: Icons.location_on_outlined),
-                    const SizedBox(width: 12),
+                    Icon(
+                      Icons.info_outline_rounded,
+                      size: 15,
+                      color: AppColors.textSecondary,
+                    ),
+                    SizedBox(width: 6),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'LOKASI TERDETEKSI',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.7,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            _lokasiTeks,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              height: 1.35,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _koordinatTeks,
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    const StatusBadge(
-                      label: 'GPS aktif',
-                      color: AppColors.success,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              SectionCard(
-                padding: const EdgeInsets.all(18),
-                child: Row(
-                  children: [
-                    const _IconBox(icon: Icons.schedule_rounded),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Jam kerja hari ini',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            '$_jamMasukKerja - $_jamKeluarKerja',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.09),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: const Text(
-                        'Shift Pagi',
+                      child: Text(
+                        'Pastikan kamu berada di area kantor dan izinkan akses kamera serta lokasi saat melakukan absensi.',
                         style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.primary,
+                          fontSize: 12,
+                          height: 1.4,
+                          color: AppColors.textSecondary,
                         ),
                       ),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 14),
-
-              SectionCard(
-                padding: const EdgeInsets.all(18),
-                child: Row(
-                  children: [
-                    const _IconBox(icon: Icons.access_time_filled_rounded),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Waktu masuk saat ini',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            _jamAbsenTeks == '--:--'
-                                ? 'Belum melakukan absen'
-                                : _jamAbsenTeks,
-                            style: TextStyle(
-                              fontSize: _jamAbsenTeks == '--:--' ? 14 : 18,
-                              fontWeight: FontWeight.w800,
-                              color: _jamAbsenTeks == '--:--'
-                                  ? AppColors.textSecondary
-                                  : AppColors.textPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              SectionCard(
-                padding: const EdgeInsets.all(18),
-                child: Row(
-                  children: [
-                    const _IconBox(icon: Icons.logout_rounded),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Waktu keluar saat ini',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            _jamPulangTeks == '--:--'
-                                ? 'Belum melakukan absen pulang'
-                                : _jamPulangTeks,
-                            style: TextStyle(
-                              fontSize: _jamPulangTeks == '--:--' ? 14 : 18,
-                              fontWeight: FontWeight.w800,
-                              color: _jamPulangTeks == '--:--'
-                                  ? AppColors.textSecondary
-                                  : AppColors.textPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // LOGIKA TOMBOL DINAMIS
-              // Tombol "Absen Masuk" hanya muncul jika belum absen masuk
-              if (!_sudahAbsenMasuk) ...[
-                PrimaryButton(
-                  label: _isProcessing
-                      ? 'Memproses...'
-                      : 'Ambil Selfie & Absen Masuk',
-                  icon: Icons.camera_front_rounded,
-                  isLoading: _isProcessing,
-                  onPressed: _isProcessing ? null : _handleAbsenMasuk,
-                ),
-              ]
-              // Tombol "Absen Pulang" hanya muncul jika sudah absen masuk TAPI belum absen pulang
-              else if (!_sudahAbsenPulang) ...[
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: _isProcessing ? null : _handleAbsenPulang,
-                    icon: const Icon(Icons.logout_rounded),
-                    label: const Text('Absen Pulang'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.primary,
-                      side: const BorderSide(
-                        color: AppColors.primary,
-                        width: 2,
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
-              ]
-              // Jika sudah absen pulang, tampilkan teks status
-              else ...[
-                const Center(
-                  child: Text(
-                    'Anda sudah menyelesaikan absensi hari ini.',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green,
-                    ),
-                  ),
-                ),
               ],
-
-              const SizedBox(height: 14),
-              const Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(
-                    Icons.info_outline_rounded,
-                    size: 15,
-                    color: AppColors.textSecondary,
-                  ),
-                  SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      'Pastikan kamu berada di area kantor dan izinkan akses kamera serta lokasi saat melakukan absensi.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        height: 1.4,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+            ),
           ),
         ),
       ),

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 
 import '../config/api_config.dart';
 import '../theme/app_theme.dart';
@@ -70,6 +71,35 @@ class _TambahLokasiScreenState extends State<TambahLokasiScreen> {
     if (angka == null) return 'Radius harus berupa angka';
     if (angka <= 0) return 'Radius harus lebih dari 0';
     return null;
+  }
+
+  // FUNGSI BARU: Membuka Google Maps
+  Future<void> _bukaMaps() async {
+    String lat = _latitudeController.text.trim();
+    String lng = _longitudeController.text.trim();
+
+    if (lat.isEmpty || lng.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Isi Latitude dan Longitude terlebih dahulu'),
+        ),
+      );
+      return;
+    }
+
+    final Uri url = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
+    );
+    try {
+      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+        throw Exception('Tidak bisa membuka Maps');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tidak dapat membuka Google Maps')),
+      );
+    }
   }
 
   Future<void> _simpanLokasi() async {
@@ -188,32 +218,53 @@ class _TambahLokasiScreenState extends State<TambahLokasiScreen> {
                         validator: _validasiWajib,
                       ),
                       const SizedBox(height: 16),
-                      AppTextField(
-                        label: 'Latitude',
-                        hint: 'Contoh: -6.200000',
-                        controller: _latitudeController,
-                        prefixIcon: Icons.my_location_rounded,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                          signed: true,
+
+                      // INPUT LATITUDE (Bisa diklik buka Maps)
+                      GestureDetector(
+                        onTap: _bukaMaps,
+                        child: AbsorbPointer(
+                          child: AppTextField(
+                            label: 'Latitude',
+                            hint: 'Contoh: -6.200000',
+                            controller: _latitudeController,
+                            prefixIcon: Icons.my_location_rounded,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                              signed: true,
+                            ),
+                            textInputAction: TextInputAction.next,
+                            validator: _validasiLatitude,
+                          ),
                         ),
-                        textInputAction: TextInputAction.next,
-                        validator: _validasiLatitude,
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        '*Klik kolom Latitude/Longitude untuk cek di Google Maps',
+                        style: TextStyle(fontSize: 10, color: Colors.grey),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // INPUT LONGITUDE (Bisa diklik buka Maps)
+                      GestureDetector(
+                        onTap: _bukaMaps,
+                        child: AbsorbPointer(
+                          child: AppTextField(
+                            label: 'Longitude',
+                            hint: 'Contoh: 106.816666',
+                            controller: _longitudeController,
+                            prefixIcon: Icons.explore_rounded,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                              signed: true,
+                            ),
+                            textInputAction: TextInputAction.next,
+                            validator: _validasiLongitude,
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 16),
-                      AppTextField(
-                        label: 'Longitude',
-                        hint: 'Contoh: 106.816666',
-                        controller: _longitudeController,
-                        prefixIcon: Icons.explore_rounded,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                          signed: true,
-                        ),
-                        textInputAction: TextInputAction.next,
-                        validator: _validasiLongitude,
-                      ),
-                      const SizedBox(height: 16),
+
                       AppTextField(
                         label: 'Radius (meter)',
                         hint: 'Contoh: 100',
