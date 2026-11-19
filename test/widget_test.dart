@@ -48,6 +48,7 @@ void main() {
   testWidgets('Navigasi tab beranda berjalan tanpa error', (
     WidgetTester tester,
   ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{'role': 'hr'});
     tester.view.physicalSize = const Size(360, 740);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -105,6 +106,43 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Persetujuan'), findsOneWidget);
+  });
+
+  testWidgets('Tab Laporan tidak tampil untuk role employee', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{'role': 'employee'});
+
+    await tester.pumpWidget(const MaterialApp(home: MainScreen()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Laporan'), findsNothing);
+    expect(find.byIcon(Icons.description_outlined), findsNothing);
+    expect(find.text('Persetujuan'), findsNothing);
+  });
+
+  testWidgets('Halaman Profil bisa dibuka oleh role employee', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'role': 'employee',
+      'user_id': 2,
+      'employee_id': 2,
+    });
+
+    await tester.pumpWidget(const MaterialApp(home: MainScreen()));
+    await tester.pumpAndSettle();
+
+    final Finder navigationBar = find.byType(GlassBottomNav);
+    await tester.tap(
+      find.descendant(
+        of: navigationBar,
+        matching: find.byIcon(Icons.person_outline_rounded),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Profil'), findsWidgets);
   });
 
   testWidgets('Halaman sukses absen menampilkan foto dan koordinat GPS', (

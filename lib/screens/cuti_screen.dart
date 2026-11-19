@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
 import '../config/api_config.dart';
+import '../services/app_session.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/primary_button.dart';
@@ -20,8 +21,10 @@ class CutiScreen extends StatefulWidget {
 
 class _CutiScreenState extends State<CutiScreen> {
   static String get _cutiUrl => ApiConfig.uri('cuti.php').toString();
-  static String get _riwayatUrl =>
-      '${ApiConfig.uri('riwayat_cuti.php')}?employee_id=2';
+  static Future<String> _riwayatUrl() async {
+    final int employeeId = await AppSession.currentEmployeeId();
+    return '${ApiConfig.uri('riwayat_cuti.php')}?employee_id=$employeeId';
+  }
 
   static const List<String> _replacementOptions = [
     'Siti Aminah',
@@ -156,7 +159,7 @@ class _CutiScreenState extends State<CutiScreen> {
               Uri.parse(_cutiUrl),
               headers: const {'Content-Type': 'application/json'},
               body: jsonEncode(<String, dynamic>{
-                'employee_id': 2,
+                'employee_id': await AppSession.currentEmployeeId(),
                 'start_date': _formatApiDate(startDate),
                 'end_date': _formatApiDate(endDate),
                 'reason': reason,
@@ -236,7 +239,7 @@ class _CutiScreenState extends State<CutiScreen> {
 
     try {
       final http.Response response = await http
-          .get(Uri.parse(_riwayatUrl))
+          .get(Uri.parse(await _riwayatUrl()))
           .timeout(const Duration(seconds: 30));
 
       if (!mounted) return;

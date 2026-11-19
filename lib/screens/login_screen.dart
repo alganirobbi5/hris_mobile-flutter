@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/api_config.dart';
 import '../config/company_config.dart';
+import '../services/app_session.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/primary_button.dart';
@@ -113,6 +114,7 @@ class _LoginScreenState extends State<LoginScreen> {
       } else if (response.statusCode == 200) {
         // Simpan sesi login (username, role, dan user_id)
         await _saveSession(body);
+        AppSession.invalidateEmployeeId();
 
         if (!mounted) return;
 
@@ -193,6 +195,8 @@ class _LoginScreenState extends State<LoginScreen> {
       'name',
     ]);
     final dynamic roleValue = _bodyValue(body, <String>['role', 'user_role']);
+    final dynamic employeeIdValue =
+        _bodyValue(body, <String>['employee_id', 'employeeId', 'karyawan_id']);
 
     final int? userId = int.tryParse(userIdValue?.toString() ?? '');
     if (userId != null) {
@@ -206,6 +210,15 @@ class _LoginScreenState extends State<LoginScreen> {
       usernameValue?.toString() ?? _usernameController.text.trim(),
     );
     await prefs.setString('role', roleValue?.toString() ?? '');
+
+    final int? employeeId = int.tryParse(employeeIdValue?.toString() ?? '');
+    if (employeeId != null) {
+      await prefs.setInt('employee_id', employeeId);
+    } else {
+      // Endpoint login lama tidak mengirim employee_id. Biarkan kosong;
+      // AppSession.currentEmployeeId() akan meresolusi otomatis nanti.
+      await prefs.remove('employee_id');
+    }
   }
 
   dynamic _bodyValue(Map<String, dynamic> body, List<String> keys) {

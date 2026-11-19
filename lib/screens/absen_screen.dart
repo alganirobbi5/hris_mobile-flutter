@@ -1,13 +1,13 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/api_config.dart';
+import '../services/app_session.dart';
 import '../theme/app_theme.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/section_card.dart';
@@ -88,12 +88,11 @@ class _AbsenScreenState extends State<AbsenScreen> {
   }
 
   Future<void> _cekStatusAbsen() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getInt('user_id') ?? 2;
+    final int employeeId = await AppSession.currentEmployeeId();
 
     try {
       final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/status_absen.php?employee_id=$userId'),
+        Uri.parse('${ApiConfig.baseUrl}/status_absen.php?employee_id=$employeeId'),
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -190,8 +189,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
     setState(() => _isProcessing = true);
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getInt('user_id') ?? 2;
+      final int employeeId = await AppSession.currentEmployeeId();
 
       final bool hasLocationPermission = await _ensureLocationPermission();
       if (!mounted) return;
@@ -227,7 +225,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
         Uri.parse('${ApiConfig.baseUrl}/absen.php'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'employee_id': userId,
+          'employee_id': employeeId,
           'latitude': position.latitude.toString(),
           'longitude': position.longitude.toString(),
           'tanggal_lokal': tanggalLokal,
@@ -269,8 +267,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
     setState(() => _isProcessing = true);
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getInt('user_id') ?? 2;
+      final int employeeId = await AppSession.currentEmployeeId();
 
       final Position position = await Geolocator.getCurrentPosition();
       final now = DateTime.now();
@@ -281,7 +278,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
         Uri.parse('${ApiConfig.baseUrl}/absen_pulang.php'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'employee_id': userId,
+          'employee_id': employeeId,
           'latitude': position.latitude.toString(),
           'longitude': position.longitude.toString(),
           'waktu_lokal': waktuLokal,
@@ -514,7 +511,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              'Waktu masuk saat ini',
+                              'Waktu masuk hari ini',
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
@@ -553,7 +550,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Text(
-                              'Waktu keluar saat ini',
+                              'Waktu keluar hari ini',
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
@@ -780,3 +777,4 @@ class _IconBox extends StatelessWidget {
     );
   }
 }
+

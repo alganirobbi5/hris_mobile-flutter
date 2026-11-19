@@ -1,6 +1,5 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
-import '../services/laporan_harian_service.dart';
 import '../services/laporan_excel_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/section_card.dart';
@@ -18,13 +17,12 @@ class _LaporanScreenState extends State<LaporanScreen>
   final LaporanExcelService _excelService = LaporanExcelService();
   final GlobalKey<SemuaAbsensiViewState> _absensiKey =
       GlobalKey<SemuaAbsensiViewState>();
-  final LaporanHarianService _harianService = LaporanHarianService();
 
   bool _isLoading = false;
   bool _isLoadingRows = false;
-  List<Map<String, dynamic>> _rows = const <Map<String, dynamic>>[];
+  List<LaporanAbsensiRow> _rows = const <LaporanAbsensiRow>[];
   String? _rowsError;
-  String _tanggalAktif = LaporanHarianService.tanggalHariIni();
+  String _tanggalAktif = LaporanExcelService.tanggalHariIni();
 
   @override
   void initState() {
@@ -44,32 +42,27 @@ class _LaporanScreenState extends State<LaporanScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _refreshJikaTanggalBerubah();
-    }
+    if (state == AppLifecycleState.resumed) _refreshJikaTanggalBerubah();
   }
 
   Future<void> _refreshJikaTanggalBerubah() async {
-    final String hariIni = LaporanHarianService.tanggalHariIni();
-    if (hariIni != _tanggalAktif) {
-      _tanggalAktif = hariIni;
-      await _muatRows();
-    }
+    final String hariIni = LaporanExcelService.tanggalHariIni();
+    if (hariIni != _tanggalAktif) await _muatRows();
   }
 
   Future<void> _muatRows() async {
     setState(() {
       _isLoadingRows = true;
       _rowsError = null;
-      _tanggalAktif = LaporanHarianService.tanggalHariIni();
+      _tanggalAktif = LaporanExcelService.tanggalHariIni();
     });
 
     try {
-      final List<Map<String, dynamic>> rows = await _harianService
-          .fetchHariIni();
+      final List<LaporanAbsensiRow> rows =
+          await _excelService.fetchHariIni();
       if (!mounted) return;
       setState(() => _rows = rows);
-    } on LaporanHarianException catch (e) {
+    } on LaporanExcelException catch (e) {
       if (!mounted) return;
       setState(() => _rowsError = e.message);
     } catch (_) {
@@ -168,25 +161,18 @@ class _LaporanScreenState extends State<LaporanScreen>
               DataColumn(label: Text('Status')),
             ],
             rows: _rows.map((row) {
-              final String nama = _nama(row);
-              final String masuk = _jam(row['clock_in']);
-              final String keluar = _jam(row['clock_out']);
-              final String status = masuk == '-'
-                  ? '-'
-                  : _terlambat(masuk)
-                  ? 'Terlambat'
-                  : 'Tepat Waktu';
+              final String status = row.statusTampil;
               final Color statusColor = status == '-'
                   ? AppColors.textSecondary
-                  : status == 'Terlambat'
-                  ? AppColors.danger
-                  : AppColors.success;
+                  : row.terlambat
+                      ? AppColors.danger
+                      : AppColors.success;
               return DataRow(
                 cells: <DataCell>[
-                  DataCell(Text(_tanggal(row['date']))),
-                  DataCell(Text(nama)),
-                  DataCell(Text(masuk)),
-                  DataCell(Text(keluar)),
+                  DataCell(Text(row.tanggalTampil)),
+                  DataCell(Text(row.nama)),
+                  DataCell(Text(row.jamMasukTampil)),
+                  DataCell(Text(row.jamKeluarTampil)),
                   DataCell(
                     Text(
                       status,
@@ -204,34 +190,13 @@ class _LaporanScreenState extends State<LaporanScreen>
         const SizedBox(height: 8),
         Text(
           'Total ${_rows.length} karyawan absen hari ini',
-          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          style: const TextStyle(
+            fontSize: 12,
+            color: AppColors.textSecondary,
+          ),
         ),
       ],
     );
-  }
-
-  String _nama(Map<String, dynamic> row) {
-    final String firstName = (row['first_name'] ?? '').toString().trim();
-    final String lastName = (row['last_name'] ?? '').toString().trim();
-    final String nama = '$firstName $lastName'.trim();
-    return nama.isEmpty ? 'Tanpa Nama' : nama;
-  }
-
-  String _jam(dynamic value) {
-    final String raw = (value ?? '').toString().trim();
-    if (raw.isEmpty || raw.startsWith('00:00:00')) return '-';
-    final List<String> parts = raw.split(':');
-    if (parts.length >= 2) return '${parts[0]}:${parts[1]}';
-    return raw;
-  }
-
-  bool _terlambat(String jamMasuk) => jamMasuk.compareTo('08:00') > 0;
-
-  String _tanggal(dynamic value) {
-    final DateTime? date = DateTime.tryParse((value ?? '').toString());
-    if (date == null) return '-';
-    return '${date.day.toString().padLeft(2, '0')}/'
-        '${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 
   @override
@@ -373,9 +338,8 @@ class _LaporanScreenState extends State<LaporanScreen>
                     ),
                     const SizedBox(height: 24),
 
-                    // Tabel ringkasan absensi
+                    // Ringkasan absensi hari ini (langsung dari database)
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Expanded(
                           child: Text(
@@ -399,7 +363,7 @@ class _LaporanScreenState extends State<LaporanScreen>
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
 
               // Tabel absensi seluruh karyawan
               SemuaAbsensiView(
@@ -408,7 +372,7 @@ class _LaporanScreenState extends State<LaporanScreen>
                 showHeader: false,
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
 
               // Info Card
               SectionCard(
@@ -445,3 +409,4 @@ class _LaporanScreenState extends State<LaporanScreen>
     );
   }
 }
+

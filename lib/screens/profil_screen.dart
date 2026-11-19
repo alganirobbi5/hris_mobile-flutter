@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
 import '../config/avatar_catalog.dart';
 import '../config/company_config.dart';
+import '../services/app_session.dart';
 import '../services/profile_avatar_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/avatar_picker_sheet.dart';
@@ -78,8 +79,10 @@ class _ProfilScreenState extends State<ProfilScreen> {
         return;
       }
 
-      // 2. Buat URL dinamis menggunakan _userId
-      final String url = '${ApiConfig.baseUrl}/profil.php?employee_id=$_userId';
+      // 2. Buat URL dinamis memakai employee_id (employees.id) yang benar
+      final int employeeId = await AppSession.currentEmployeeId();
+      final String url =
+          '${ApiConfig.baseUrl}/profil.php?employee_id=$employeeId';
 
       final http.Response response = await http
           .get(Uri.parse(url))
@@ -254,13 +257,8 @@ class _ProfilScreenState extends State<ProfilScreen> {
   }
 
   Future<void> _uploadAvatar(XFile photo) async {
-    final prefs = await SharedPreferences.getInstance();
-    final int? userId = prefs.getInt('user_id');
-    if (userId == null) {
-      if (!mounted) return;
-      _showMessage('Sesi login tidak ditemukan. Silakan login ulang.');
-      return;
-    }
+    final int employeeId = await AppSession.currentEmployeeId();
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
 
     setState(() => _isUploadingAvatar = true);
 
@@ -270,7 +268,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
               'POST',
               Uri.parse('${ApiConfig.baseUrl}/upload_avatar.php'),
             )
-            ..fields['employee_id'] = userId.toString()
+            ..fields['employee_id'] = employeeId.toString()
             ..files.add(
               await http.MultipartFile.fromPath('avatar', photo.path),
             );
@@ -781,6 +779,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
                         final prefs = await SharedPreferences.getInstance();
                         await prefs.remove(_avatarPrefsKey);
                         await prefs.clear();
+                        AppSession.invalidateEmployeeId();
 
                         if (!context.mounted) return;
                         Navigator.of(context).pushAndRemoveUntil(
