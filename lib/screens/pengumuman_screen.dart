@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/api_config.dart';
+import '../models/lampiran_pengumuman.dart';
 import '../services/pengumuman_overlay.dart';
 import '../theme/app_theme.dart';
 import '../widgets/section_card.dart';
@@ -431,6 +432,55 @@ class _PengumumanScreenState extends State<PengumumanScreen> {
     );
   }
 
+  Widget _buildLampiranRingkas(String raw) {
+    final LampiranPengumuman? lampiran =
+        LampiranPengumuman.fromJsonValue(raw);
+    if (lampiran == null) return const SizedBox.shrink();
+
+    if (lampiran.isImage) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Image.memory(
+          base64Decode(lampiran.dataUrl.split(',').last),
+          height: 90,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => const SizedBox.shrink(),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.insert_drive_file_rounded,
+            size: 18,
+            color: AppColors.primary,
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              lampiran.namaFile,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildItem(_Pengumuman item) {
     final bool isHr = _roleUser == 'hr';
     return SectionCard(
@@ -524,16 +574,7 @@ class _PengumumanScreenState extends State<PengumumanScreen> {
             ),
             if (item.lampiran != null && item.lampiran!.isNotEmpty) ...[
               const SizedBox(height: 10),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Image.memory(
-                  base64Decode(item.lampiran!.split(',').last),
-                  height: 90,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                ),
-              ),
+              _buildLampiranRingkas(item.lampiran!),
             ],
           ],
         ),
