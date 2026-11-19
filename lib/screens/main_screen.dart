@@ -1,7 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../theme/app_theme.dart';
 import '../widgets/glass_bottom_nav.dart';
 import 'absen_screen.dart';
 import 'approval_cuti_screen.dart';
@@ -9,7 +8,6 @@ import 'cuti_screen.dart';
 import 'laporan_screen.dart';
 import 'pengumuman_screen.dart';
 import 'profil_screen.dart';
-import 'semua_absensi_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -139,24 +137,6 @@ class _MainScreenState extends State<MainScreen> {
               ),
             ],
           ),
-          floatingActionButton: isHr
-              ? Padding(
-                  padding: const EdgeInsets.only(bottom: 88),
-                  child: FloatingActionButton.extended(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const SemuaAbsensiScreen(),
-                        ),
-                      );
-                    },
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    icon: const Icon(Icons.table_chart_rounded),
-                    label: const Text('Semua Absensi'),
-                  ),
-                )
-              : null,
         );
       },
     );
