@@ -16,6 +16,7 @@ dependencies:
   intl: ^0.20.2
   # Library untuk Kamera & GPS
   image_picker: ^1.1.2
+  file_picker: ^13.4.0
   geolocator: ^13.0.2
   # Library untuk koneksi API
   http: ^1.3.0
