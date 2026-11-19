@@ -12,22 +12,6 @@ class ApiConfig {
 
   static const Duration requestTimeout = Duration(seconds: 15);
 
-  static const String tokenPrefKey = 'api_token';
-  static const String employeeIdPrefKey = 'employee_id';
-  static const String capturedDatePrefKey = 'laporan_tanggal';
-
-  /// Header standar untuk request API yang butuh autentikasi.
-  /// [token] diambil dari SharedPreferences (key [tokenPrefKey]).
-  static Map<String, String> authHeaders(String? token) {
-    final Map<String, String> headers = <String, String>{
-      'Content-Type': 'application/json',
-    };
-    if (token != null && token.trim().isNotEmpty) {
-      headers['Authorization'] = 'Bearer ${token.trim()}';
-    }
-    return headers;
-  }
-
   static Uri uri(String path) {
     final String normalizedBase = baseUrl.endsWith('/')
         ? baseUrl.substring(0, baseUrl.length - 1)
