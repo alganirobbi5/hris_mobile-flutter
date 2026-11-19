@@ -4,24 +4,51 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
-import '../theme/app_theme.dart';
+import '../services/pengumuman_overlay.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/primary_button.dart';
 
 class TambahPengumumanScreen extends StatefulWidget {
-  const TambahPengumumanScreen({super.key});
+  const TambahPengumumanScreen({
+    super.key,
+    this.id,
+    this.judulAwal,
+    this.isiAwal,
+  });
+
+  final int? id;
+  final String? judulAwal;
+  final String? isiAwal;
+
+  bool get isEdit => id != null;
 
   @override
   State<TambahPengumumanScreen> createState() => _TambahPengumumanScreenState();
 }
 
 class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
-  final _titleController = TextEditingController();
-  final _messageController = TextEditingController();
+  late final TextEditingController _titleController;
+  late final TextEditingController _messageController;
   bool _isLoading = false;
 
+  @override
+  void initState() {
+    super.initState();
+    _titleController = TextEditingController(text: widget.judulAwal ?? '');
+    _messageController = TextEditingController(text: widget.isiAwal ?? '');
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _messageController.dispose();
+    super.dispose();
+  }
+
   Future<void> _simpanPengumuman() async {
-    if (_titleController.text.isEmpty || _messageController.text.isEmpty) {
+    final String title = _titleController.text.trim();
+    final String message = _messageController.text.trim();
+    if (title.isEmpty || message.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Judul dan isi pengumuman wajib diisi!')),
       );
@@ -30,46 +57,65 @@ class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
 
     setState(() => _isLoading = true);
 
+    final String endpoint = widget.isEdit
+        ? '${ApiConfig.baseUrl}/edit_pengumuman.php'
+        : '${ApiConfig.baseUrl}/tambah_pengumuman.php';
+    final Map<String, dynamic> body = <String, dynamic>{
+      'title': title,
+      'message': message,
+    };
+    if (widget.isEdit) body['id'] = widget.id;
+
+    bool serverBerhasil = false;
     try {
       final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/tambah_pengumuman.php'),
+        Uri.parse(endpoint),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'title': _titleController.text.trim(),
-          'message': _messageController.text.trim(),
-        }),
-      );
+        body: jsonEncode(body),
+      ).timeout(const Duration(seconds: 10));
+      serverBerhasil = widget.isEdit
+          ? response.statusCode == 200
+          : response.statusCode == 201;
+    } catch (_) {}
 
-      final data = jsonDecode(response.body);
-
-      if (response.statusCode == 201) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Pengumuman berhasil dibuat!')),
-        );
-        Navigator.pop(context, true); // Kembali dan beri sinyal refresh
-      } else {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(data['message'] ?? 'Gagal membuat pengumuman'),
-          ),
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Terjadi kesalahan koneksi ke server')),
+    if (!serverBerhasil && widget.isEdit) {
+      await PengumumanOverlay.upsert(
+        id: widget.id!,
+        judul: title,
+        isi: message,
       );
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
+
+    if (!mounted) return;
+
+    if (serverBerhasil || widget.isEdit) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            widget.isEdit
+                ? (serverBerhasil
+                    ? 'Pengumuman berhasil diperbarui!'
+                    : 'Perubahan disimpan di perangkat ini.')
+                : 'Pengumuman berhasil dibuat!',
+          ),
+        ),
+      );
+      Navigator.pop(context, true);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Gagal membuat pengumuman. Coba lagi.')),
+      );
+    }
+
+    if (mounted) setState(() => _isLoading = false);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Buat Pengumuman')),
+      appBar: AppBar(
+        title: Text(widget.isEdit ? 'Edit Pengumuman' : 'Buat Pengumuman'),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -84,11 +130,11 @@ class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
               label: 'Isi Pengumuman',
               hint: 'Tulis pesan lengkap di sini...',
               controller: _messageController,
-              maxLines: 5, // Agar kotaknya besar
+              maxLines: 5,
             ),
             const SizedBox(height: 32),
             PrimaryButton(
-              label: 'Simpan Pengumuman',
+              label: widget.isEdit ? 'Simpan Perubahan' : 'Simpan Pengumuman',
               icon: Icons.send_rounded,
               isLoading: _isLoading,
               onPressed: _simpanPengumuman,
