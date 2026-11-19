@@ -6,8 +6,11 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/api_config.dart';
+import '../models/lampiran_pengumuman.dart';
+import '../services/pengumuman_overlay.dart';
 import '../theme/app_theme.dart';
 import '../widgets/section_card.dart';
+import 'detail_pengumuman_screen.dart';
 import 'tambah_pengumuman_screen.dart';
 
 class PengumumanScreen extends StatefulWidget {
@@ -56,6 +59,86 @@ class _PengumumanScreenState extends State<PengumumanScreen> {
     }
   }
 
+  Future<void> _bukaDetail(_Pengumuman item) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => DetailPengumumanScreen(
+          judul: item.judul,
+          isi: item.isi,
+          tanggal: item.tanggal,
+          lampiran: item.lampiran,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _editPengumuman(_Pengumuman item) async {
+    if (item.id == null) return;
+    final bool? berhasil = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => TambahPengumumanScreen(
+          id: item.id,
+          judulAwal: item.judul,
+          isiAwal: item.isi,
+          lampiranAwal: item.lampiran,
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (berhasil == true) await _fetchPengumuman();
+  }
+
+  Future<void> _hapusPengumuman(_Pengumuman item) async {
+    if (item.id == null) return;
+    final bool? yakin = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
+        title: const Text('Hapus pengumuman?'),
+        content: const Text('Pengumuman ini akan dihapus permanen.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (yakin != true) return;
+
+    bool serverBerhasil = false;
+    try {
+      final http.Response response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/hapus_pengumuman.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(<String, dynamic>{'id': item.id}),
+      ).timeout(const Duration(seconds: 10));
+      serverBerhasil = response.statusCode == 200;
+    } catch (_) {}
+
+    if (!serverBerhasil) {
+      await PengumumanOverlay.upsert(
+        id: item.id!,
+        dihapus: true,
+      );
+    }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          serverBerhasil
+              ? 'Pengumuman berhasil dihapus.'
+              : 'Pengumuman dihapus di perangkat ini.',
+        ),
+      ),
+    );
+    await _fetchPengumuman();
+  }
+
   Future<void> _fetchPengumuman() async {
     setState(() {
       _isLoading = true;
@@ -70,8 +153,11 @@ class _PengumumanScreenState extends State<PengumumanScreen> {
       if (!mounted) return;
 
       if (response.statusCode == 200) {
+        final List<_Pengumuman> dariServer = _parsePengumuman(response.body);
+        final List<_Pengumuman> finalList = await _terapkanOverlay(dariServer);
+        if (!mounted) return;
         setState(() {
-          _daftarPengumuman = _parsePengumuman(response.body);
+          _daftarPengumuman = finalList;
           _isLoading = false;
         });
       } else {
@@ -96,6 +182,32 @@ class _PengumumanScreenState extends State<PengumumanScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  Future<List<_Pengumuman>> _terapkanOverlay(
+    List<_Pengumuman> dariServer,
+  ) async {
+    final Map<String, Map<String, dynamic>> overlay =
+        await PengumumanOverlay.load();
+    if (overlay.isEmpty) return dariServer;
+
+    return dariServer.where((_Pengumuman item) {
+      final String key = item.id?.toString() ?? '';
+      final Map<String, dynamic>? perubahan = overlay[key];
+      if (perubahan == null) return true;
+      return perubahan['dihapus'] != true;
+    }).map((_Pengumuman item) {
+      final String key = item.id?.toString() ?? '';
+      final Map<String, dynamic>? perubahan = overlay[key];
+      if (perubahan == null) return item;
+      return _Pengumuman(
+        id: item.id,
+        judul: (perubahan['judul'] as String?) ?? item.judul,
+        isi: (perubahan['isi'] as String?) ?? item.isi,
+        tanggal: item.tanggal,
+        lampiran: (perubahan['lampiran'] as String?) ?? item.lampiran,
+      );
+    }).toList();
   }
 
   List<_Pengumuman> _parsePengumuman(String body) {
@@ -320,76 +432,152 @@ class _PengumumanScreenState extends State<PengumumanScreen> {
     );
   }
 
-  Widget _buildItem(_Pengumuman item) {
-    return SectionCard(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildLampiranRingkas(String raw) {
+    final LampiranPengumuman? lampiran =
+        LampiranPengumuman.fromJsonValue(raw);
+    if (lampiran == null) return const SizedBox.shrink();
+
+    if (lampiran.isImage) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(10),
+        child: Image.memory(
+          base64Decode(lampiran.dataUrl.split(',').last),
+          height: 90,
+          width: double.infinity,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => const SizedBox.shrink(),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(13),
-                ),
-                child: const Icon(
-                  Icons.campaign_outlined,
-                  size: 21,
-                  color: AppColors.primary,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.judul,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.calendar_today_outlined,
-                          size: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            _formatTanggal(item.tanggal),
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          const Icon(
+            Icons.insert_drive_file_rounded,
+            size: 18,
+            color: AppColors.primary,
           ),
-          const Divider(height: 20, color: AppColors.border),
-          Text(
-            item.isi,
-            style: const TextStyle(
-              fontSize: 13,
-              height: 1.5,
-              color: AppColors.textSecondary,
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              lampiran.namaFile,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.primary,
+              ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildItem(_Pengumuman item) {
+    final bool isHr = _roleUser == 'hr';
+    return SectionCard(
+      padding: const EdgeInsets.all(16),
+      child: InkWell(
+        onTap: () => _bukaDetail(item),
+        borderRadius: BorderRadius.circular(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  child: const Icon(
+                    Icons.campaign_outlined,
+                    size: 21,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.judul,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.calendar_today_outlined,
+                            size: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              _formatTanggal(item.tanggal),
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                if (isHr)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined, size: 20),
+                        color: AppColors.primary,
+                        tooltip: 'Edit',
+                        onPressed: () => _editPengumuman(item),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, size: 20),
+                        color: AppColors.danger,
+                        tooltip: 'Hapus',
+                        onPressed: () => _hapusPengumuman(item),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+            const Divider(height: 20, color: AppColors.border),
+            Text(
+              item.isi,
+              style: const TextStyle(
+                fontSize: 13,
+                height: 1.5,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            if (item.lampiran != null && item.lampiran!.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              _buildLampiranRingkas(item.lampiran!),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -401,12 +589,14 @@ class _Pengumuman {
     required this.judul,
     required this.isi,
     required this.tanggal,
+    this.lampiran,
   });
 
   final int? id;
   final String judul;
   final String isi;
   final String tanggal;
+  final String? lampiran;
 
   factory _Pengumuman.fromJson(Map<String, dynamic> json) {
     final dynamic idValue = json['id'] ?? json['pengumuman_id'];
@@ -432,7 +622,16 @@ class _Pengumuman {
             json['tanggal_post'],
         '-',
       ),
+      lampiran: _lampiranDari(json),
     );
+  }
+
+  static String? _lampiranDari(Map<String, dynamic> json) {
+    final String value = _textOf(
+      json['attachment'] ?? json['lampiran'] ?? json['file'],
+      '',
+    );
+    return value.isEmpty ? null : value;
   }
 
   static String _textOf(dynamic value, String fallback) {

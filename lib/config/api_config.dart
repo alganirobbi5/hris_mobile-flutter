@@ -14,10 +14,8 @@ class ApiConfig {
 
   static const String tokenPrefKey = 'api_token';
   static const String employeeIdPrefKey = 'employee_id';
-  static const String capturedDatePrefKey = 'laporan_tanggal';
 
   /// Header standar untuk request API yang butuh autentikasi.
-  /// [token] diambil dari SharedPreferences (key [tokenPrefKey]).
   static Map<String, String> authHeaders(String? token) {
     final Map<String, String> headers = <String, String>{
       'Content-Type': 'application/json',

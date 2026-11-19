@@ -134,11 +134,16 @@ class LaporanExcelService {
   static const String _excelMime =
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
-  Future<List<LaporanAbsensiRow>> fetchRows() async {
+  Future<List<LaporanAbsensiRow>> fetchRows({String? tanggal}) async {
+    final Uri url = ApiConfig.uri(_endpoint);
+    final Uri target = (tanggal == null || tanggal.isEmpty)
+        ? url
+        : url.replace(queryParameters: <String, String>{'date': tanggal});
+
     final http.Response response;
     try {
       response = await _client
-          .get(ApiConfig.uri(_endpoint))
+          .get(target)
           .timeout(const Duration(seconds: 30));
     } catch (_) {
       throw const LaporanExcelException(
@@ -168,6 +173,31 @@ class LaporanExcelService {
         .whereType<Map<String, dynamic>>()
         .map(LaporanAbsensiRow.fromJson)
         .toList();
+  }
+
+  /// Tanggal hari ini mengikuti timezone perusahaan (Asia/Jakarta),
+  /// sama seperti Config::companyToday() di backend.
+  static String tanggalHariIni() {
+    final DateTime now = DateTime.now().toUtc().add(const Duration(hours: 7));
+    return '${now.year.toString().padLeft(4, '0')}-'
+        '${now.month.toString().padLeft(2, '0')}-'
+        '${now.day.toString().padLeft(2, '0')}';
+  }
+
+  /// Ambil absensi hari ini langsung dari database (filter server-side).
+  /// Fallback filter client-side tetap ada agar tetap benar jika server
+  /// belum menerima parameter ?date=.
+  Future<List<LaporanAbsensiRow>> fetchHariIni() async {
+    final String hariIni = tanggalHariIni();
+    final List<LaporanAbsensiRow> semua = await fetchRows(tanggal: hariIni);
+    return semua.where((LaporanAbsensiRow row) {
+      final DateTime? tanggal = row.tanggalDate;
+      if (tanggal == null) return row.tanggal == hariIni;
+      return '${tanggal.year.toString().padLeft(4, '0')}-'
+              '${tanggal.month.toString().padLeft(2, '0')}-'
+              '${tanggal.day.toString().padLeft(2, '0')}' ==
+          hariIni;
+    }).toList();
   }
 
   /// Membuat file Excel lalu membuka share sheet agar user bisa

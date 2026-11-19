@@ -1,18 +1,19 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/api_config.dart';
+import '../services/app_session.dart';
 import '../theme/app_theme.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/section_card.dart';
 import '../widgets/status_badge.dart';
 import 'absen_success_screen.dart';
+import 'cuti_screen.dart';
 
 class AbsenScreen extends StatefulWidget {
   const AbsenScreen({super.key});
@@ -88,12 +89,11 @@ class _AbsenScreenState extends State<AbsenScreen> {
   }
 
   Future<void> _cekStatusAbsen() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getInt('user_id') ?? 2;
+    final int employeeId = await AppSession.currentEmployeeId();
 
     try {
       final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/status_absen.php?employee_id=$userId'),
+        Uri.parse('${ApiConfig.baseUrl}/status_absen.php?employee_id=$employeeId'),
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -190,8 +190,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
     setState(() => _isProcessing = true);
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getInt('user_id') ?? 2;
+      final int employeeId = await AppSession.currentEmployeeId();
 
       final bool hasLocationPermission = await _ensureLocationPermission();
       if (!mounted) return;
@@ -227,7 +226,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
         Uri.parse('${ApiConfig.baseUrl}/absen.php'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'employee_id': userId,
+          'employee_id': employeeId,
           'latitude': position.latitude.toString(),
           'longitude': position.longitude.toString(),
           'tanggal_lokal': tanggalLokal,
@@ -269,30 +268,70 @@ class _AbsenScreenState extends State<AbsenScreen> {
     setState(() => _isProcessing = true);
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getInt('user_id') ?? 2;
+      final int employeeId = await AppSession.currentEmployeeId();
 
-      final Position position = await Geolocator.getCurrentPosition();
+      final bool hasLocationPermission = await _ensureLocationPermission();
+      if (!mounted) return;
+      if (!hasLocationPermission) return;
+
+      final XFile? photo = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        preferredCameraDevice: CameraDevice.front,
+        imageQuality: 85,
+        maxWidth: 1600,
+      );
+      if (!mounted) return;
+      if (photo == null) {
+        _showMessage('Pengambilan foto dibatalkan.');
+        return;
+      }
+
+      final Position position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 20),
+        ),
+      );
+      if (!mounted) return;
+
       final now = DateTime.now();
       final String waktuLokal =
           "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
+      final List<int> photoBytes = await photo.readAsBytes();
+      final String? photoMime = photo.mimeType;
+      final String selfieMime =
+          (photoMime == null || photoMime.isEmpty) ? 'image/jpeg' : photoMime;
+      final String selfie = 'data:$selfieMime;base64,${base64Encode(photoBytes)}';
 
       final response = await http.post(
         Uri.parse('${ApiConfig.baseUrl}/absen_pulang.php'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'employee_id': userId,
+          'employee_id': employeeId,
           'latitude': position.latitude.toString(),
           'longitude': position.longitude.toString(),
           'waktu_lokal': waktuLokal,
+          'selfie': selfie,
         }),
       );
 
       if (!mounted) return;
 
       if (response.statusCode == 200) {
-        _showMessage('Absen pulang berhasil!');
-        await _cekStatusAbsen(); // Refresh UI setelah pulang
+        await _cekStatusAbsen();
+        if (!mounted) return;
+
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => AbsenSuccessScreen(
+              photoPath: photo.path,
+              latitude: position.latitude,
+              longitude: position.longitude,
+              takenAt: now,
+              jamMasuk: _jamPulangTeks,
+            ),
+          ),
+        );
       } else {
         final data = jsonDecode(response.body);
         _showMessage(data['message'] ?? 'Gagal absen pulang.');
@@ -651,6 +690,11 @@ class _AbsenScreenState extends State<AbsenScreen> {
                     ),
                   ],
                 ),
+
+                const SizedBox(height: 28),
+                const Divider(color: AppColors.border),
+                const SizedBox(height: 20),
+                const CutiScreen(embedded: true),
               ],
             ),
           ),
@@ -780,3 +824,4 @@ class _IconBox extends StatelessWidget {
     );
   }
 }
+

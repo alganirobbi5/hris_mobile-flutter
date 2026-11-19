@@ -44,7 +44,7 @@ class SemuaAbsensiView extends StatefulWidget {
 
 class SemuaAbsensiViewState extends State<SemuaAbsensiView> {
   static const String _absensiUrl =
-      '${ApiConfig.baseUrl}/get_semua_absensi.php';
+      '${ApiConfig.baseUrl}/laporan_absensi.php';
 
   final TextEditingController _searchController = TextEditingController();
 
@@ -491,19 +491,28 @@ class _AbsensiItem {
   final String status;
 
   factory _AbsensiItem.fromJson(Map<String, dynamic> json) {
+    final String firstName = _textOf(json['first_name'], '');
+    final String lastName = _textOf(json['last_name'], '');
+    final String namaLengkap = '$firstName $lastName'.trim();
     final String nama = _textOf(
       json['nama_lengkap'] ??
           json['nama_karyawan'] ??
           json['nama'] ??
           json['employee_name'] ??
           json['name'],
-      'Tanpa Nama',
+      namaLengkap.isEmpty ? 'Tanpa Nama' : namaLengkap,
     );
     final String jamMasuk = _formatJam(
-      json['jam_masuk'] ?? json['masuk'] ?? json['check_in'],
+      json['jam_masuk'] ??
+          json['masuk'] ??
+          json['check_in'] ??
+          json['clock_in'],
     );
     final String jamKeluar = _formatJam(
-      json['jam_keluar'] ?? json['jam_pulang'] ?? json['check_out'],
+      json['jam_keluar'] ??
+          json['jam_pulang'] ??
+          json['check_out'] ??
+          json['clock_out'],
     );
 
     return _AbsensiItem(

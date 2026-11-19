@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
 import '../config/api_config.dart';
+import '../services/app_session.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/primary_button.dart';
@@ -12,7 +13,10 @@ import '../widgets/section_card.dart';
 import '../widgets/status_badge.dart';
 
 class CutiScreen extends StatefulWidget {
-  const CutiScreen({super.key});
+  const CutiScreen({super.key, this.embedded = false});
+
+  /// Saat true, widget dirender tanpa Scaffold untuk disisipkan di halaman lain.
+  final bool embedded;
 
   @override
   State<CutiScreen> createState() => _CutiScreenState();
@@ -20,8 +24,10 @@ class CutiScreen extends StatefulWidget {
 
 class _CutiScreenState extends State<CutiScreen> {
   static String get _cutiUrl => ApiConfig.uri('cuti.php').toString();
-  static String get _riwayatUrl =>
-      '${ApiConfig.uri('riwayat_cuti.php')}?employee_id=2';
+  static Future<String> _riwayatUrl() async {
+    final int employeeId = await AppSession.currentEmployeeId();
+    return '${ApiConfig.uri('riwayat_cuti.php')}?employee_id=$employeeId';
+  }
 
   static const List<String> _replacementOptions = [
     'Siti Aminah',
@@ -31,6 +37,7 @@ class _CutiScreenState extends State<CutiScreen> {
   ];
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final TextEditingController _titleController = TextEditingController();
   final TextEditingController _reasonController = TextEditingController();
   final TextEditingController _startDateController = TextEditingController();
   final TextEditingController _endDateController = TextEditingController();
@@ -53,6 +60,7 @@ class _CutiScreenState extends State<CutiScreen> {
 
   @override
   void dispose() {
+    _titleController.dispose();
     _reasonController.dispose();
     _startDateController.dispose();
     _endDateController.dispose();
@@ -123,9 +131,16 @@ class _CutiScreenState extends State<CutiScreen> {
     FocusScope.of(context).unfocus();
     if (_isSubmitting) return;
 
+    final String title = _titleController.text.trim();
     final String reason = _reasonController.text.trim();
     final DateTime? startDate = _startDate;
     final DateTime? endDate = _endDate;
+
+    if (title.isEmpty) {
+      _formKey.currentState?.validate();
+      _showMessage('Judul cuti tidak boleh kosong');
+      return;
+    }
 
     if (reason.isEmpty) {
       _formKey.currentState?.validate();
@@ -156,7 +171,8 @@ class _CutiScreenState extends State<CutiScreen> {
               Uri.parse(_cutiUrl),
               headers: const {'Content-Type': 'application/json'},
               body: jsonEncode(<String, dynamic>{
-                'employee_id': 2,
+                'employee_id': await AppSession.currentEmployeeId(),
+                'title': title,
                 'start_date': _formatApiDate(startDate),
                 'end_date': _formatApiDate(endDate),
                 'reason': reason,
@@ -186,6 +202,7 @@ class _CutiScreenState extends State<CutiScreen> {
   }
 
   void _clearForm() {
+    _titleController.clear();
     _reasonController.clear();
     _startDateController.clear();
     _endDateController.clear();
@@ -236,7 +253,7 @@ class _CutiScreenState extends State<CutiScreen> {
 
     try {
       final http.Response response = await http
-          .get(Uri.parse(_riwayatUrl))
+          .get(Uri.parse(await _riwayatUrl()))
           .timeout(const Duration(seconds: 30));
 
       if (!mounted) return;
@@ -336,6 +353,15 @@ class _CutiScreenState extends State<CutiScreen> {
       return 'Ditolak';
     }
 
+    switch (normalized) {
+      case '1':
+        return 'Menunggu';
+      case '2':
+        return 'Disetujui';
+      case '3':
+        return 'Ditolak';
+    }
+
     return status;
   }
 
@@ -348,6 +374,56 @@ class _CutiScreenState extends State<CutiScreen> {
       default:
         return AppColors.warning;
     }
+  }
+
+  Future<void> _tampilkanDetailCuti(_RiwayatCuti item) async {
+    await showDialog<void>(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
+        title: Text(item.type),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _detailRow('Status', _statusLabel(item.status)),
+              _detailRow('Tanggal', '${item.leavFrom} s.d. ${item.leavTo}'),
+              if (item.alasan != null && item.alasan!.isNotEmpty)
+                _detailRow('Alasan', item.alasan!),
+              if (item.komentar != null && item.komentar!.isNotEmpty)
+                _detailRow('Komentar HR', item.komentar!),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Tutup'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _detailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(value, style: const TextStyle(fontSize: 14)),
+        ],
+      ),
+    );
   }
 
   Widget _buildRiwayatCuti() {
@@ -415,7 +491,10 @@ class _CutiScreenState extends State<CutiScreen> {
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
-          child: SectionCard(
+          child: InkWell(
+            onTap: () => _tampilkanDetailCuti(item),
+            borderRadius: BorderRadius.circular(20),
+            child: SectionCard(
             padding: const EdgeInsets.all(16),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -481,10 +560,36 @@ class _CutiScreenState extends State<CutiScreen> {
                           ),
                         ],
                       ),
+                      if (item.alasan != null && item.alasan!.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          item.alasan!,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            height: 1.35,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                      if (item.komentar != null && item.komentar!.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Komentar HR: ${item.komentar}',
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
               ],
+            ),
             ),
           ),
         );
@@ -494,19 +599,13 @@ class _CutiScreenState extends State<CutiScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Cuti')),
-      body: SafeArea(
-        top: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Pengajuan Cuti',
+    final Widget content = Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Pengajuan Cuti',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w800,
@@ -536,6 +635,18 @@ class _CutiScreenState extends State<CutiScreen> {
                           fontWeight: FontWeight.w700,
                           color: AppColors.textPrimary,
                         ),
+                      ),
+                      const SizedBox(height: 18),
+                      AppTextField(
+                        label: 'Judul Cuti',
+                        hint: 'Contoh: Cuti Tahunan / Urusan Keluarga',
+                        controller: _titleController,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Judul cuti tidak boleh kosong';
+                          }
+                          return null;
+                        },
                       ),
                       const SizedBox(height: 18),
                       AppTextField(
@@ -725,9 +836,19 @@ class _CutiScreenState extends State<CutiScreen> {
                 ),
                 const SizedBox(height: 12),
                 _buildRiwayatCuti(),
-              ],
-            ),
-          ),
+        ],
+      ),
+    );
+
+    if (widget.embedded) return content;
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Cuti')),
+      body: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
+          child: content,
         ),
       ),
     );
@@ -839,6 +960,8 @@ class _RiwayatCuti {
     required this.leavFrom,
     required this.leavTo,
     required this.status,
+    this.alasan,
+    this.komentar,
   });
 
   factory _RiwayatCuti.fromJson(Map<String, dynamic> json) {
@@ -853,6 +976,8 @@ class _RiwayatCuti {
         '-',
       ),
       status: _stringValue(json['staus'] ?? json['status'], '-'),
+      alasan: _stringValue(json['reason'] ?? json['alasan'], ''),
+      komentar: _stringValue(json['comment'] ?? json['komentar'], ''),
     );
   }
 
@@ -860,6 +985,8 @@ class _RiwayatCuti {
   final String leavFrom;
   final String leavTo;
   final String status;
+  final String? alasan;
+  final String? komentar;
 
   static String _stringValue(dynamic value, String fallback) {
     if (value == null) return fallback;

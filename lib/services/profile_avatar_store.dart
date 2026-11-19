@@ -16,6 +16,34 @@ class ProfileAvatarStore {
     }
   }
 
+  static String _imageKey(int? userId) =>
+      'profile_avatar_image_${userId ?? 'guest'}';
+
+  static Future<String?> loadImage(int? userId) async {
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final String? value = prefs.getString(_imageKey(userId));
+      if (value == null || value.isEmpty) return null;
+      return value;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  static Future<void> saveImage(int? userId, String? dataUrl) async {
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final String key = _imageKey(userId);
+      if (dataUrl == null || dataUrl.isEmpty) {
+        await prefs.remove(key);
+      } else {
+        await prefs.setString(key, dataUrl);
+      }
+    } catch (_) {
+      return;
+    }
+  }
+
   static Future<void> save(int? userId, String? avatarId) async {
     try {
       final SharedPreferences prefs = await SharedPreferences.getInstance();
