@@ -1,11 +1,11 @@
 {
-    "name": "HRIS Mobile",
-    "short_name": "HRIS Mobile",
+    "name": "HRIS Dignity",
+    "short_name": "HRIS Dignity",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#ffffff",
     "theme_color": "#ffffff",
-    "description": "A new Flutter project.",
+    "description": "HRIS Dignity - Human Resource Information System",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

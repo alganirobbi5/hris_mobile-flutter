@@ -23,9 +23,15 @@ class PrimaryButton extends StatelessWidget {
       child: FilledButton(
         onPressed: isLoading ? null : onPressed,
         style: FilledButton.styleFrom(
-          minimumSize: const Size.fromHeight(54),
+          minimumSize: const Size.fromHeight(56),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.6),
           disabledForegroundColor: Colors.white,
+          textStyle: const TextStyle(
+            fontSize: 14.5,
+            fontWeight: FontWeight.w700,
+            height: 1.15,
+          ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -51,7 +57,7 @@ class PrimaryButton extends StatelessWidget {
             Flexible(
               child: Text(
                 label,
-                maxLines: 1,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
               ),
