@@ -61,7 +61,13 @@ class _ProfilScreenState extends State<ProfilScreen> {
       _userId = prefs.getInt('user_id');
       _roleUser = prefs.getString('role') ?? '';
       final String? savedAvatar = await ProfileAvatarStore.load(_userId);
-      final String? savedAvatarFile = prefs.getString(_avatarPrefsKey);
+      final String? savedAvatarImage =
+          await ProfileAvatarStore.loadImage(_userId);
+      final String? legacyAvatar = prefs.getString(_avatarPrefsKey);
+      final String? savedAvatarFile = savedAvatarImage ?? legacyAvatar;
+      if (savedAvatarImage != null) {
+        await prefs.setString(_avatarPrefsKey, savedAvatarImage);
+      }
 
       if (!mounted) return;
 
@@ -98,8 +104,10 @@ class _ProfilScreenState extends State<ProfilScreen> {
             serverAvatar is String ? serverAvatar.trim() : '';
         final bool isDataUrl = serverAvatarText.startsWith('data:');
 
+        final bool hasLocalAvatar =
+            savedAvatarFile != null && savedAvatarFile.trim().isNotEmpty;
         String? effectiveAvatar = savedAvatarFile;
-        if (serverAvatarText.isNotEmpty) {
+        if (!hasLocalAvatar && serverAvatarText.isNotEmpty) {
           final String stored =
               isDataUrl ? serverAvatarText : _avatarFileName(serverAvatarText);
           await prefs.setString(_avatarPrefsKey, stored);
@@ -112,7 +120,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
           _avatarUrl = (effectiveAvatar == null || effectiveAvatar.trim().isEmpty)
               ? null
               : _resolveAvatarUrl(effectiveAvatar);
-          if (_avatarUrl != null) _selectedAvatarId = null;
+          if (_avatarUrl != null && !hasLocalAvatar) _selectedAvatarId = null;
           _isLoading = false;
         });
       } else {
@@ -277,58 +285,29 @@ class _ProfilScreenState extends State<ProfilScreen> {
   }
 
   Future<void> _uploadAvatar(XFile photo) async {
-    final int employeeId = await AppSession.currentEmployeeId();
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-
     setState(() => _isUploadingAvatar = true);
 
     try {
-      final http.MultipartRequest request =
-          http.MultipartRequest(
-              'POST',
-              Uri.parse('${ApiConfig.baseUrl}/upload_avatar.php'),
-            )
-            ..fields['employee_id'] = employeeId.toString()
-            ..fields['username'] = prefs.getString('username') ?? ''
-            ..files.add(
-              await http.MultipartFile.fromPath('avatar', photo.path),
-            );
+      final List<int> bytes = await photo.readAsBytes();
+      final String? photoMime = photo.mimeType;
+      final String mime =
+          (photoMime == null || photoMime.isEmpty) ? 'image/jpeg' : photoMime;
+      final String dataUrl = 'data:$mime;base64,${base64Encode(bytes)}';
 
-      final http.StreamedResponse streamed = await request.send().timeout(
-        const Duration(seconds: 60),
-      );
-      final http.Response response = await http.Response.fromStream(streamed);
+      await prefs.setString(_avatarPrefsKey, dataUrl);
+      await ProfileAvatarStore.saveImage(_userId, dataUrl);
+      await ProfileAvatarStore.save(_userId, null);
 
       if (!mounted) return;
-
-      if (response.statusCode == 200) {
-        final String? avatarValue = _extractAvatarValue(response.body);
-        if (avatarValue == null) {
-          _showMessage('Respons server tidak berisi nama file avatar.');
-          return;
-        }
-
-        final String avatarFileName = _avatarFileName(avatarValue);
-        await prefs.setString(_avatarPrefsKey, avatarFileName);
-
-        if (!mounted) return;
-
-        setState(() {
-          _avatarUrl = _resolveAvatarUrl(avatarFileName);
-          _selectedAvatarId = null;
-        });
-        _showMessage('Avatar berhasil diperbarui.');
-      } else {
-        _showMessage(
-          _apiErrorMessage(
-            response,
-            fallback: 'Gagal mengunggah avatar (HTTP ${response.statusCode}).',
-          ),
-        );
-      }
+      setState(() {
+        _avatarUrl = dataUrl;
+        _selectedAvatarId = null;
+      });
+      _showMessage('Avatar berhasil disimpan.');
     } catch (_) {
       if (!mounted) return;
-      _showMessage('Gagal mengunggah avatar. Periksa koneksi Anda.');
+      _showMessage('Gagal menyimpan avatar.');
     } finally {
       if (mounted) setState(() => _isUploadingAvatar = false);
     }
@@ -338,9 +317,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
     String avatarId,
     String assetPath,
   ) async {
-    final int employeeId = await AppSession.currentEmployeeId();
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-
     setState(() => _isUploadingAvatar = true);
 
     try {
@@ -349,96 +326,24 @@ class _ProfilScreenState extends State<ProfilScreen> {
         data.offsetInBytes,
         data.lengthInBytes,
       );
+      final String dataUrl = 'data:image/png;base64,${base64Encode(bytes)}';
 
-      final http.MultipartRequest request =
-          http.MultipartRequest(
-            'POST',
-            Uri.parse('${ApiConfig.baseUrl}/upload_avatar.php'),
-          )
-          ..fields['employee_id'] = employeeId.toString()
-          ..fields['username'] = prefs.getString('username') ?? ''
-          ..files.add(
-            http.MultipartFile.fromBytes('avatar', bytes, filename: '$avatarId.jpg'),
-          );
-
-      final http.StreamedResponse streamed = await request.send().timeout(
-        const Duration(seconds: 60),
-      );
-      final http.Response response = await http.Response.fromStream(streamed);
+      await prefs.setString(_avatarPrefsKey, dataUrl);
+      await ProfileAvatarStore.saveImage(_userId, dataUrl);
+      await ProfileAvatarStore.save(_userId, avatarId);
 
       if (!mounted) return;
-
-      if (response.statusCode == 200) {
-        final String? avatarValue = _extractAvatarValue(response.body);
-        if (avatarValue == null) {
-          _showMessage('Respons server tidak berisi nama file avatar.');
-          return;
-        }
-        final String avatarFileName = _avatarFileName(avatarValue);
-        await prefs.setString(_avatarPrefsKey, avatarFileName);
-        await ProfileAvatarStore.save(_userId, avatarId);
-
-        if (!mounted) return;
-        setState(() {
-          _avatarUrl = _resolveAvatarUrl(avatarFileName);
-          _selectedAvatarId = avatarId;
-        });
-        _showMessage('Avatar berhasil diperbarui.');
-      } else {
-        _showMessage('Gagal menyimpan avatar ke server.');
-      }
+      setState(() {
+        _avatarUrl = dataUrl;
+        _selectedAvatarId = avatarId;
+      });
+      _showMessage('Avatar berhasil disimpan.');
     } catch (_) {
       if (!mounted) return;
-      _showMessage('Gagal mengunggah avatar. Periksa koneksi Anda.');
+      _showMessage('Gagal menyimpan avatar.');
     } finally {
       if (mounted) setState(() => _isUploadingAvatar = false);
     }
-  }
-
-  String? _extractAvatarValue(String body) {
-    if (body.trim().isEmpty) return null;
-
-    try {
-      final dynamic decoded = jsonDecode(body);
-      dynamic data = decoded;
-
-      if (decoded is Map<String, dynamic>) {
-        final dynamic nested = decoded['data'];
-        if (nested is String && nested.trim().isNotEmpty) {
-          return nested.trim();
-        } else if (nested is Map<String, dynamic>) {
-          data = nested;
-        } else if (nested is List &&
-            nested.isNotEmpty &&
-            nested.first is Map<String, dynamic>) {
-          data = nested.first;
-        }
-      }
-
-      if (data is Map<String, dynamic>) {
-        for (final String key in const <String>[
-          'file',
-          'filename',
-          'file_name',
-          'nama_file',
-          'avatar',
-          'avatar_url',
-          'foto',
-          'photo',
-          'path',
-          'url',
-        ]) {
-          final dynamic value = data[key];
-          if (value is String && value.trim().isNotEmpty) {
-            return value.trim();
-          }
-        }
-      }
-    } on FormatException {
-      return null;
-    }
-
-    return null;
   }
 
   String _avatarFileName(String value) {
@@ -887,8 +792,16 @@ class _ProfilScreenState extends State<ProfilScreen> {
                     TextButton(
                       onPressed: () async {
                         final prefs = await SharedPreferences.getInstance();
-                        await prefs.remove(_avatarPrefsKey);
-                        await prefs.clear();
+                        for (final String key in const <String>[
+                          'user_id',
+                          'username',
+                          'role',
+                          'employee_id',
+                          'api_token',
+                          'laporan_tanggal',
+                        ]) {
+                          await prefs.remove(key);
+                        }
                         AppSession.invalidateEmployeeId();
 
                         if (!context.mounted) return;
