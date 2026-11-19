@@ -40,21 +40,21 @@ class GlassBottomNav extends StatelessWidget {
           borderRadius: BorderRadius.circular(32),
           boxShadow: [
             BoxShadow(
-              color: AppColors.primary.withValues(alpha: 0.18),
+              color: AppColors.primary.withValues(alpha: 0.10),
               blurRadius: 30,
-              offset: const Offset(0, 14),
+              offset: const Offset(0, 12),
             ),
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(32),
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+            filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
             child: Container(
               height: 68,
               decoration: BoxDecoration(
@@ -62,14 +62,14 @@ class GlassBottomNav extends StatelessWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Colors.white.withValues(alpha: 0.82),
-                    Colors.white.withValues(alpha: 0.45),
+                    Colors.white.withValues(alpha: 0.34),
+                    Colors.white.withValues(alpha: 0.14),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(32),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.7),
-                  width: 1.2,
+                  color: Colors.white.withValues(alpha: 0.35),
+                  width: 1,
                 ),
               ),
               child: LayoutBuilder(
@@ -166,27 +166,20 @@ class _NavButton extends StatelessWidget {
                   color: color,
                 ),
               ),
-              ClipRect(
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  heightFactor: t,
-                  child: Opacity(
-                    opacity: t,
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 2, left: 2, right: 2),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          item.label,
-                          maxLines: 1,
-                          style: const TextStyle(
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.1,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
+              const SizedBox(height: 3),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    item.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                      letterSpacing: -0.1,
+                      color: color,
                     ),
                   ),
                 ),
