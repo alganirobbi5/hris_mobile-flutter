@@ -26,7 +26,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  static Uri get _loginUrl => ApiConfig.uri('login.php');
+  static Uri get _loginUrl => ApiConfig.uri('mobile-login.php');
 
   bool _isLoading = false;
 
@@ -81,7 +81,6 @@ class _LoginScreenState extends State<LoginScreen> {
             _loginUrl,
             headers: <String, String>{'Content-Type': 'application/json'},
             body: jsonEncode(<String, String>{
-              'company_code': CompanyConfig.kodePerusahaan,
               'username': _usernameController.text.trim(),
               'password': _passwordController.text,
             }),
@@ -193,6 +192,9 @@ class _LoginScreenState extends State<LoginScreen> {
       'name',
     ]);
     final dynamic roleValue = _bodyValue(body, <String>['role', 'user_role']);
+    final dynamic tokenValue = _bodyValue(body, <String>['api_token', 'token']);
+    final dynamic employeeIdValue =
+        _bodyValue(body, <String>['employee_id', 'employeeId', 'karyawan_id']);
 
     final int? userId = int.tryParse(userIdValue?.toString() ?? '');
     if (userId != null) {
@@ -206,6 +208,14 @@ class _LoginScreenState extends State<LoginScreen> {
       usernameValue?.toString() ?? _usernameController.text.trim(),
     );
     await prefs.setString('role', roleValue?.toString() ?? '');
+
+    if (tokenValue != null && tokenValue.toString().trim().isNotEmpty) {
+      await prefs.setString(ApiConfig.tokenPrefKey, tokenValue.toString().trim());
+    }
+    final int? employeeId = int.tryParse(employeeIdValue?.toString() ?? '');
+    if (employeeId != null) {
+      await prefs.setInt(ApiConfig.employeeIdPrefKey, employeeId);
+    }
   }
 
   dynamic _bodyValue(Map<String, dynamic> body, List<String> keys) {
