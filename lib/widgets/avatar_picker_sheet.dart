@@ -98,7 +98,6 @@ class _AvatarPickerSheetState extends State<_AvatarPickerSheet> {
                     itemBuilder: (BuildContext context, int index) {
                       if (index == 0) {
                         return _AvatarChoice(
-                          label: 'Inisial',
                           selected: _selectedId.isEmpty,
                           onTap: () => _select(''),
                           child: Container(
@@ -121,7 +120,6 @@ class _AvatarPickerSheetState extends State<_AvatarPickerSheet> {
                       final ProfileAvatarEntry avatar =
                           ProfileAvatarCatalog.all[index - 1];
                       return _AvatarChoice(
-                        label: avatar.name,
                         selected: _selectedId == avatar.id,
                         onTap: () => _select(avatar.id),
                         child: ClipOval(
@@ -179,13 +177,11 @@ class _AvatarPickerSheetState extends State<_AvatarPickerSheet> {
 
 class _AvatarChoice extends StatelessWidget {
   const _AvatarChoice({
-    required this.label,
     required this.child,
     required this.selected,
     required this.onTap,
   });
 
-  final String label;
   final Widget child;
   final bool selected;
   final VoidCallback onTap;
@@ -233,17 +229,6 @@ class _AvatarChoice extends StatelessWidget {
                   ),
                 ),
             ],
-          ),
-          const SizedBox(height: 7),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-              color: selected ? AppColors.primary : AppColors.textSecondary,
-            ),
           ),
         ],
       ),

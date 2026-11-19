@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -91,8 +92,27 @@ class _ProfilScreenState extends State<ProfilScreen> {
       if (!mounted) return;
 
       if (response.statusCode == 200) {
+        final Map<String, dynamic> profil = _parseProfil(response.body);
+        final dynamic serverAvatar = profil['avatar'];
+        final String serverAvatarText =
+            serverAvatar is String ? serverAvatar.trim() : '';
+        final bool isDataUrl = serverAvatarText.startsWith('data:');
+
+        String? effectiveAvatar = savedAvatarFile;
+        if (serverAvatarText.isNotEmpty) {
+          final String stored =
+              isDataUrl ? serverAvatarText : _avatarFileName(serverAvatarText);
+          await prefs.setString(_avatarPrefsKey, stored);
+          effectiveAvatar = stored;
+        }
+
+        if (!mounted) return;
         setState(() {
-          _profil = _parseProfil(response.body);
+          _profil = profil;
+          _avatarUrl = (effectiveAvatar == null || effectiveAvatar.trim().isEmpty)
+              ? null
+              : _resolveAvatarUrl(effectiveAvatar);
+          if (_avatarUrl != null) _selectedAvatarId = null;
           _isLoading = false;
         });
       } else {
@@ -269,6 +289,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
               Uri.parse('${ApiConfig.baseUrl}/upload_avatar.php'),
             )
             ..fields['employee_id'] = employeeId.toString()
+            ..fields['username'] = prefs.getString('username') ?? ''
             ..files.add(
               await http.MultipartFile.fromPath('avatar', photo.path),
             );
@@ -304,6 +325,67 @@ class _ProfilScreenState extends State<ProfilScreen> {
             fallback: 'Gagal mengunggah avatar (HTTP ${response.statusCode}).',
           ),
         );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      _showMessage('Gagal mengunggah avatar. Periksa koneksi Anda.');
+    } finally {
+      if (mounted) setState(() => _isUploadingAvatar = false);
+    }
+  }
+
+  Future<void> _uploadCatalogAvatar(
+    String avatarId,
+    String assetPath,
+  ) async {
+    final int employeeId = await AppSession.currentEmployeeId();
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    setState(() => _isUploadingAvatar = true);
+
+    try {
+      final ByteData data = await rootBundle.load(assetPath);
+      final List<int> bytes = data.buffer.asUint8List(
+        data.offsetInBytes,
+        data.lengthInBytes,
+      );
+
+      final http.MultipartRequest request =
+          http.MultipartRequest(
+            'POST',
+            Uri.parse('${ApiConfig.baseUrl}/upload_avatar.php'),
+          )
+          ..fields['employee_id'] = employeeId.toString()
+          ..fields['username'] = prefs.getString('username') ?? ''
+          ..files.add(
+            http.MultipartFile.fromBytes('avatar', bytes, filename: '$avatarId.jpg'),
+          );
+
+      final http.StreamedResponse streamed = await request.send().timeout(
+        const Duration(seconds: 60),
+      );
+      final http.Response response = await http.Response.fromStream(streamed);
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        final String? avatarValue = _extractAvatarValue(response.body);
+        if (avatarValue == null) {
+          _showMessage('Respons server tidak berisi nama file avatar.');
+          return;
+        }
+        final String avatarFileName = _avatarFileName(avatarValue);
+        await prefs.setString(_avatarPrefsKey, avatarFileName);
+        await ProfileAvatarStore.save(_userId, avatarId);
+
+        if (!mounted) return;
+        setState(() {
+          _avatarUrl = _resolveAvatarUrl(avatarFileName);
+          _selectedAvatarId = avatarId;
+        });
+        _showMessage('Avatar berhasil diperbarui.');
+      } else {
+        _showMessage('Gagal menyimpan avatar ke server.');
       }
     } catch (_) {
       if (!mounted) return;
@@ -370,7 +452,9 @@ class _ProfilScreenState extends State<ProfilScreen> {
 
   String _resolveAvatarUrl(String value) {
     final String trimmed = value.trim();
-    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    if (trimmed.startsWith('data:') ||
+        trimmed.startsWith('http://') ||
+        trimmed.startsWith('https://')) {
       return trimmed;
     }
     final String fileName = _avatarFileName(trimmed);
@@ -391,10 +475,48 @@ class _ProfilScreenState extends State<ProfilScreen> {
     if (result == null) return;
 
     final String? avatarId = result.isEmpty ? null : result;
-    await ProfileAvatarStore.save(_userId, avatarId);
-    if (!mounted) return;
 
-    setState(() => _selectedAvatarId = avatarId);
+    if (avatarId == null) {
+      await ProfileAvatarStore.save(_userId, null);
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_avatarPrefsKey);
+      if (!mounted) return;
+      setState(() {
+        _selectedAvatarId = null;
+        _avatarUrl = null;
+      });
+      return;
+    }
+
+    final ProfileAvatarEntry? entry = ProfileAvatarCatalog.byId(avatarId);
+    if (entry == null) return;
+    await _uploadCatalogAvatar(entry.id, entry.assetPath);
+  }
+
+  Widget _avatarImage(String value, Widget fallback) {
+    if (value.startsWith('data:image/')) {
+      final int comma = value.indexOf(',');
+      if (comma > 0) {
+        try {
+          return Image.memory(
+            base64Decode(value.substring(comma + 1)),
+            width: 90,
+            height: 90,
+            fit: BoxFit.cover,
+            errorBuilder: (_, _, _) => fallback,
+          );
+        } catch (_) {
+          return fallback;
+        }
+      }
+    }
+    return Image.network(
+      value,
+      width: 90,
+      height: 90,
+      fit: BoxFit.cover,
+      errorBuilder: (_, _, _) => fallback,
+    );
   }
 
   Widget _buildAvatar() {
@@ -443,19 +565,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
                       color: hasImage ? AppColors.primary : Colors.white,
                     )
                   : _avatarUrl != null
-                  ? ClipOval(
-                      child: Image.network(
-                        _avatarUrl!,
-                        width: 90,
-                        height: 90,
-                        fit: BoxFit.cover,
-                        errorBuilder: (
-                          BuildContext context,
-                          Object error,
-                          StackTrace? stackTrace,
-                        ) => initials,
-                      ),
-                    )
+                  ? ClipOval(child: _avatarImage(_avatarUrl!, initials))
                   : avatar != null
                   ? ClipOval(
                       child: Image.asset(
@@ -802,7 +912,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
           const SizedBox(height: 18),
           const Center(
             child: Text(
-              'HRIS Mobile v1.0.0',
+              'HRIS Dignity V1.1',
               style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
             ),
           ),
