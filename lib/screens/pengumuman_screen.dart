@@ -6,8 +6,10 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/api_config.dart';
+import '../services/pengumuman_overlay.dart';
 import '../theme/app_theme.dart';
 import '../widgets/section_card.dart';
+import 'detail_pengumuman_screen.dart';
 import 'tambah_pengumuman_screen.dart';
 
 class PengumumanScreen extends StatefulWidget {
@@ -56,6 +58,84 @@ class _PengumumanScreenState extends State<PengumumanScreen> {
     }
   }
 
+  Future<void> _bukaDetail(_Pengumuman item) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => DetailPengumumanScreen(
+          judul: item.judul,
+          isi: item.isi,
+          tanggal: item.tanggal,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _editPengumuman(_Pengumuman item) async {
+    if (item.id == null) return;
+    final bool? berhasil = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => TambahPengumumanScreen(
+          id: item.id,
+          judulAwal: item.judul,
+          isiAwal: item.isi,
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (berhasil == true) await _fetchPengumuman();
+  }
+
+  Future<void> _hapusPengumuman(_Pengumuman item) async {
+    if (item.id == null) return;
+    final bool? yakin = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
+        title: const Text('Hapus pengumuman?'),
+        content: const Text('Pengumuman ini akan dihapus permanen.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (yakin != true) return;
+
+    bool serverBerhasil = false;
+    try {
+      final http.Response response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/hapus_pengumuman.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(<String, dynamic>{'id': item.id}),
+      ).timeout(const Duration(seconds: 10));
+      serverBerhasil = response.statusCode == 200;
+    } catch (_) {}
+
+    if (!serverBerhasil) {
+      await PengumumanOverlay.upsert(
+        id: item.id!,
+        dihapus: true,
+      );
+    }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          serverBerhasil
+              ? 'Pengumuman berhasil dihapus.'
+              : 'Pengumuman dihapus di perangkat ini.',
+        ),
+      ),
+    );
+    await _fetchPengumuman();
+  }
+
   Future<void> _fetchPengumuman() async {
     setState(() {
       _isLoading = true;
@@ -70,8 +150,11 @@ class _PengumumanScreenState extends State<PengumumanScreen> {
       if (!mounted) return;
 
       if (response.statusCode == 200) {
+        final List<_Pengumuman> dariServer = _parsePengumuman(response.body);
+        final List<_Pengumuman> finalList = await _terapkanOverlay(dariServer);
+        if (!mounted) return;
         setState(() {
-          _daftarPengumuman = _parsePengumuman(response.body);
+          _daftarPengumuman = finalList;
           _isLoading = false;
         });
       } else {
@@ -96,6 +179,31 @@ class _PengumumanScreenState extends State<PengumumanScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  Future<List<_Pengumuman>> _terapkanOverlay(
+    List<_Pengumuman> dariServer,
+  ) async {
+    final Map<String, Map<String, dynamic>> overlay =
+        await PengumumanOverlay.load();
+    if (overlay.isEmpty) return dariServer;
+
+    return dariServer.where((_Pengumuman item) {
+      final String key = item.id?.toString() ?? '';
+      final Map<String, dynamic>? perubahan = overlay[key];
+      if (perubahan == null) return true;
+      return perubahan['dihapus'] != true;
+    }).map((_Pengumuman item) {
+      final String key = item.id?.toString() ?? '';
+      final Map<String, dynamic>? perubahan = overlay[key];
+      if (perubahan == null) return item;
+      return _Pengumuman(
+        id: item.id,
+        judul: (perubahan['judul'] as String?) ?? item.judul,
+        isi: (perubahan['isi'] as String?) ?? item.isi,
+        tanggal: item.tanggal,
+      );
+    }).toList();
   }
 
   List<_Pengumuman> _parsePengumuman(String body) {
@@ -321,75 +429,98 @@ class _PengumumanScreenState extends State<PengumumanScreen> {
   }
 
   Widget _buildItem(_Pengumuman item) {
+    final bool isHr = _roleUser == 'hr';
     return SectionCard(
       padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(13),
+      child: InkWell(
+        onTap: () => _bukaDetail(item),
+        borderRadius: BorderRadius.circular(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  child: const Icon(
+                    Icons.campaign_outlined,
+                    size: 21,
+                    color: AppColors.primary,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.campaign_outlined,
-                  size: 21,
-                  color: AppColors.primary,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.judul,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.calendar_today_outlined,
-                          size: 12,
-                          color: AppColors.textSecondary,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.judul,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
                         ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            _formatTanggal(item.tanggal),
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              color: AppColors.textSecondary,
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.calendar_today_outlined,
+                            size: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              _formatTanggal(item.tanggal),
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                color: AppColors.textSecondary,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const Divider(height: 20, color: AppColors.border),
-          Text(
-            item.isi,
-            style: const TextStyle(
-              fontSize: 13,
-              height: 1.5,
-              color: AppColors.textSecondary,
+                if (isHr)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined, size: 20),
+                        color: AppColors.primary,
+                        tooltip: 'Edit',
+                        onPressed: () => _editPengumuman(item),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, size: 20),
+                        color: AppColors.danger,
+                        tooltip: 'Hapus',
+                        onPressed: () => _hapusPengumuman(item),
+                      ),
+                    ],
+                  ),
+              ],
             ),
-          ),
-        ],
+            const Divider(height: 20, color: AppColors.border),
+            Text(
+              item.isi,
+              style: const TextStyle(
+                fontSize: 13,
+                height: 1.5,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
