@@ -52,19 +52,29 @@ class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
   }
 
   Future<void> _pilihLampiran() async {
-    final PlatformFile? file = await FilePicker.pickFile(type: FileType.any);
-    if (file == null || !mounted) return;
-    final List<int> bytes = await file.readAsBytes();
-
-    final String ext = (file.extension ?? '').toLowerCase();
-    final String mime = _mimeFromExtension(ext);
-    setState(() {
-      _lampiran = LampiranPengumuman(
-        dataUrl: 'data:$mime;base64,${base64Encode(bytes)}',
-        namaFile: file.name,
-        mime: mime,
+    try {
+      final List<PlatformFile> files = await FilePicker.pickFiles(
+        type: FileType.any,
       );
-    });
+      if (!mounted || files.isEmpty) return;
+      final PlatformFile file = files.first;
+      final List<int> bytes = await file.readAsBytes();
+
+      final String ext = (file.extension ?? '').toLowerCase();
+      final String mime = _mimeFromExtension(ext);
+      setState(() {
+        _lampiran = LampiranPengumuman(
+          dataUrl: 'data:$mime;base64,${base64Encode(bytes)}',
+          namaFile: file.name,
+          mime: mime,
+        );
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Gagal membuka pemilih file: $e')),
+      );
+    }
   }
 
   String _mimeFromExtension(String ext) {
