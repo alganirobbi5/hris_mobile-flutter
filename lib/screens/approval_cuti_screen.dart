@@ -94,7 +94,53 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
         .toList();
   }
 
-  Future<void> _updateStatus(_PengajuanCuti item, int status) async {
+  Future<void> _konfirmasiStatus(_PengajuanCuti item, int status) async {
+    final bool setuju = status == 2;
+    final TextEditingController commentController = TextEditingController();
+    final bool? yakin = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
+        title: Text(setuju ? 'Setujui cuti?' : 'Tolak cuti?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Komentar untuk ${item.employeeName}${setuju ? '' : ' (alasan penolakan)'}',
+              style: const TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: commentController,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                hintText: 'Tulis komentar (opsional)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(setuju ? 'Setujui' : 'Tolak'),
+          ),
+        ],
+      ),
+    );
+    if (yakin != true) return;
+    await _updateStatus(item, status, commentController.text.trim());
+  }
+
+  Future<void> _updateStatus(
+    _PengajuanCuti item,
+    int status,
+    String comment,
+  ) async {
     if (_processingIds.contains(item.id)) return;
 
     setState(() => _processingIds.add(item.id));
@@ -107,6 +153,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
             body: jsonEncode(<String, dynamic>{
               'leave_id': item.id,
               'status': status,
+              'comment': comment,
             }),
           )
           .timeout(const Duration(seconds: 20));
@@ -466,7 +513,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
               Expanded(
                 child: FilledButton.icon(
                   onPressed: isPending && !isProcessing
-                      ? () => _updateStatus(item, 2)
+                      ? () => _konfirmasiStatus(item, 2)
                       : null,
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.success,
@@ -490,7 +537,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
               Expanded(
                 child: FilledButton.icon(
                   onPressed: isPending && !isProcessing
-                      ? () => _updateStatus(item, 3)
+                      ? () => _konfirmasiStatus(item, 3)
                       : null,
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.danger,
