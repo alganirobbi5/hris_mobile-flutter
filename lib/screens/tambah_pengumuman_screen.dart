@@ -53,12 +53,19 @@ class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
 
   Future<void> _pilihLampiran() async {
     try {
-      final List<PlatformFile> files = await FilePicker.pickFiles(
+      final FilePickerResult? result = await FilePicker.platform.pickFiles(
         type: FileType.any,
+        withData: true,
       );
-      if (!mounted || files.isEmpty) return;
-      final PlatformFile file = files.first;
-      final List<int> bytes = await file.readAsBytes();
+      if (!mounted || result == null || result.files.isEmpty) return;
+      final PlatformFile file = result.files.single;
+      final List<int>? bytes = file.bytes;
+      if (bytes == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gagal membaca file yang dipilih.')),
+        );
+        return;
+      }
 
       final String ext = (file.extension ?? '').toLowerCase();
       final String mime = _mimeFromExtension(ext);
