@@ -10,6 +10,7 @@ import '../config/api_config.dart';
 import '../config/avatar_catalog.dart';
 import '../config/company_config.dart';
 import '../services/app_session.dart';
+import '../services/company_profile.dart';
 import '../services/employee_request.dart';
 import '../services/profile_avatar_store.dart';
 import '../theme/app_theme.dart';
@@ -37,17 +38,37 @@ class _ProfilScreenState extends State<ProfilScreen> {
 
   bool _isLoading = true;
   bool _isUploadingAvatar = false;
+  bool _isSavingCompany = false;
   String? _error;
   Map<String, dynamic>? _profil;
   String _roleUser = '';
   int? _userId;
   String? _selectedAvatarId;
   String? _avatarUrl;
+  String _companyName = CompanyConfig.namaPerusahaan;
+  String _companyCode = CompanyConfig.kodePerusahaan;
 
   @override
   void initState() {
     super.initState();
+    _loadCompany();
     _fetchProfil();
+  }
+
+  Future<void> _loadCompany({bool refreshFromApi = true}) async {
+    final CompanyProfileData local = await CompanyProfile.load();
+    if (!mounted) return;
+    setState(() {
+      _companyName = local.name;
+      _companyCode = local.code;
+    });
+    if (!refreshFromApi) return;
+    final CompanyProfileData? server = await CompanyProfile.fetch();
+    if (server == null || !mounted) return;
+    setState(() {
+      _companyName = server.name;
+      _companyCode = server.code;
+    });
   }
 
   Future<void> _fetchProfil() async {
@@ -520,6 +541,95 @@ class _ProfilScreenState extends State<ProfilScreen> {
     );
   }
 
+  Future<void> _showEditCompanyDialog() async {
+    final TextEditingController nameController =
+        TextEditingController(text: _companyName);
+    final TextEditingController codeController =
+        TextEditingController(text: _companyCode);
+    final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+
+    await showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Edit Profil Perusahaan'),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Nama Perusahaan',
+                  ),
+                  validator: (String? value) =>
+                      (value == null || value.trim().isEmpty)
+                          ? 'Nama perusahaan wajib diisi'
+                          : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: codeController,
+                  decoration: const InputDecoration(
+                    labelText: 'Kode Perusahaan',
+                  ),
+                  validator: (String? value) =>
+                      (value == null || value.trim().isEmpty)
+                          ? 'Kode perusahaan wajib diisi'
+                          : null,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              onPressed: _isSavingCompany
+                  ? null
+                  : () async {
+                      if (!formKey.currentState!.validate()) return;
+                      final bool saved = await _saveCompany(
+                        nameController.text,
+                        codeController.text,
+                      );
+                      if (!mounted) return;
+                      if (saved && dialogContext.mounted) {
+                        Navigator.of(dialogContext).pop();
+                      }
+                    },
+              child: Text(_isSavingCompany ? 'Menyimpan...' : 'Simpan'),
+            ),
+          ],
+        );
+      },
+    );
+
+    nameController.dispose();
+    codeController.dispose();
+  }
+
+  Future<bool> _saveCompany(String name, String code) async {
+    setState(() => _isSavingCompany = true);
+    final bool saved = await CompanyProfile.update(name: name, code: code);
+    if (!mounted) return saved;
+    setState(() => _isSavingCompany = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          saved
+              ? 'Profil perusahaan berhasil disimpan.'
+              : 'Gagal menyimpan profil perusahaan.',
+        ),
+      ),
+    );
+    if (saved) await _loadCompany(refreshFromApi: true);
+    return saved;
+  }
+
   void _showLogoutConfirmation() {
     showDialog<void>(
       context: context,
@@ -733,15 +843,15 @@ class _ProfilScreenState extends State<ProfilScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
             child: Column(
               children: [
-                const InfoRow(
+                InfoRow(
                   icon: Icons.apartment_rounded,
                   label: 'Nama Perusahaan',
-                  value: CompanyConfig.namaPerusahaan,
+                  value: _companyName,
                 ),
-                const InfoRow(
+                InfoRow(
                   icon: Icons.badge_outlined,
                   label: 'Kode Perusahaan',
-                  value: CompanyConfig.kodePerusahaan,
+                  value: _companyCode,
                 ),
                 InfoRow(
                   icon: Icons.mail_outline_rounded,
@@ -764,6 +874,21 @@ class _ProfilScreenState extends State<ProfilScreen> {
             ),
           ),
           const SizedBox(height: 24),
+
+          // EDIT PROFIL PERUSAHAAN (Hanya untuk HR)
+          if (AppSession.isHrRole(_roleUser)) ...[
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _isSavingCompany
+                    ? null
+                    : _showEditCompanyDialog,
+                icon: const Icon(Icons.business_center_outlined),
+                label: const Text('Edit Profil Perusahaan'),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
 
           // TOMBOL TAMBAH KARYAWAN (Hanya muncul jika role == hr)
           if (_roleUser == 'hr') ...[

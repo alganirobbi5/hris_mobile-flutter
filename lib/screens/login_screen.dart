@@ -7,8 +7,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/api_config.dart';
-import '../config/company_config.dart';
 import '../services/app_session.dart';
+import '../services/company_profile.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/primary_button.dart';
@@ -32,6 +32,12 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
 
   @override
+  void initState() {
+    super.initState();
+    CompanyProfile.load();
+  }
+
+  @override
   void dispose() {
     _companyController.dispose();
     _usernameController.dispose();
@@ -51,7 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (requiredError != null) return requiredError;
 
     if (value!.trim().toUpperCase() !=
-        CompanyConfig.kodePerusahaan.toUpperCase()) {
+        CompanyProfile.current.code.toUpperCase()) {
       return 'Kode perusahaan tidak sesuai dengan data HR';
     }
     return null;
@@ -77,7 +83,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
     if (_companyController.text.trim().toUpperCase() !=
-        CompanyConfig.kodePerusahaan.toUpperCase()) {
+        CompanyProfile.current.code.toUpperCase()) {
       messenger.showSnackBar(
         const SnackBar(
           content: Text('Kode perusahaan tidak sesuai dengan data HR.'),
@@ -96,7 +102,7 @@ class _LoginScreenState extends State<LoginScreen> {
             _loginUrl,
             headers: <String, String>{'Content-Type': 'application/json'},
             body: jsonEncode(<String, String>{
-              'company_code': CompanyConfig.kodePerusahaan,
+              'company_code': CompanyProfile.current.code,
               'username': _usernameController.text.trim(),
               'password': _passwordController.text,
             }),

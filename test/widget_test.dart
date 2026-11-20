@@ -4,6 +4,7 @@ import 'package:hris_mobile/main.dart';
 import 'package:hris_mobile/screens/absen_success_screen.dart';
 import 'package:hris_mobile/screens/main_screen.dart';
 import 'package:hris_mobile/services/app_session.dart';
+import 'package:hris_mobile/services/company_profile.dart';
 import 'package:hris_mobile/widgets/glass_bottom_nav.dart';
 import 'package:hris_mobile/widgets/primary_button.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,6 +13,10 @@ void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     await AppSession.clear();
+    CompanyProfile.current = const CompanyProfileData(
+      name: 'PT Contoh Maju Sejahtera',
+      code: 'CMJ-2026',
+    );
   });
 
   testWidgets('Halaman login tampil sebagai halaman awal', (
@@ -149,6 +154,7 @@ void main() {
 
     expect(find.text('Profil'), findsWidgets);
     expect(find.byType(DangerButton), findsOneWidget);
+    expect(find.text('Edit Profil Perusahaan'), findsNothing);
   });
 
   testWidgets('Profil dan logout tersedia untuk Admin HR tanpa employee_id', (
@@ -160,6 +166,8 @@ void main() {
     await prefs.setInt('user_id', 1);
     await prefs.setString('username', 'admin');
     await prefs.setString('nama_lengkap', 'Admin HR');
+    await prefs.setString('company_name', 'PT Dignity');
+    await prefs.setString('company_code', 'DGN-2026');
 
     await tester.pumpWidget(const MaterialApp(home: MainScreen()));
     await tester.pumpAndSettle();
@@ -176,8 +184,36 @@ void main() {
     expect(find.text('Admin HR'), findsWidgets);
     expect(find.text('admin'), findsWidgets);
     expect(find.text('hr'), findsWidgets);
+    expect(find.text('PT Dignity'), findsWidgets);
+    expect(find.text('DGN-2026'), findsWidgets);
+    expect(find.text('Edit Profil Perusahaan'), findsOneWidget);
     expect(find.byType(DangerButton), findsOneWidget);
     expect(find.byIcon(Icons.logout_rounded), findsWidgets);
+  });
+
+  testWidgets('HR dapat membuka form edit profil perusahaan', (
+    WidgetTester tester,
+  ) async {
+    await AppSession.clear();
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('role', 'hr');
+    await prefs.setInt('user_id', 1);
+    await prefs.setString('username', 'admin');
+
+    await tester.pumpWidget(const MaterialApp(home: MainScreen()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Profil').last);
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Edit Profil Perusahaan'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit Profil Perusahaan'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Edit Profil Perusahaan'), findsWidgets);
+    expect(find.text('Nama Perusahaan'), findsWidgets);
+    expect(find.text('Kode Perusahaan'), findsWidgets);
+    expect(find.text('Simpan'), findsOneWidget);
   });
 
   testWidgets('Logout Admin HR membersihkan sesi tanpa API profil', (
