@@ -61,10 +61,14 @@ class _ProfilScreenState extends State<ProfilScreen> {
       final prefs = await SharedPreferences.getInstance();
       _userId = prefs.getInt('user_id');
       _roleUser = prefs.getString('role') ?? '';
-      final String? savedAvatar = await ProfileAvatarStore.load(_userId);
-      final String? savedAvatarImage = await ProfileAvatarStore.loadImage(
-        _userId,
-      );
+      String? savedAvatar;
+      String? savedAvatarImage;
+      try {
+        savedAvatar = await ProfileAvatarStore.load(_userId);
+        savedAvatarImage = await ProfileAvatarStore.loadImage(_userId);
+      } catch (_) {
+        // Avatar lokal opsional; kegagalan tidak boleh menghalangi profil/logout.
+      }
       final String? legacyAvatar = prefs.getString(_avatarPrefsKey);
       final String? savedAvatarFile = savedAvatarImage ?? legacyAvatar;
       if (savedAvatarImage != null) {
@@ -93,11 +97,9 @@ class _ProfilScreenState extends State<ProfilScreen> {
 
       final int? employeeId = await AppSession.currentEmployeeId();
       if (employeeId == null) {
-        setState(() {
-          _error =
-              'employee_id tidak ditemukan. Silakan login ulang.';
-          _isLoading = false;
-        });
+        // Admin HR dapat belum memiliki data karyawan. Profil dan logout
+        // tetap tersedia menggunakan identitas dari response login.
+        await _applySessionProfile();
         return;
       }
       final Uri url = EmployeeRequest.profile(employeeId);
@@ -138,24 +140,42 @@ class _ProfilScreenState extends State<ProfilScreen> {
           _isLoading = false;
         });
       } else {
-        setState(() {
-          _error = _apiErrorMessage(response);
-          _isLoading = false;
-        });
+        // Jangan menghalangi halaman profil/logout bila data server gagal dimuat.
+        await _applySessionProfile();
       }
     } on FormatException {
-      if (!mounted) return;
-      setState(() {
-        _error = 'Format data profil tidak valid.';
-        _isLoading = false;
-      });
+      await _applySessionProfile();
     } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _error = 'Gagal terhubung ke server';
-        _isLoading = false;
-      });
+      await _applySessionProfile();
     }
+  }
+
+  Future<void> _applySessionProfile() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final String rawName = (AppSession.name ??
+            AppSession.username ??
+            prefs.getString('nama_lengkap') ??
+            '')
+        .toString()
+        .trim();
+    final String rawUsername = (AppSession.username ??
+            prefs.getString('username') ??
+            '')
+        .toString()
+        .trim();
+    final String rawRole =
+        (AppSession.role ?? prefs.getString('role') ?? '').toString().trim();
+    if (!mounted) return;
+    setState(() {
+      _profil = <String, dynamic>{
+        'nama_lengkap': rawName.isEmpty ? 'Pengguna' : rawName,
+        'role': rawRole,
+        'username': rawUsername.isEmpty ? 'Belum tersedia' : rawUsername,
+        'email': 'Belum tersedia',
+      };
+      _isLoading = false;
+      _error = null;
+    });
   }
 
   Map<String, dynamic> _parseProfil(String body) {
@@ -182,28 +202,6 @@ class _ProfilScreenState extends State<ProfilScreen> {
     }
 
     return data;
-  }
-
-  String _apiErrorMessage(http.Response response, {String? fallback}) {
-    final String fallbackMessage =
-        fallback ?? 'Gagal memuat profil (HTTP ${response.statusCode}).';
-    final String body = response.body.trim();
-    if (body.isEmpty) return fallbackMessage;
-
-    try {
-      final dynamic decoded = jsonDecode(body);
-      if (decoded is Map<String, dynamic>) {
-        final dynamic message =
-            decoded['message'] ?? decoded['error'] ?? decoded['pesan'];
-        if (message is String && message.trim().isNotEmpty) {
-          return message.trim();
-        }
-      }
-    } on FormatException {
-      return body.length <= 140 ? body : fallbackMessage;
-    }
-
-    return body.length <= 140 ? body : fallbackMessage;
   }
 
   String _profileValue(String key) {
@@ -522,6 +520,41 @@ class _ProfilScreenState extends State<ProfilScreen> {
     );
   }
 
+  void _showLogoutConfirmation() {
+    showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Konfirmasi'),
+          content: const Text('Apakah Anda yakin ingin keluar?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Batal'),
+            ),
+            TextButton(
+              onPressed: () async {
+                await AppSession.clear();
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.remove('laporan_tanggal');
+                if (!dialogContext.mounted) return;
+                Navigator.of(dialogContext).pop();
+                if (!mounted) return;
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const LoginScreen(),
+                  ),
+                  (route) => false,
+                );
+              },
+              child: const Text('Ya', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -537,6 +570,14 @@ class _ProfilScreenState extends State<ProfilScreen> {
                 color: AppColors.textSecondary,
               ),
             ),
+          IconButton(
+            onPressed: _showLogoutConfirmation,
+            tooltip: 'Keluar',
+            icon: const Icon(
+              Icons.logout_rounded,
+              color: AppColors.textSecondary,
+            ),
+          ),
         ],
       ),
       body: SafeArea(top: false, child: _buildBody()),
@@ -804,39 +845,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
           DangerButton(
             label: 'Keluar',
             icon: Icons.logout_rounded,
-            onPressed: () {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Konfirmasi'),
-                  content: const Text('Apakah Anda yakin ingin keluar?'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Batal'),
-                    ),
-                    TextButton(
-                      onPressed: () async {
-                        await AppSession.clear();
-                        final prefs = await SharedPreferences.getInstance();
-                        await prefs.remove('laporan_tanggal');
-                        if (!context.mounted) return;
-                        Navigator.of(context).pushAndRemoveUntil(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const LoginScreen(),
-                          ),
-                          (route) => false,
-                        );
-                      },
-                      child: const Text(
-                        'Ya',
-                        style: TextStyle(color: Colors.red),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
+            onPressed: _showLogoutConfirmation,
           ),
           const SizedBox(height: 18),
           const Center(

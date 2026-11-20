@@ -90,8 +90,10 @@ class _AbsenScreenState extends State<AbsenScreen> {
   }
 
   Future<void> _cekStatusAbsen() async {
-    final String? token = await AppSession.resolveToken();
     final int? employeeId = await AppSession.currentEmployeeId();
+    if (employeeId == null) return;
+
+    final String? token = await AppSession.resolveToken();
 
     try {
       final response = await http.get(
@@ -199,7 +201,9 @@ class _AbsenScreenState extends State<AbsenScreen> {
     try {
       final int? employeeId = await AppSession.currentEmployeeId();
       if (employeeId == null) {
-        _showMessage('employee_id tidak ditemukan. Silakan login ulang.');
+        final String? role = await AppSession.resolveRole();
+        if (!mounted) return;
+        _showMessage(EmployeeRequest.absenUnavailableMessage(role));
         return;
       }
 
@@ -287,7 +291,9 @@ class _AbsenScreenState extends State<AbsenScreen> {
     try {
       final int? employeeId = await AppSession.currentEmployeeId();
       if (employeeId == null) {
-        _showMessage('employee_id tidak ditemukan. Silakan login ulang.');
+        final String? role = await AppSession.resolveRole();
+        if (!mounted) return;
+        _showMessage(EmployeeRequest.absenUnavailableMessage(role));
         return;
       }
 

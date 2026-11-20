@@ -62,6 +62,19 @@ class AppSession {
     return stored;
   }
 
+  /// Role from the same session keys used by setFromLogin/restore.
+  static Future<String?> resolveRole() async {
+    final String? current = _text(role);
+    if (current != null) return current;
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final String? stored = _text(prefs.getString('role'));
+    if (stored != null) role = stored;
+    return stored;
+  }
+
+  static bool isHrRole(String? value) =>
+      (value ?? '').trim().toLowerCase() == 'hr';
+
   /// Employee identity from the value supplied by login.php. No probing and
   /// no synthetic fallback id: if the backend did not supply one, return null.
   static Future<int?> currentEmployeeId() async {

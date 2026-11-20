@@ -3,12 +3,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hris_mobile/main.dart';
 import 'package:hris_mobile/screens/absen_success_screen.dart';
 import 'package:hris_mobile/screens/main_screen.dart';
+import 'package:hris_mobile/services/app_session.dart';
 import 'package:hris_mobile/widgets/glass_bottom_nav.dart';
+import 'package:hris_mobile/widgets/primary_button.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  setUp(() {
+  setUp(() async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    await AppSession.clear();
   });
 
   testWidgets('Halaman login tampil sebagai halaman awal', (
@@ -132,6 +135,9 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: MainScreen()));
     await tester.pumpAndSettle();
 
+    expect(find.text('Pengajuan Cuti'), findsWidgets);
+    expect(find.text('Ambil Selfie & Absen Masuk'), findsOneWidget);
+
     final Finder navigationBar = find.byType(GlassBottomNav);
     await tester.tap(
       find.descendant(
@@ -142,6 +148,68 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Profil'), findsWidgets);
+    expect(find.byType(DangerButton), findsOneWidget);
+  });
+
+  testWidgets('Profil dan logout tersedia untuk Admin HR tanpa employee_id', (
+    WidgetTester tester,
+  ) async {
+    await AppSession.clear();
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('role', 'hr');
+    await prefs.setInt('user_id', 1);
+    await prefs.setString('username', 'admin');
+    await prefs.setString('nama_lengkap', 'Admin HR');
+
+    await tester.pumpWidget(const MaterialApp(home: MainScreen()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ambil Selfie & Absen Masuk'), findsOneWidget);
+    expect(find.text('Pengumuman'), findsWidgets);
+    expect(find.text('Laporan'), findsWidgets);
+    expect(find.text('Persetujuan'), findsWidgets);
+
+    await tester.tap(find.text('Profil').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Memuat profil...'), findsNothing);
+    expect(find.text('Admin HR'), findsWidgets);
+    expect(find.text('admin'), findsWidgets);
+    expect(find.text('hr'), findsWidgets);
+    expect(find.byType(DangerButton), findsOneWidget);
+    expect(find.byIcon(Icons.logout_rounded), findsWidgets);
+  });
+
+  testWidgets('Logout Admin HR membersihkan sesi tanpa API profil', (
+    WidgetTester tester,
+  ) async {
+    await AppSession.clear();
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('role', 'hr');
+    await prefs.setInt('user_id', 1);
+    await prefs.setString('username', 'admin');
+    await prefs.setString('nama_lengkap', 'Admin HR');
+
+    await tester.pumpWidget(const MaterialApp(home: MainScreen()));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Profil').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.byIcon(Icons.logout_rounded),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ya'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Selamat datang'), findsOneWidget);
+    expect(AppSession.getRole(), isNull);
+    expect(AppSession.getToken(), isNull);
+    expect((await SharedPreferences.getInstance()).containsKey('user_id'),
+        isFalse);
   });
 
   testWidgets('Halaman sukses absen menampilkan foto dan koordinat GPS', (

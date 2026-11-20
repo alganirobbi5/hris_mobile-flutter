@@ -31,6 +31,21 @@ void main() {
     );
   });
 
+  test('pesan absen admin HR spesifik tanpa employee_id palsu', () {
+    expect(
+      EmployeeRequest.absenUnavailableMessage('hr'),
+      contains('belum didukung backend'),
+    );
+    expect(
+      EmployeeRequest.absenUnavailableMessage('HR'),
+      contains('belum didukung backend'),
+    );
+    expect(
+      EmployeeRequest.absenUnavailableMessage('employee'),
+      contains('employee_id tidak ditemukan'),
+    );
+  });
+
   test('payload absen masuk memenuhi validasi absen.php', () {
     final Map<String, dynamic> payload = EmployeeRequest.absenMasuk(
       employeeId: 42,

@@ -1,4 +1,5 @@
 import '../config/api_config.dart';
+import 'app_session.dart';
 
 class EmployeeIdMissingException implements Exception {
   const EmployeeIdMissingException();
@@ -16,6 +17,17 @@ class EmployeeIdMissingException implements Exception {
 /// require it in the JSON body.
 class EmployeeRequest {
   const EmployeeRequest._();
+
+  /// No request is sent without an employee_id. The deployed backend has no
+  /// attendance identity for HR admins, so they get a precise explanation
+  /// instead of the generic "Data tidak lengkap" from absen.php.
+  static String absenUnavailableMessage(String? role) {
+    if (AppSession.isHrRole(role)) {
+      return 'Absensi pribadi Admin HR belum didukung backend karena akun HR '
+          'tidak memiliki data karyawan. Hubungi administrator.';
+    }
+    return 'employee_id tidak ditemukan. Silakan login ulang.';
+  }
 
   static Uri profile(int? employeeId) =>
       _withEmployeeQuery('profil.php', employeeId);
