@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/api_config.dart';
 import '../services/app_session.dart';
@@ -15,6 +16,7 @@ import '../widgets/section_card.dart';
 import '../widgets/status_badge.dart';
 import 'absen_success_screen.dart';
 import 'cuti_screen.dart';
+import 'login_screen.dart';
 
 class AbsenScreen extends StatefulWidget {
   const AbsenScreen({super.key});
@@ -237,25 +239,37 @@ class _AbsenScreenState extends State<AbsenScreen> {
       final String waktuLokal =
           "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
 
-      final String? token = await AppSession.resolveToken();
-      final response = await http.post(
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final String? token = prefs.getString(ApiConfig.authTokenPrefKey);
+
+      final http.MultipartRequest request = http.MultipartRequest(
+        'POST',
         Uri.parse('${ApiConfig.baseUrl}/absen.php'),
-        headers: {
-          'Content-Type': 'application/json',
-          if (token != null) 'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode(
-          EmployeeRequest.absenMasuk(
-            employeeId: employeeId,
-            latitude: position.latitude,
-            longitude: position.longitude,
-            tanggalLokal: tanggalLokal,
-            waktuLokal: waktuLokal,
-          ),
+      );
+      if (token != null && token.isNotEmpty) {
+        request.headers['Authorization'] = 'Bearer $token';
+      }
+      request.fields.addAll(
+        EmployeeRequest.multipartMasuk(
+          employeeId: employeeId,
+          latitude: position.latitude,
+          longitude: position.longitude,
+          tanggalLokal: tanggalLokal,
+          waktuLokal: waktuLokal,
         ),
       );
+      request.files.add(
+        await http.MultipartFile.fromPath('selfie', photo.path),
+      );
+
+      final http.StreamedResponse streamed = await request.send();
+      final http.Response response = await http.Response.fromStream(streamed);
 
       if (!mounted) return;
+      if (response.statusCode == 401) {
+        await _handleUnauthorized();
+        return;
+      }
 
       if (response.statusCode == 201) {
         // Refresh status setelah absen masuk
@@ -322,35 +336,42 @@ class _AbsenScreenState extends State<AbsenScreen> {
       if (!mounted) return;
 
       final now = DateTime.now();
+      final String tanggalLokal =
+          "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
       final String waktuLokal =
-          "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
-      final List<int> photoBytes = await photo.readAsBytes();
-      final String? photoMime = photo.mimeType;
-      final String selfieMime = (photoMime == null || photoMime.isEmpty)
-          ? 'image/jpeg'
-          : photoMime;
-      final String selfie =
-          'data:$selfieMime;base64,${base64Encode(photoBytes)}';
+          "$tanggalLokal ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
 
-      final String? token = await AppSession.resolveToken();
-      final response = await http.post(
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final String? token = prefs.getString(ApiConfig.authTokenPrefKey);
+
+      final http.MultipartRequest request = http.MultipartRequest(
+        'POST',
         Uri.parse('${ApiConfig.baseUrl}/absen_pulang.php'),
-        headers: {
-          'Content-Type': 'application/json',
-          if (token != null) 'Authorization': 'Bearer $token',
-        },
-        body: jsonEncode(
-          EmployeeRequest.absenPulang(
-            employeeId: employeeId,
-            latitude: position.latitude,
-            longitude: position.longitude,
-            waktuLokal: waktuLokal,
-            selfie: selfie,
-          ),
+      );
+      if (token != null && token.isNotEmpty) {
+        request.headers['Authorization'] = 'Bearer $token';
+      }
+      request.fields.addAll(
+        EmployeeRequest.multipartPulang(
+          employeeId: employeeId,
+          latitude: position.latitude,
+          longitude: position.longitude,
+          tanggalLokal: tanggalLokal,
+          waktuLokal: waktuLokal,
         ),
       );
+      request.files.add(
+        await http.MultipartFile.fromPath('selfie', photo.path),
+      );
+
+      final http.StreamedResponse streamed = await request.send();
+      final http.Response response = await http.Response.fromStream(streamed);
 
       if (!mounted) return;
+      if (response.statusCode == 401) {
+        await _handleUnauthorized();
+        return;
+      }
 
       if (response.statusCode == 200) {
         await _cekStatusAbsen();
@@ -376,6 +397,18 @@ class _AbsenScreenState extends State<AbsenScreen> {
     } finally {
       if (mounted) setState(() => _isProcessing = false);
     }
+  }
+
+  Future<void> _handleUnauthorized() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.remove(ApiConfig.authTokenPrefKey);
+    await AppSession.clear();
+    if (!mounted) return;
+    _showMessage('Sesi login berakhir. Silakan login kembali.');
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
   }
 
   Future<bool> _ensureLocationPermission() async {

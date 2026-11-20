@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/api_config.dart';
 import '../config/company_config.dart';
@@ -54,6 +55,20 @@ class _LoginScreenState extends State<LoginScreen> {
       return 'Kode perusahaan tidak sesuai dengan data HR';
     }
     return null;
+  }
+
+  /// Menyimpan sesi login, termasuk Bearer token ke key 'auth_token'.
+  /// Token diambil dari `data['token']` atau `data['data']['token']`
+  /// (lihat [AppSession.extractToken]).
+  Future<void> _saveSession(Map<String, dynamic> body) async {
+    await AppSession.setFromLogin(body);
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final String? token = AppSession.extractToken(body);
+    if (token == null || token.isEmpty) {
+      await prefs.remove(ApiConfig.authTokenPrefKey);
+      return;
+    }
+    await prefs.setString(ApiConfig.authTokenPrefKey, token);
   }
 
   Future<void> _handleLogin() async {
@@ -109,9 +124,29 @@ class _LoginScreenState extends State<LoginScreen> {
         messenger.showSnackBar(
           SnackBar(content: Text('Server balas: ${response.body}')),
         );
-      } else if (response.statusCode == 200) {
-        // Simpan sesi login melalui AppSession (terintegrasi dengan kontrak backend)
-        await AppSession.setFromLogin(body);
+      } else if (response.statusCode == 200 &&
+          body['success'] != false &&
+          (body['status'] as String?)?.toLowerCase() != 'error') {
+        await _saveSession(body);
+
+        // Mode token: backend mengirim field token, jadi token wajib ada.
+        // Backend lama tidak mengirim field token sama sekali dan tetap
+        // diizinkan agar pengguna tidak terkunci.
+        if (AppSession.responseDeclaresToken(body)) {
+          final String? token = await AppSession.resolveToken();
+          if (token == null || token.isEmpty) {
+            await AppSession.clear();
+            if (!mounted) return;
+            messenger.showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Token autentikasi tidak diterima dari server. Silakan coba lagi.',
+                ),
+              ),
+            );
+            return;
+          }
+        }
 
         if (!mounted) return;
 

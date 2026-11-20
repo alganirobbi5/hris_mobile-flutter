@@ -29,6 +29,71 @@ void main() {
     AppSession.role = null;
   });
 
+  test('setFromLogin menyimpan token ke auth_token dan api_token', () async {
+    await AppSession.setFromLogin(loginResponse);
+
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    expect(prefs.getString(ApiConfig.authTokenPrefKey), 'vps-token-123');
+    expect(prefs.getString(ApiConfig.tokenPrefKey), 'vps-token-123');
+  });
+
+  test('deteksi token-mode dan ekstraksi token dari dua bentuk respons', () {
+    expect(
+      AppSession.extractToken(<String, dynamic>{
+        'data': <String, dynamic>{'token': 'token-level-data'},
+      }),
+      'token-level-data',
+    );
+    expect(
+      AppSession.extractToken(<String, dynamic>{
+        'data': <String, dynamic>{
+          'data': <String, dynamic>{'token': 'token-level-nested'},
+        },
+      }),
+      'token-level-nested',
+    );
+    expect(AppSession.extractToken(<String, dynamic>{'token': 'token-flat'}),
+        'token-flat');
+
+    expect(
+      AppSession.responseDeclaresToken(<String, dynamic>{
+        'data': <String, dynamic>{'token': null},
+      }),
+      isTrue,
+    );
+    expect(
+      AppSession.responseDeclaresToken(<String, dynamic>{
+        'data': <String, dynamic>{'user_id': 1, 'employee_id': 2},
+      }),
+      isFalse,
+    );
+  });
+
+  test('restore dan resolveToken lebih mengutamakan auth_token', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      ApiConfig.authTokenPrefKey: 'token-baru',
+      ApiConfig.tokenPrefKey: 'token-lama',
+    });
+
+    await AppSession.restore();
+    expect(AppSession.getToken(), 'token-baru');
+
+    AppSession.token = null;
+    expect(await AppSession.resolveToken(), 'token-baru');
+  });
+
+  test('clear menghapus auth_token', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      ApiConfig.authTokenPrefKey: 'token-baru',
+    });
+    AppSession.token = 'token-baru';
+
+    await AppSession.clear();
+
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    expect(prefs.containsKey(ApiConfig.authTokenPrefKey), isFalse);
+  });
+
   test('setFromLogin membaca token dari data.token dan menyimpan field sesi', () async {
     await AppSession.setFromLogin(loginResponse);
 

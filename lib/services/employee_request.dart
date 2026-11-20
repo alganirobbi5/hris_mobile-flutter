@@ -69,6 +69,42 @@ class EmployeeRequest {
     };
   }
 
+  /// Field teks untuk request multipart. File selfie ditambahkan terpisah
+  /// dengan nama field `selfie` di absen_screen.dart.
+  static Map<String, String> multipartMasuk({
+    required int? employeeId,
+    required double latitude,
+    required double longitude,
+    required String tanggalLokal,
+    required String waktuLokal,
+  }) {
+    _require(employeeId);
+    return <String, String>{
+      'employee_id': employeeId.toString(),
+      'latitude': latitude.toString(),
+      'longitude': longitude.toString(),
+      'tanggal_lokal': tanggalLokal,
+      'waktu_lokal': waktuLokal,
+    };
+  }
+
+  static Map<String, String> multipartPulang({
+    required int? employeeId,
+    required double latitude,
+    required double longitude,
+    required String tanggalLokal,
+    required String waktuLokal,
+  }) {
+    _require(employeeId);
+    return <String, String>{
+      'employee_id': employeeId.toString(),
+      'latitude': latitude.toString(),
+      'longitude': longitude.toString(),
+      'tanggal_lokal': tanggalLokal,
+      'waktu_lokal': waktuLokal,
+    };
+  }
+
   static Uri _withEmployeeQuery(String path, int? employeeId) {
     _require(employeeId);
     return ApiConfig.uri(path).replace(

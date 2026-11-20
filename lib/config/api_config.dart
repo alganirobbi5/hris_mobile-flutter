@@ -20,6 +20,10 @@ class ApiConfig {
 
   static const Duration requestTimeout = Duration(seconds: 15);
 
+  /// Kunci token yang dipakai backend Bearer Auth yang baru.
+  static const String authTokenPrefKey = 'auth_token';
+
+  /// Kunci lama tetap dibaca/ditulis untuk kompatibilitas sesi existing.
   static const String tokenPrefKey = 'api_token';
   static const String employeeIdPrefKey = 'employee_id';
 

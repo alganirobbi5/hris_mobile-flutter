@@ -27,12 +27,47 @@ class AppSession {
     username = _text(user['username'] ?? data['username']);
     name = _text(user['nama_lengkap'] ?? data['nama_lengkap']);
     role = _text(user['role'] ?? data['role']);
-    token = _text(
-      data['token'] ?? data['api_token'] ?? response['token'] ?? response['api_token'],
-    );
+    token = extractToken(response);
 
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await _persist(prefs);
+  }
+
+  /// Token dari respons login: `token`, `data.token`, `data.data.token`,
+  /// atau `data.user.token`.
+  static String? extractToken(Map<String, dynamic> response) {
+    for (final Map<String, dynamic> source in _tokenSources(response)) {
+      final String? value = _text(source['token'] ?? source['api_token']);
+      if (value != null) return value;
+    }
+    return null;
+  }
+
+  /// True bila backend menggunakan mode token (field token ada di respons),
+  /// termasuk ketika nilainya null/kosong — ini harus ditolak sebagai login gagal.
+  static bool responseDeclaresToken(Map<String, dynamic> response) {
+    for (final Map<String, dynamic> source in _tokenSources(response)) {
+      if (source.containsKey('token') || source.containsKey('api_token')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static List<Map<String, dynamic>> _tokenSources(
+      Map<String, dynamic> response) {
+    final List<Map<String, dynamic>> sources = <Map<String, dynamic>>[
+      response,
+    ];
+    final dynamic data = response['data'];
+    if (data is Map<String, dynamic>) {
+      sources.add(data);
+      final dynamic nested = data['data'];
+      if (nested is Map<String, dynamic>) sources.add(nested);
+      final dynamic user = data['user'];
+      if (user is Map<String, dynamic>) sources.add(user);
+    }
+    return sources;
   }
 
   /// Rehydrate the in-memory statics from disk. Must run on every cold start:
@@ -47,7 +82,8 @@ class AppSession {
     username = _text(store.getString('username'));
     name = _text(store.getString('nama_lengkap'));
     role = _text(store.getString('role'));
-    token = _text(store.getString(ApiConfig.tokenPrefKey));
+    token = _text(store.getString(ApiConfig.authTokenPrefKey)) ??
+        _text(store.getString(ApiConfig.tokenPrefKey));
   }
 
   /// Single source of truth for the Bearer token. Falls back to the same
@@ -57,7 +93,8 @@ class AppSession {
     final String? current = _text(token);
     if (current != null) return current;
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final String? stored = _text(prefs.getString(ApiConfig.tokenPrefKey));
+    final String? stored = _text(prefs.getString(ApiConfig.authTokenPrefKey)) ??
+        _text(prefs.getString(ApiConfig.tokenPrefKey));
     if (stored != null) token = stored;
     return stored;
   }
@@ -95,6 +132,7 @@ class AppSession {
     await prefs.remove('username');
     await prefs.remove('nama_lengkap');
     await prefs.remove('role');
+    await prefs.remove(ApiConfig.authTokenPrefKey);
     await prefs.remove(ApiConfig.tokenPrefKey);
     await prefs.remove(ApiConfig.employeeIdPrefKey);
 
@@ -137,8 +175,10 @@ class AppSession {
       await prefs.remove('role');
     }
     if (token != null) {
+      await prefs.setString(ApiConfig.authTokenPrefKey, token!);
       await prefs.setString(ApiConfig.tokenPrefKey, token!);
     } else {
+      await prefs.remove(ApiConfig.authTokenPrefKey);
       await prefs.remove(ApiConfig.tokenPrefKey);
     }
     if (employeeId != null) {
