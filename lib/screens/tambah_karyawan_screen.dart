@@ -44,22 +44,11 @@ class _TambahKaryawanScreenState extends State<TambahKaryawanScreen> {
 
     try {
       // 2. Kirim HTTP POST ke API
-      final String? token = AppSession.getToken();
-
-      // Jika token kosong, hentikan request dan tampilkan pesan session invalid
-      if (token == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Session invalid. Silakan login kembali.')),
-        );
-        return;
-      }
+      final String? token = await AppSession.resolveToken();
 
       final response = await http.post(
         Uri.parse('${ApiConfig.baseUrl}/tambah_karyawan.php'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
+        headers: ApiConfig.authHeaders(token),
         body: jsonEncode({
           'first_name': _firstNameController.text,
           'last_name': _lastNameController.text,

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
+import '../services/app_session.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/primary_button.dart';
@@ -107,7 +108,7 @@ class _AturJamScreenState extends State<AturJamScreen> {
       final http.Response response = await http
           .post(
             Uri.parse(_updateJamUrl),
-            headers: const {'Content-Type': 'application/json'},
+            headers: ApiConfig.authHeaders(await AppSession.resolveToken()),
             body: jsonEncode(<String, String>{
               'jam_masuk': _jamMasukController.text.trim(),
               'jam_keluar': _jamKeluarController.text.trim(),

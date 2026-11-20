@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'screens/login_screen.dart';
 import 'screens/main_screen.dart';
+import 'services/app_session.dart';
 import 'theme/app_theme.dart';
 
 void main() async {
@@ -11,6 +12,7 @@ void main() async {
   await initializeDateFormatting('id_ID', null);
 
   final SharedPreferences prefs = await SharedPreferences.getInstance();
+  await AppSession.restore(prefs);
   final bool isLoggedIn = prefs.containsKey('user_id');
 
   runApp(HrisApp(isLoggedIn: isLoggedIn));

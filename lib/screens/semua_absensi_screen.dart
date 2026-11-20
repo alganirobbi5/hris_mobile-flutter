@@ -77,22 +77,10 @@ class SemuaAbsensiViewState extends State<SemuaAbsensiView> {
     });
 
     try {
-      final String? token = AppSession.getToken();
-
-      // Jika token kosong, hentikan request dan tampilkan pesan session invalid
-      if (token == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Session invalid. Silakan login kembali.')),
-        );
-        setState(() {
-          _isLoading = false;
-        });
-        return;
-      }
+      final String? token = await AppSession.resolveToken();
 
       final http.Response response = await http
-          .get(Uri.parse(_absensiUrl),
-              headers: {'Authorization': 'Bearer $token'})
+          .get(Uri.parse(_absensiUrl), headers: ApiConfig.authHeaders(token))
           .timeout(const Duration(seconds: 20));
 
       if (!mounted) return;

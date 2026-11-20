@@ -165,23 +165,14 @@ class _CutiScreenState extends State<CutiScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      final String? token = AppSession.getToken();
-
-      // Jika token kosong, hentikan request dan tampilkan pesan session invalid
-      if (token == null) {
-        _showMessage('Session invalid. Silakan login kembali.');
-        return;
-      }
+      final String? token = await AppSession.resolveToken();
 
       http.Response response;
       try {
         response = await http
             .post(
               Uri.parse(_cutiUrl),
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer $token',
-              },
+              headers: ApiConfig.authHeaders(token),
               body: jsonEncode(<String, dynamic>{
                 'employee_id': await AppSession.currentEmployeeId(),
                 'title': title,
@@ -264,7 +255,7 @@ class _CutiScreenState extends State<CutiScreen> {
     });
 
     try {
-      final String? token = AppSession.getToken();
+      final String? token = await AppSession.resolveToken();
       final http.Response response = await http
           .get(Uri.parse(await _riwayatUrl()),
               headers: token != null ? {'Authorization': 'Bearer $token'} : {})

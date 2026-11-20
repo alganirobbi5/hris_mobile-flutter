@@ -48,7 +48,10 @@ void main() {
   testWidgets('Navigasi tab beranda berjalan tanpa error', (
     WidgetTester tester,
   ) async {
-    SharedPreferences.setMockInitialValues(<String, Object>{'role': 'hr'});
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'role': 'hr',
+      'api_token': 'token-widget-test',
+    });
     tester.view.physicalSize = const Size(360, 740);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -93,7 +96,10 @@ void main() {
   testWidgets('Tab Persetujuan Cuti tampil untuk role HR', (
     WidgetTester tester,
   ) async {
-    SharedPreferences.setMockInitialValues(<String, Object>{'role': 'hr'});
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'role': 'hr',
+      'api_token': 'token-widget-test',
+    });
 
     await tester.pumpWidget(const MaterialApp(home: MainScreen()));
     await tester.pumpAndSettle();

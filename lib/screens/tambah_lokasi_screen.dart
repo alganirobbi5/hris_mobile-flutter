@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../config/api_config.dart';
+import '../services/app_session.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/primary_button.dart';
@@ -114,7 +115,7 @@ class _TambahLokasiScreenState extends State<TambahLokasiScreen> {
       final http.Response response = await http
           .post(
             Uri.parse('${ApiConfig.baseUrl}/tambah_lokasi.php'),
-            headers: const {'Content-Type': 'application/json'},
+            headers: ApiConfig.authHeaders(await AppSession.resolveToken()),
             body: jsonEncode(<String, dynamic>{
               'nama_lokasi': _namaLokasiController.text.trim(),
               'latitude': _latitudeController.text.trim(),

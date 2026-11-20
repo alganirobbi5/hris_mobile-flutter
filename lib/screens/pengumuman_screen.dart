@@ -112,23 +112,14 @@ class _PengumumanScreenState extends State<PengumumanScreen> {
 
     bool serverBerhasil = false;
     try {
-      final String? token = AppSession.getToken();
+      final String? token = await AppSession.resolveToken();
 
-      // Jika token kosong, hentikan request dan tampilkan pesan session invalid
-      if (token == null) {
-        // Token tidak ada; anggap gagal dan lanjutkan dengan pesan lokal
-        serverBerhasil = false;
-      } else {
-        final http.Response response = await http.post(
-          Uri.parse('${ApiConfig.baseUrl}/hapus_pengumuman.php'),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
-          body: jsonEncode(<String, dynamic>{'id': item.id}),
-        ).timeout(const Duration(seconds: 10));
-        serverBerhasil = response.statusCode == 200;
-      }
+      final http.Response response = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/hapus_pengumuman.php'),
+        headers: ApiConfig.authHeaders(token),
+        body: jsonEncode(<String, dynamic>{'id': item.id}),
+      ).timeout(const Duration(seconds: 10));
+      serverBerhasil = response.statusCode == 200;
     } catch (_) {}
 
     if (!serverBerhasil) {

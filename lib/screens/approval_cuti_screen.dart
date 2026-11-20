@@ -39,20 +39,10 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
     });
 
     try {
-      final String? token = AppSession.getToken();
-
-      // Jika token kosong, hentikan request dan tampilkan pesan session invalid
-      if (token == null) {
-        setState(() {
-          _error = 'Session invalid. Silakan login kembali.';
-          _isLoading = false;
-        });
-        return;
-      }
+      final String? token = await AppSession.resolveToken();
 
       final http.Response response = await http
-          .get(Uri.parse(_laporanUrl),
-              headers: {'Authorization': 'Bearer $token'})
+           .get(Uri.parse(_laporanUrl), headers: ApiConfig.authHeaders(token))
           .timeout(const Duration(seconds: 20));
 
       if (!mounted) return;
@@ -159,24 +149,12 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
     setState(() => _processingIds.add(item.id));
 
     try {
-      final String? token = AppSession.getToken();
-
-      // Jika token kosong, hentikan request dan tampilkan pesan session invalid
-      if (token == null) {
-        setState(() {
-          _error = 'Session invalid. Silakan login kembali.';
-          _isLoading = false;
-        });
-        return;
-      }
+      final String? token = await AppSession.resolveToken();
 
       final http.Response response = await http
           .post(
             Uri.parse(_approveUrl),
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
+            headers: ApiConfig.authHeaders(token),
             body: jsonEncode(<String, dynamic>{
               'leave_id': item.id,
               'status': status,

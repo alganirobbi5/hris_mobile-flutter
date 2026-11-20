@@ -89,37 +89,33 @@ class _AbsenScreenState extends State<AbsenScreen> {
   }
 
   Future<void> _cekStatusAbsen() async {
-    final String? token = AppSession.getToken();
+    final String? token = await AppSession.resolveToken();
     final int? employeeId = await AppSession.currentEmployeeId();
-
-    // Jika token kosong, hentikan request dan tampilkan pesan session invalid
-    if (token == null) {
-      _showMessage('Session invalid. Silakan login kembali.');
-      return;
-    }
 
     try {
       final response = await http.get(
         Uri.parse(
           '${ApiConfig.baseUrl}/status_absen.php?employee_id=$employeeId',
         ),
-        headers: {'Authorization': 'Bearer $token'},
+        headers: ApiConfig.authHeaders(token),
       );
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+        final dynamic decoded = jsonDecode(response.body);
+        dynamic data = decoded;
+        if (decoded is Map<String, dynamic>) {
+          final dynamic nested = decoded['data'] ?? decoded['result'];
+          if (nested is Map<String, dynamic>) data = nested;
+        }
+        if (data is! Map<String, dynamic>) return;
         if (mounted) {
           setState(() {
             _sudahAbsenMasuk = data['sudah_masuk'] == true;
             _sudahAbsenPulang = data['sudah_pulang'] == true;
 
-            if (data['jam_masuk'] != null) {
-              _jamAbsenTeks =
-                  '${data['jam_masuk'].toString().substring(0, 5)} WIB';
-            }
-            if (data['jam_pulang'] != null) {
-              _jamPulangTeks =
-                  '${data['jam_pulang'].toString().substring(0, 5)} WIB';
-            }
+            final String? jamMasuk = _formatJamKerja(data['jam_masuk']);
+            if (jamMasuk != null) _jamAbsenTeks = '$jamMasuk WIB';
+            final String? jamPulang = _formatJamKerja(data['jam_pulang']);
+            if (jamPulang != null) _jamPulangTeks = '$jamPulang WIB';
           });
         }
       }
@@ -232,7 +228,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
       final String waktuLokal =
           "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
 
-      final String? token = AppSession.getToken();
+      final String? token = await AppSession.resolveToken();
       final response = await http.post(
         Uri.parse('${ApiConfig.baseUrl}/absen.php'),
         headers: {
@@ -319,7 +315,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
       final String selfie =
           'data:$selfieMime;base64,${base64Encode(photoBytes)}';
 
-      final String? token = AppSession.getToken();
+      final String? token = await AppSession.resolveToken();
       final response = await http.post(
         Uri.parse('${ApiConfig.baseUrl}/absen_pulang.php'),
         headers: {

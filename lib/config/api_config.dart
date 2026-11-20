@@ -3,7 +3,7 @@ class ApiConfig {
 
   /// URL backend produksi VPS.
   /// Bisa di-override saat build/run dengan:
-  /// flutter build apk --release --dart-define=API_BASE_URL=http://31.97.199.58/ /src/api
+  /// flutter build apk --release --dart-define=API_BASE_URL=http://31.97.199.58/HRM/src/api
   /// Atau override manual:
   /// flutter run --dart-define=API_BASE_URL=http://31.97.199.58/HRM/src/api
   static const String _defaultBaseUrl = 'http://31.97.199.58/HRM/src/api';

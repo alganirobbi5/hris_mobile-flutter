@@ -135,24 +135,16 @@ class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
 
     bool serverBerhasil = false;
     try {
-      final String? token = AppSession.getToken();
+      final String? token = await AppSession.resolveToken();
 
-      // Jika token kosong, hentikan request dan atur flag gagal
-      if (token == null) {
-        serverBerhasil = false;
-      } else {
-        final response = await http.post(
-          Uri.parse(endpoint),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
-          body: jsonEncode(body),
-        ).timeout(const Duration(seconds: 10));
-        serverBerhasil = widget.isEdit
-            ? response.statusCode == 200
-            : response.statusCode == 201;
-      }
+      final response = await http.post(
+        Uri.parse(endpoint),
+        headers: ApiConfig.authHeaders(token),
+        body: jsonEncode(body),
+      ).timeout(const Duration(seconds: 10));
+      serverBerhasil = widget.isEdit
+          ? response.statusCode == 200
+          : response.statusCode == 201;
     } catch (_) {}
 
     if (!serverBerhasil && widget.isEdit) {

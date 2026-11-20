@@ -29,7 +29,7 @@ class ProfilScreen extends StatefulWidget {
 }
 
 class _ProfilScreenState extends State<ProfilScreen> {
-  static const String _uploadsBaseUrl = 'http://31.97.199.58/HRM/uploads';
+  static const String _uploadsBaseUrl = 'http://31.97.199.58/hris/uploads';
   static const String _avatarPrefsKey = 'user_avatar';
 
   final ImagePicker _imagePicker = ImagePicker();
@@ -61,8 +61,9 @@ class _ProfilScreenState extends State<ProfilScreen> {
       _userId = prefs.getInt('user_id');
       _roleUser = prefs.getString('role') ?? '';
       final String? savedAvatar = await ProfileAvatarStore.load(_userId);
-      final String? savedAvatarImage =
-          await ProfileAvatarStore.loadImage(_userId);
+      final String? savedAvatarImage = await ProfileAvatarStore.loadImage(
+        _userId,
+      );
       final String? legacyAvatar = prefs.getString(_avatarPrefsKey);
       final String? savedAvatarFile = savedAvatarImage ?? legacyAvatar;
       if (savedAvatarImage != null) {
@@ -87,22 +88,20 @@ class _ProfilScreenState extends State<ProfilScreen> {
       }
 
       // 2. Siapkan request ke profil.php dengan otentikasi Bearer Token
-      final String? token = AppSession.getToken();
+      final String? token = await AppSession.resolveToken();
 
-      // Jika token kosong, hentikan request dan tampilkan pesan session invalid
-      if (token == null) {
-        setState(() {
-          _error = 'Sesi login tidak ditemukan. Silakan login ulang.';
-          _isLoading = false;
-        });
-        return;
-      }
-
-      final String url = '${ApiConfig.baseUrl}/profil.php';
+      final Uri profilUrl = ApiConfig.uri('profil.php');
+      final int? employeeId = await AppSession.currentEmployeeId();
+      final Uri url = employeeId == null
+          ? profilUrl
+          : profilUrl.replace(
+              queryParameters: <String, String>{
+                'employee_id': employeeId.toString(),
+              },
+            );
 
       final http.Response response = await http
-          .get(Uri.parse(url),
-              headers: {'Authorization': 'Bearer $token'})
+          .get(url, headers: ApiConfig.authHeaders(token))
           .timeout(const Duration(seconds: 20));
 
       if (!mounted) return;
@@ -110,16 +109,18 @@ class _ProfilScreenState extends State<ProfilScreen> {
       if (response.statusCode == 200) {
         final Map<String, dynamic> profil = _parseProfil(response.body);
         final dynamic serverAvatar = profil['avatar'];
-        final String serverAvatarText =
-            serverAvatar is String ? serverAvatar.trim() : '';
+        final String serverAvatarText = serverAvatar is String
+            ? serverAvatar.trim()
+            : '';
         final bool isDataUrl = serverAvatarText.startsWith('data:');
 
         final bool hasLocalAvatar =
             savedAvatarFile != null && savedAvatarFile.trim().isNotEmpty;
         String? effectiveAvatar = savedAvatarFile;
         if (!hasLocalAvatar && serverAvatarText.isNotEmpty) {
-          final String stored =
-              isDataUrl ? serverAvatarText : _avatarFileName(serverAvatarText);
+          final String stored = isDataUrl
+              ? serverAvatarText
+              : _avatarFileName(serverAvatarText);
           await prefs.setString(_avatarPrefsKey, stored);
           effectiveAvatar = stored;
         }
@@ -127,7 +128,8 @@ class _ProfilScreenState extends State<ProfilScreen> {
         if (!mounted) return;
         setState(() {
           _profil = profil;
-          _avatarUrl = (effectiveAvatar == null || effectiveAvatar.trim().isEmpty)
+          _avatarUrl =
+              (effectiveAvatar == null || effectiveAvatar.trim().isEmpty)
               ? null
               : _resolveAvatarUrl(effectiveAvatar);
           if (_avatarUrl != null && !hasLocalAvatar) _selectedAvatarId = null;
@@ -301,8 +303,9 @@ class _ProfilScreenState extends State<ProfilScreen> {
     try {
       final List<int> bytes = await photo.readAsBytes();
       final String? photoMime = photo.mimeType;
-      final String mime =
-          (photoMime == null || photoMime.isEmpty) ? 'image/jpeg' : photoMime;
+      final String mime = (photoMime == null || photoMime.isEmpty)
+          ? 'image/jpeg'
+          : photoMime;
       final String dataUrl = 'data:$mime;base64,${base64Encode(bytes)}';
 
       await prefs.setString(_avatarPrefsKey, dataUrl);
@@ -323,10 +326,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
     }
   }
 
-  Future<void> _uploadCatalogAvatar(
-    String avatarId,
-    String assetPath,
-  ) async {
+  Future<void> _uploadCatalogAvatar(String avatarId, String assetPath) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     setState(() => _isUploadingAvatar = true);
 
@@ -801,17 +801,9 @@ class _ProfilScreenState extends State<ProfilScreen> {
                     ),
                     TextButton(
                       onPressed: () async {
+                        await AppSession.clear();
                         final prefs = await SharedPreferences.getInstance();
-                        for (final String key in const <String>[
-                          'user_id',
-                          'username',
-                          'role',
-                          'employee_id',
-                          'api_token',
-                          'laporan_tanggal',
-                        ]) {
-                          await prefs.remove(key);
-                        }
+                        await prefs.remove('laporan_tanggal');
                         if (!context.mounted) return;
                         Navigator.of(context).pushAndRemoveUntil(
                           MaterialPageRoute<void>(

@@ -136,12 +136,7 @@ class LaporanExcelService {
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
   Future<List<LaporanAbsensiRow>> fetchRows({String? tanggal}) async {
-    final String? token = AppSession.getToken();
-    if (token == null || token.isEmpty) {
-      throw LaporanExcelException(
-        'Session invalid. Silakan login kembali untuk mengakses laporan absensi.',
-      );
-    }
+    final String? token = await AppSession.resolveToken();
 
     final Uri url = ApiConfig.uri(_endpoint);
     final Uri target = (tanggal == null || tanggal.isEmpty)
@@ -151,7 +146,7 @@ class LaporanExcelService {
     final http.Response response;
     try {
       response = await _client
-          .get(target, headers: {'Authorization': 'Bearer $token'})
+          .get(target, headers: ApiConfig.authHeaders(token))
           .timeout(const Duration(seconds: 30));
     } catch (_) {
       throw const LaporanExcelException(
@@ -184,15 +179,22 @@ class LaporanExcelService {
       throw const LaporanExcelException('Format data laporan tidak valid.');
     }
 
-    if (decoded is! Map<String, dynamic> || decoded['data'] is! List) {
-      throw const LaporanExcelException('Data laporan tidak ditemukan.');
-    }
-
-    final List<dynamic> data = decoded['data'] as List<dynamic>;
+    final List<dynamic> data = _extractRows(decoded);
     return data
         .whereType<Map<String, dynamic>>()
         .map(LaporanAbsensiRow.fromJson)
         .toList();
+  }
+
+  static List<dynamic> _extractRows(dynamic decoded) {
+    if (decoded is List) return decoded;
+    if (decoded is Map<String, dynamic>) {
+      for (final String key in <String>['data', 'absensi', 'result', 'list']) {
+        final dynamic value = decoded[key];
+        if (value is List) return value;
+      }
+    }
+    return const <dynamic>[];
   }
 
   /// Tanggal hari ini mengikuti timezone perusahaan (Asia/Jakarta),

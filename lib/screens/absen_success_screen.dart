@@ -90,13 +90,6 @@ class _AbsenSuccessScreenState extends State<AbsenSuccessScreen> {
     }
   }
 
-  String _formatWaktu(DateTime dateTime) {
-    final jam = dateTime.hour.toString().padLeft(2, '0');
-    final menit = dateTime.minute.toString().padLeft(2, '0');
-    final detik = dateTime.second.toString().padLeft(2, '0');
-    return '$jam:$menit:$detik WIB';
-  }
-
   String _formatTanggal(DateTime dateTime) {
     final listHari = [
       'Senin',
