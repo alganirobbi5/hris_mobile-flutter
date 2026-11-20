@@ -1,7 +1,10 @@
 class ApiConfig {
   const ApiConfig._();
 
-  static const String _defaultBaseUrl = 'http://31.97.199.58/HRM/src/api';
+  /// URL backend lokal untuk development (localhost).
+  /// Bisa di-override saat run dengan:
+  /// flutter run --dart-define=API_BASE_URL=http://31.97.199.58/HRM/src/api
+  static const String _defaultBaseUrl = 'http://localhost/HumanResourceManagementSystem/src/api';
 
   /// Override saat build/run, contoh:
   /// flutter run --dart-define=API_BASE_URL=http://31.97.199.58/HRM/src/api
