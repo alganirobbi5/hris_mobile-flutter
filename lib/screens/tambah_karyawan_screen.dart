@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
+import '../services/app_session.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/primary_button.dart';
@@ -43,9 +44,22 @@ class _TambahKaryawanScreenState extends State<TambahKaryawanScreen> {
 
     try {
       // 2. Kirim HTTP POST ke API
+      final String? token = AppSession.getToken();
+
+      // Jika token kosong, hentikan request dan tampilkan pesan session invalid
+      if (token == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Session invalid. Silakan login kembali.')),
+        );
+        return;
+      }
+
       final response = await http.post(
         Uri.parse('${ApiConfig.baseUrl}/tambah_karyawan.php'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
         body: jsonEncode({
           'first_name': _firstNameController.text,
           'last_name': _lastNameController.text,

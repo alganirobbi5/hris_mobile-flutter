@@ -25,8 +25,9 @@ class CutiScreen extends StatefulWidget {
 class _CutiScreenState extends State<CutiScreen> {
   static String get _cutiUrl => ApiConfig.uri('cuti.php').toString();
   static Future<String> _riwayatUrl() async {
-    final int employeeId = await AppSession.currentEmployeeId();
-    return '${ApiConfig.uri('riwayat_cuti.php')}?employee_id=$employeeId';
+    final int? employeeId = await AppSession.currentEmployeeId();
+    final String idStr = employeeId != null ? employeeId.toString() : '';
+    return '${ApiConfig.uri('riwayat_cuti.php')}?employee_id=$idStr';
   }
 
   static const List<String> _replacementOptions = [
@@ -164,12 +165,23 @@ class _CutiScreenState extends State<CutiScreen> {
     setState(() => _isSubmitting = true);
 
     try {
+      final String? token = AppSession.getToken();
+
+      // Jika token kosong, hentikan request dan tampilkan pesan session invalid
+      if (token == null) {
+        _showMessage('Session invalid. Silakan login kembali.');
+        return;
+      }
+
       http.Response response;
       try {
         response = await http
             .post(
               Uri.parse(_cutiUrl),
-              headers: const {'Content-Type': 'application/json'},
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer $token',
+              },
               body: jsonEncode(<String, dynamic>{
                 'employee_id': await AppSession.currentEmployeeId(),
                 'title': title,
@@ -252,8 +264,10 @@ class _CutiScreenState extends State<CutiScreen> {
     });
 
     try {
+      final String? token = AppSession.getToken();
       final http.Response response = await http
-          .get(Uri.parse(await _riwayatUrl()))
+          .get(Uri.parse(await _riwayatUrl()),
+              headers: token != null ? {'Authorization': 'Bearer $token'} : {})
           .timeout(const Duration(seconds: 30));
 
       if (!mounted) return;

@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../config/api_config.dart';
+import '../services/app_session.dart';
 
 class LaporanExcelException implements Exception {
   const LaporanExcelException(this.message);
@@ -135,6 +136,13 @@ class LaporanExcelService {
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
   Future<List<LaporanAbsensiRow>> fetchRows({String? tanggal}) async {
+    final String? token = AppSession.getToken();
+    if (token == null || token.isEmpty) {
+      throw LaporanExcelException(
+        'Session invalid. Silakan login kembali untuk mengakses laporan absensi.',
+      );
+    }
+
     final Uri url = ApiConfig.uri(_endpoint);
     final Uri target = (tanggal == null || tanggal.isEmpty)
         ? url
@@ -143,11 +151,23 @@ class LaporanExcelService {
     final http.Response response;
     try {
       response = await _client
-          .get(target)
+          .get(target, headers: {'Authorization': 'Bearer $token'})
           .timeout(const Duration(seconds: 30));
     } catch (_) {
       throw const LaporanExcelException(
         'Gagal terhubung ke server. Periksa koneksi internet.',
+      );
+    }
+
+    if (response.statusCode == 401) {
+      throw LaporanExcelException(
+        'Session invalid atau tidak memiliki izin HR. Silakan login kembali.',
+      );
+    }
+
+    if (response.statusCode == 403) {
+      throw LaporanExcelException(
+        'Akses ditolak. Anda tidak memiliki izin HR untuk melihat laporan absensi.',
       );
     }
 

@@ -89,11 +89,21 @@ class _AbsenScreenState extends State<AbsenScreen> {
   }
 
   Future<void> _cekStatusAbsen() async {
-    final int employeeId = await AppSession.currentEmployeeId();
+    final String? token = AppSession.getToken();
+    final int? employeeId = await AppSession.currentEmployeeId();
+
+    // Jika token kosong, hentikan request dan tampilkan pesan session invalid
+    if (token == null) {
+      _showMessage('Session invalid. Silakan login kembali.');
+      return;
+    }
 
     try {
       final response = await http.get(
-        Uri.parse('${ApiConfig.baseUrl}/status_absen.php?employee_id=$employeeId'),
+        Uri.parse(
+          '${ApiConfig.baseUrl}/status_absen.php?employee_id=$employeeId',
+        ),
+        headers: {'Authorization': 'Bearer $token'},
       );
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -190,7 +200,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
     setState(() => _isProcessing = true);
 
     try {
-      final int employeeId = await AppSession.currentEmployeeId();
+      final int? employeeId = await AppSession.currentEmployeeId();
 
       final bool hasLocationPermission = await _ensureLocationPermission();
       if (!mounted) return;
@@ -222,9 +232,13 @@ class _AbsenScreenState extends State<AbsenScreen> {
       final String waktuLokal =
           "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
 
+      final String? token = AppSession.getToken();
       final response = await http.post(
         Uri.parse('${ApiConfig.baseUrl}/absen.php'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
         body: jsonEncode({
           'employee_id': employeeId,
           'latitude': position.latitude.toString(),
@@ -268,7 +282,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
     setState(() => _isProcessing = true);
 
     try {
-      final int employeeId = await AppSession.currentEmployeeId();
+      final int? employeeId = await AppSession.currentEmployeeId();
 
       final bool hasLocationPermission = await _ensureLocationPermission();
       if (!mounted) return;
@@ -299,13 +313,19 @@ class _AbsenScreenState extends State<AbsenScreen> {
           "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
       final List<int> photoBytes = await photo.readAsBytes();
       final String? photoMime = photo.mimeType;
-      final String selfieMime =
-          (photoMime == null || photoMime.isEmpty) ? 'image/jpeg' : photoMime;
-      final String selfie = 'data:$selfieMime;base64,${base64Encode(photoBytes)}';
+      final String selfieMime = (photoMime == null || photoMime.isEmpty)
+          ? 'image/jpeg'
+          : photoMime;
+      final String selfie =
+          'data:$selfieMime;base64,${base64Encode(photoBytes)}';
 
+      final String? token = AppSession.getToken();
       final response = await http.post(
         Uri.parse('${ApiConfig.baseUrl}/absen_pulang.php'),
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          if (token != null) 'Authorization': 'Bearer $token',
+        },
         body: jsonEncode({
           'employee_id': employeeId,
           'latitude': position.latitude.toString(),
@@ -824,4 +844,3 @@ class _IconBox extends StatelessWidget {
     );
   }
 }
-

@@ -111,9 +111,8 @@ class _LoginScreenState extends State<LoginScreen> {
           SnackBar(content: Text('Server balas: ${response.body}')),
         );
       } else if (response.statusCode == 200) {
-        // Simpan sesi login (username, role, dan user_id)
-        await _saveSession(body);
-        AppSession.invalidateEmployeeId();
+        // Simpan sesi login melalui AppSession (terintegrasi dengan kontrak backend)
+        await AppSession.setFromLogin(body);
 
         if (!mounted) return;
 
@@ -178,77 +177,6 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() => _isLoading = false);
       }
     }
-  }
-
-  Future<void> _saveSession(Map<String, dynamic> body) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    final dynamic userIdValue = _bodyValue(body, <String>[
-      'user_id',
-      'id',
-      'employee_id',
-    ]);
-    final dynamic usernameValue = _bodyValue(body, <String>[
-      'username',
-      'user_name',
-      'name',
-    ]);
-    final dynamic roleValue = _bodyValue(body, <String>['role', 'user_role']);
-    final dynamic tokenValue = _bodyValue(body, <String>['token', 'api_token']);
-    final dynamic employeeIdValue =
-        _bodyValue(body, <String>['employee_id', 'employeeId', 'karyawan_id']);
-
-    final int? userId = int.tryParse(userIdValue?.toString() ?? '');
-    if (userId != null) {
-      await prefs.setInt('user_id', userId);
-    } else if (userIdValue != null) {
-      await prefs.setString('user_id', userIdValue.toString());
-    }
-
-    await prefs.setString(
-      'username',
-      usernameValue?.toString() ?? _usernameController.text.trim(),
-    );
-    await prefs.setString('role', roleValue?.toString() ?? '');
-
-    if (tokenValue != null && tokenValue.toString().trim().isNotEmpty) {
-      await prefs.setString(ApiConfig.tokenPrefKey, tokenValue.toString().trim());
-    }
-
-    // Simpan nama lengkap dari user jika ada.
-    final dynamic namaLengkapValue = _bodyValue(body, <String>['nama_lengkap', 'full_name']);
-    if (namaLengkapValue != null && namaLengkapValue.toString().trim().isNotEmpty) {
-      await prefs.setString('nama_lengkap', namaLengkapValue.toString().trim());
-    }
-
-    final int? employeeId = int.tryParse(employeeIdValue?.toString() ?? '');
-    if (employeeId != null) {
-      await prefs.setInt('employee_id', employeeId);
-    } else {
-      // Endpoint login lama tidak mengirim employee_id. Biarkan kosong;
-      // AppSession.currentEmployeeId() akan meresolusi otomatis nanti.
-      await prefs.remove('employee_id');
-    }
-  }
-
-  dynamic _bodyValue(Map<String, dynamic> body, List<String> keys) {
-    dynamic source = body;
-    for (final String container in <String>['data', 'user', 'result']) {
-      final dynamic nested = body[container];
-      if (nested is Map<String, dynamic>) {
-        source = nested;
-        break;
-      }
-    }
-
-    for (final String key in keys) {
-      final dynamic value = source[key] ?? body[key];
-      if (value != null && value.toString().trim().isNotEmpty) {
-        return value;
-      }
-    }
-
-    return null;
   }
 
   @override

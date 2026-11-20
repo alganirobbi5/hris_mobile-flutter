@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
 import '../config/api_config.dart';
+import '../services/app_session.dart';
 import '../theme/app_theme.dart';
 import '../widgets/section_card.dart';
 import '../widgets/status_badge.dart';
@@ -76,8 +77,22 @@ class SemuaAbsensiViewState extends State<SemuaAbsensiView> {
     });
 
     try {
+      final String? token = AppSession.getToken();
+
+      // Jika token kosong, hentikan request dan tampilkan pesan session invalid
+      if (token == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Session invalid. Silakan login kembali.')),
+        );
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
+
       final http.Response response = await http
-          .get(Uri.parse(_absensiUrl))
+          .get(Uri.parse(_absensiUrl),
+              headers: {'Authorization': 'Bearer $token'})
           .timeout(const Duration(seconds: 20));
 
       if (!mounted) return;

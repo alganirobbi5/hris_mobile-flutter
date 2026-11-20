@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/api_config.dart';
 import '../models/lampiran_pengumuman.dart';
+import '../services/app_session.dart';
 import '../services/pengumuman_overlay.dart';
 import '../theme/app_theme.dart';
 import '../widgets/section_card.dart';
@@ -111,12 +112,23 @@ class _PengumumanScreenState extends State<PengumumanScreen> {
 
     bool serverBerhasil = false;
     try {
-      final http.Response response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/hapus_pengumuman.php'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(<String, dynamic>{'id': item.id}),
-      ).timeout(const Duration(seconds: 10));
-      serverBerhasil = response.statusCode == 200;
+      final String? token = AppSession.getToken();
+
+      // Jika token kosong, hentikan request dan tampilkan pesan session invalid
+      if (token == null) {
+        // Token tidak ada; anggap gagal dan lanjutkan dengan pesan lokal
+        serverBerhasil = false;
+      } else {
+        final http.Response response = await http.post(
+          Uri.parse('${ApiConfig.baseUrl}/hapus_pengumuman.php'),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: jsonEncode(<String, dynamic>{'id': item.id}),
+        ).timeout(const Duration(seconds: 10));
+        serverBerhasil = response.statusCode == 200;
+      }
     } catch (_) {}
 
     if (!serverBerhasil) {

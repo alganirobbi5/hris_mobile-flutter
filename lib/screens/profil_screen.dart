@@ -86,13 +86,23 @@ class _ProfilScreenState extends State<ProfilScreen> {
         return;
       }
 
-      // 2. Buat URL dinamis memakai employee_id (employees.id) yang benar
-      final int employeeId = await AppSession.currentEmployeeId();
-      final String url =
-          '${ApiConfig.baseUrl}/profil.php?employee_id=$employeeId';
+      // 2. Siapkan request ke profil.php dengan otentikasi Bearer Token
+      final String? token = AppSession.getToken();
+
+      // Jika token kosong, hentikan request dan tampilkan pesan session invalid
+      if (token == null) {
+        setState(() {
+          _error = 'Sesi login tidak ditemukan. Silakan login ulang.';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      final String url = '${ApiConfig.baseUrl}/profil.php';
 
       final http.Response response = await http
-          .get(Uri.parse(url))
+          .get(Uri.parse(url),
+              headers: {'Authorization': 'Bearer $token'})
           .timeout(const Duration(seconds: 20));
 
       if (!mounted) return;
@@ -802,8 +812,6 @@ class _ProfilScreenState extends State<ProfilScreen> {
                         ]) {
                           await prefs.remove(key);
                         }
-                        AppSession.invalidateEmployeeId();
-
                         if (!context.mounted) return;
                         Navigator.of(context).pushAndRemoveUntil(
                           MaterialPageRoute<void>(
