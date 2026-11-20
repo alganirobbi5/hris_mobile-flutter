@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../config/api_config.dart';
 import '../services/app_session.dart';
+import '../services/employee_request.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/primary_button.dart';
@@ -26,8 +27,7 @@ class _CutiScreenState extends State<CutiScreen> {
   static String get _cutiUrl => ApiConfig.uri('cuti.php').toString();
   static Future<String> _riwayatUrl() async {
     final int? employeeId = await AppSession.currentEmployeeId();
-    final String idStr = employeeId != null ? employeeId.toString() : '';
-    return '${ApiConfig.uri('riwayat_cuti.php')}?employee_id=$idStr';
+    return EmployeeRequest.leaveHistory(employeeId).toString();
   }
 
   static const List<String> _replacementOptions = [
@@ -278,6 +278,13 @@ class _CutiScreenState extends State<CutiScreen> {
           _isLoadingRiwayat = false;
         });
       }
+    } on EmployeeIdMissingException {
+      if (!mounted) return;
+      setState(() {
+        _riwayatError =
+            'employee_id tidak ditemukan. Silakan login ulang.';
+        _isLoadingRiwayat = false;
+      });
     } on FormatException {
       if (!mounted) return;
       setState(() {

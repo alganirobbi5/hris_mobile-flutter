@@ -122,4 +122,45 @@ void main() {
     expect(AppSession.getUserId(), 3);
     expect(AppSession.getEmployeeId(), 5);
   });
+
+  test('respons login.php produksi (status/data datar) menyimpan employee_id', () async {
+    await AppSession.setFromLogin(<String, dynamic>{
+      'status': 'success',
+      'message': 'Login berhasil',
+      'data': <String, dynamic>{
+        'user_id': 7,
+        'employee_id': 42,
+        'username': 'karyawan1',
+        'role': 'employee',
+        'nama_lengkap': 'Karyawan Satu',
+      },
+    });
+
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    expect(prefs.getInt('employee_id'), 42);
+    expect(AppSession.getEmployeeId(), 42);
+    expect(AppSession.getUserId(), 7);
+    expect(AppSession.getEmployeeId(), isNot(AppSession.getUserId()));
+
+    AppSession.employeeId = null;
+    await AppSession.restore(prefs);
+    expect(AppSession.getEmployeeId(), 42);
+    expect(await AppSession.currentEmployeeId(), 42);
+  });
+
+  test('employee_id tidak disubstitusi dari user_id saat backend tidak mengirimnya', () async {
+    await AppSession.setFromLogin(<String, dynamic>{
+      'status': 'success',
+      'data': <String, dynamic>{
+        'user_id': 9,
+        'username': 'admin-lama',
+        'role': 'hr',
+        'nama_lengkap': 'Admin Lama',
+      },
+    });
+
+    expect(AppSession.getUserId(), 9);
+    expect(AppSession.getEmployeeId(), isNull);
+    expect(await AppSession.currentEmployeeId(), isNull);
+  });
 }

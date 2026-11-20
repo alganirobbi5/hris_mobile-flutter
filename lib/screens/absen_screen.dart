@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../config/api_config.dart';
 import '../services/app_session.dart';
+import '../services/employee_request.dart';
 import '../theme/app_theme.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/section_card.dart';
@@ -197,6 +198,10 @@ class _AbsenScreenState extends State<AbsenScreen> {
 
     try {
       final int? employeeId = await AppSession.currentEmployeeId();
+      if (employeeId == null) {
+        _showMessage('employee_id tidak ditemukan. Silakan login ulang.');
+        return;
+      }
 
       final bool hasLocationPermission = await _ensureLocationPermission();
       if (!mounted) return;
@@ -235,13 +240,15 @@ class _AbsenScreenState extends State<AbsenScreen> {
           'Content-Type': 'application/json',
           if (token != null) 'Authorization': 'Bearer $token',
         },
-        body: jsonEncode({
-          'employee_id': employeeId,
-          'latitude': position.latitude.toString(),
-          'longitude': position.longitude.toString(),
-          'tanggal_lokal': tanggalLokal,
-          'waktu_lokal': waktuLokal,
-        }),
+        body: jsonEncode(
+          EmployeeRequest.absenMasuk(
+            employeeId: employeeId,
+            latitude: position.latitude,
+            longitude: position.longitude,
+            tanggalLokal: tanggalLokal,
+            waktuLokal: waktuLokal,
+          ),
+        ),
       );
 
       if (!mounted) return;
@@ -279,6 +286,10 @@ class _AbsenScreenState extends State<AbsenScreen> {
 
     try {
       final int? employeeId = await AppSession.currentEmployeeId();
+      if (employeeId == null) {
+        _showMessage('employee_id tidak ditemukan. Silakan login ulang.');
+        return;
+      }
 
       final bool hasLocationPermission = await _ensureLocationPermission();
       if (!mounted) return;
@@ -322,13 +333,15 @@ class _AbsenScreenState extends State<AbsenScreen> {
           'Content-Type': 'application/json',
           if (token != null) 'Authorization': 'Bearer $token',
         },
-        body: jsonEncode({
-          'employee_id': employeeId,
-          'latitude': position.latitude.toString(),
-          'longitude': position.longitude.toString(),
-          'waktu_lokal': waktuLokal,
-          'selfie': selfie,
-        }),
+        body: jsonEncode(
+          EmployeeRequest.absenPulang(
+            employeeId: employeeId,
+            latitude: position.latitude,
+            longitude: position.longitude,
+            waktuLokal: waktuLokal,
+            selfie: selfie,
+          ),
+        ),
       );
 
       if (!mounted) return;

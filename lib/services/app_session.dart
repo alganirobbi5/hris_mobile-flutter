@@ -10,8 +10,11 @@ class AppSession {
   static String? token;
 
   /// Populate from the login JSON response.
-  /// Contract: { success, message, data: { token, user: { user_id, employee_id, username, role, nama_lengkap } } }
-  /// A flat payload is also accepted for older backends.
+  /// Deployed login.php (pre-token): { status, message, data: { user_id,
+  /// employee_id, username, role, nama_lengkap } }.
+  /// Token backend: { success, message, data: { token, user: { ... } } }.
+  /// Both shapes are normalized here; employee_id is never derived from
+  /// user_id because the two ids refer to different tables.
   static Future<void> setFromLogin(Map<String, dynamic> response) async {
     final Map<String, dynamic> data = _unwrap(response);
     final dynamic rawUser = data['user'];

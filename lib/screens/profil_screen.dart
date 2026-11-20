@@ -10,6 +10,7 @@ import '../config/api_config.dart';
 import '../config/avatar_catalog.dart';
 import '../config/company_config.dart';
 import '../services/app_session.dart';
+import '../services/employee_request.dart';
 import '../services/profile_avatar_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/avatar_picker_sheet.dart';
@@ -90,15 +91,16 @@ class _ProfilScreenState extends State<ProfilScreen> {
       // 2. Siapkan request ke profil.php dengan otentikasi Bearer Token
       final String? token = await AppSession.resolveToken();
 
-      final Uri profilUrl = ApiConfig.uri('profil.php');
       final int? employeeId = await AppSession.currentEmployeeId();
-      final Uri url = employeeId == null
-          ? profilUrl
-          : profilUrl.replace(
-              queryParameters: <String, String>{
-                'employee_id': employeeId.toString(),
-              },
-            );
+      if (employeeId == null) {
+        setState(() {
+          _error =
+              'employee_id tidak ditemukan. Silakan login ulang.';
+          _isLoading = false;
+        });
+        return;
+      }
+      final Uri url = EmployeeRequest.profile(employeeId);
 
       final http.Response response = await http
           .get(url, headers: ApiConfig.authHeaders(token))
@@ -588,6 +590,20 @@ class _ProfilScreenState extends State<ProfilScreen> {
                   icon: const Icon(Icons.refresh_rounded, size: 18),
                   label: const Text('Coba lagi'),
                 ),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                onPressed: () async {
+                  await AppSession.clear();
+                  if (!mounted) return;
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const LoginScreen(),
+                    ),
+                    (route) => false,
+                  );
+                },
+                child: const Text('Login ulang'),
               ),
             ],
           ),
