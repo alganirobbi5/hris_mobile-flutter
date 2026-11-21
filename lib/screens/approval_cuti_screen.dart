@@ -20,16 +20,23 @@ class ApprovalCutiScreen extends StatefulWidget {
 class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
   static const String _laporanUrl = '${ApiConfig.baseUrl}/laporan_cuti.php';
   static const String _approveUrl = '${ApiConfig.baseUrl}/approve_cuti.php';
+  static const String _ringkasanUrl =
+      '${ApiConfig.baseUrl}/ringkasan_cuti.php';
 
   bool _isLoading = true;
   String? _error;
   List<_PengajuanCuti> _pengajuan = const [];
   final Set<int> _processingIds = <int>{};
 
+  _RingkasanCuti _ringkasan = const _RingkasanCuti();
+  bool _isLoadingRingkasan = true;
+  String? _ringkasanError;
+
   @override
   void initState() {
     super.initState();
     _fetchPengajuan();
+    _fetchRingkasanCuti();
   }
 
   Future<void> _fetchPengajuan() async {
@@ -95,6 +102,253 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
         .whereType<Map<String, dynamic>>()
         .map(_PengajuanCuti.fromJson)
         .toList();
+  }
+
+  Future<void> _fetchRingkasanCuti() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoadingRingkasan = true;
+      _ringkasanError = null;
+    });
+
+    try {
+      final String? token = await AppSession.resolveToken();
+
+      final http.Response response = await http
+          .get(
+            Uri.parse(_ringkasanUrl),
+            headers: ApiConfig.authHeaders(token),
+          )
+          .timeout(const Duration(seconds: 20));
+
+      if (!mounted) return;
+
+      if (response.statusCode == 200) {
+        final _RingkasanCuti? result = _parseRingkasan(response.body);
+        if (result == null) {
+          setState(() {
+            _ringkasanError = 'Format ringkasan cuti tidak valid.';
+            _isLoadingRingkasan = false;
+          });
+          return;
+        }
+        setState(() {
+          _ringkasan = result;
+          _isLoadingRingkasan = false;
+        });
+      } else {
+        setState(() {
+          _ringkasan =
+              response.statusCode == 404
+                  ? const _RingkasanCuti()
+                  : _ringkasan;
+          _ringkasanError = _apiErrorMessage(
+            response,
+            'Gagal memuat ringkasan cuti (HTTP ${response.statusCode}).',
+          );
+          _isLoadingRingkasan = false;
+        });
+      }
+    } on FormatException {
+      if (!mounted) return;
+      setState(() {
+        _ringkasanError = 'Format ringkasan cuti tidak valid.';
+        _isLoadingRingkasan = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _ringkasanError = 'Gagal terhubung ke server';
+        _isLoadingRingkasan = false;
+      });
+    }
+  }
+
+  _RingkasanCuti? _parseRingkasan(String body) {
+    if (body.trim().isEmpty) return null;
+
+    final dynamic decoded = jsonDecode(body);
+    Map<String, dynamic>? data;
+
+    if (decoded is Map<String, dynamic>) {
+      final dynamic nested =
+          decoded['data'] ??
+          decoded['result'] ??
+          decoded['ringkasan'] ??
+          decoded['summary'];
+      if (nested is Map<String, dynamic>) {
+        data = nested;
+      } else if (nested is List &&
+          nested.isNotEmpty &&
+          nested.first is Map<String, dynamic>) {
+        data = nested.first as Map<String, dynamic>;
+      } else {
+        data = decoded;
+      }
+    } else if (decoded is List &&
+        decoded.isNotEmpty &&
+        decoded.first is Map<String, dynamic>) {
+      data = decoded.first as Map<String, dynamic>;
+    }
+
+    if (data == null) return null;
+    return _RingkasanCuti.fromJson(data);
+  }
+
+  Widget _buildRingkasanCard() {
+    final _RingkasanCuti ringkasan = _ringkasan;
+
+    return SectionCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.calendar_month_rounded,
+                  size: 20,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Ringkasan Bulan ${ringkasan.bulan}',
+                      style: const TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    const Text(
+                      'Statistik pengajuan cuti karyawan',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(
+                width: 36,
+                height: 36,
+                child: _isLoadingRingkasan
+                    ? const Padding(
+                        padding: EdgeInsets.all(9),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.primary,
+                        ),
+                      )
+                    : IconButton(
+                        onPressed: _fetchRingkasanCuti,
+                        tooltip: 'Muat ulang ringkasan',
+                        color: AppColors.primary,
+                        icon: const Icon(Icons.refresh_rounded, size: 20),
+                      ),
+              ),
+            ],
+          ),
+          if (_ringkasanError != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              ringkasan.bulan == '-'
+                  ? 'Ringkasan belum tersedia.'
+                  : '$_ringkasanError',
+              style: const TextStyle(
+                fontSize: 11,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              _buildRingkasanStat(
+                label: 'Total',
+                value: ringkasan.total,
+                color: AppColors.primary,
+                icon: Icons.format_list_bulleted_rounded,
+              ),
+              const SizedBox(width: 8),
+              _buildRingkasanStat(
+                label: 'Menunggu',
+                value: ringkasan.pending,
+                color: AppColors.warning,
+                icon: Icons.schedule_rounded,
+              ),
+              const SizedBox(width: 8),
+              _buildRingkasanStat(
+                label: 'Disetujui',
+                value: ringkasan.approved,
+                color: AppColors.success,
+                icon: Icons.check_circle_outline_rounded,
+              ),
+              const SizedBox(width: 8),
+              _buildRingkasanStat(
+                label: 'Ditolak',
+                value: ringkasan.rejected,
+                color: AppColors.danger,
+                icon: Icons.cancel_outlined,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRingkasanStat({
+    required String label,
+    required int value,
+    required Color color,
+    required IconData icon,
+  }) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 2),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.09),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(height: 5),
+            Text(
+              '$value',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 10,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _konfirmasiStatus(_PengajuanCuti item, int status) async {
@@ -322,6 +576,8 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
                   color: AppColors.textSecondary,
                 ),
               ),
+              const SizedBox(height: 20),
+              _buildRingkasanCard(),
               const SizedBox(height: 20),
               Row(
                 children: [
@@ -620,5 +876,47 @@ class _PengajuanCuti {
   static int _intValue(dynamic value) {
     if (value is int) return value;
     return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+}
+
+class _RingkasanCuti {
+  const _RingkasanCuti({
+    this.bulan = '-',
+    this.total = 0,
+    this.pending = 0,
+    this.approved = 0,
+    this.rejected = 0,
+  });
+
+  factory _RingkasanCuti.fromJson(Map<String, dynamic> json) {
+    return _RingkasanCuti(
+      bulan: _textValue(
+        json['bulan'] ?? json['month'] ?? json['nama_bulan'],
+      ),
+      total: _intValue(
+        json['total'] ?? json['total_pengajuan'] ?? json['total_cuti'],
+      ),
+      pending: _intValue(json['pending'] ?? json['menunggu']),
+      approved: _intValue(json['approved'] ?? json['disetujui']),
+      rejected: _intValue(json['rejected'] ?? json['ditolak']),
+    );
+  }
+
+  final String bulan;
+  final int total;
+  final int pending;
+  final int approved;
+  final int rejected;
+
+  static String _textValue(dynamic value) {
+    if (value == null) return '-';
+    final String text = value.toString().trim();
+    return text.isEmpty ? '-' : text;
+  }
+
+  static int _intValue(dynamic value) {
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value.trim()) ?? 0;
+    return 0;
   }
 }
