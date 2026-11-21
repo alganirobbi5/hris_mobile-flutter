@@ -2,6 +2,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
 
 class AppSession {
+  static const String userIdPrefKey = 'user_id';
+
   static int? userId;
   static int? employeeId;
   static String? username;
@@ -16,21 +18,78 @@ class AppSession {
   /// Both shapes are normalized here; employee_id is never derived from
   /// user_id because the two ids refer to different tables.
   static Future<void> setFromLogin(Map<String, dynamic> response) async {
-    final Map<String, dynamic> data = _unwrap(response);
-    final dynamic rawUser = data['user'];
-    final Map<String, dynamic> user = rawUser is Map<String, dynamic>
-        ? rawUser
-        : <String, dynamic>{};
+    final List<Map<String, dynamic>> sources = _sessionSources(response);
+    final Map<String, dynamic> user = sources
+        .map((Map<String, dynamic> source) => source['user'])
+        .whereType<Map<String, dynamic>>()
+        .fold(<String, dynamic>{}, (Map<String, dynamic> found, Map<String, dynamic> value) {
+          return found.isEmpty ? value : found;
+        });
 
-    userId = _asInt(user['user_id'] ?? user['id'] ?? data['user_id'] ?? data['id']);
-    employeeId = _asInt(user['employee_id'] ?? data['employee_id']);
-    username = _text(user['username'] ?? data['username']);
-    name = _text(user['nama_lengkap'] ?? data['nama_lengkap']);
-    role = _text(user['role'] ?? data['role']);
+    final List<Map<String, dynamic>> identitySources =
+        <Map<String, dynamic>>[user, ...sources];
+
+    userId = _firstInt(identitySources, const <String>['user_id', 'id']);
+    employeeId = _firstInt(identitySources, const <String>['employee_id']);
+    username = _firstText(identitySources, const <String>['username']);
+    name = _firstText(
+      identitySources,
+      const <String>['nama_lengkap', 'full_name', 'name'],
+    );
+    role = _firstText(identitySources, const <String>['role']);
     token = extractToken(response);
 
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await _persist(prefs);
+  }
+
+  static List<Map<String, dynamic>> _sessionSources(
+    Map<String, dynamic> response,
+  ) {
+    final List<Map<String, dynamic>> sources = <Map<String, dynamic>>[];
+
+    void addIfMap(dynamic value) {
+      if (value is Map<String, dynamic>) sources.add(value);
+    }
+
+    final dynamic data = response['data'];
+    addIfMap(data);
+    if (data is List && data.isNotEmpty && data.first is Map<String, dynamic>) {
+      addIfMap(data.first);
+    }
+    if (data is Map<String, dynamic>) {
+      addIfMap(data['data']);
+      addIfMap(data['result']);
+    }
+    addIfMap(response);
+
+    return sources;
+  }
+
+  static int? _firstInt(
+    List<Map<String, dynamic>> sources,
+    List<String> keys,
+  ) {
+    for (final Map<String, dynamic> source in sources) {
+      for (final String key in keys) {
+        final int? value = _asInt(source[key]);
+        if (value != null) return value;
+      }
+    }
+    return null;
+  }
+
+  static String? _firstText(
+    List<Map<String, dynamic>> sources,
+    List<String> keys,
+  ) {
+    for (final Map<String, dynamic> source in sources) {
+      for (final String key in keys) {
+        final String? value = _text(source[key]);
+        if (value != null) return value;
+      }
+    }
+    return null;
   }
 
   /// Token dari respons login: `token`, `data.token`, `data.data.token`,
@@ -74,11 +133,8 @@ class AppSession {
   /// main() routes to MainScreen from prefs, so the statics would otherwise stay null.
   static Future<void> restore([SharedPreferences? prefs]) async {
     final SharedPreferences store = prefs ?? await SharedPreferences.getInstance();
-    userId = _asInt(store.getInt('user_id') ?? store.getString('user_id'));
-    employeeId = _asInt(
-      store.getInt(ApiConfig.employeeIdPrefKey) ??
-          store.getString(ApiConfig.employeeIdPrefKey),
-    );
+    userId = _readIntPref(store, userIdPrefKey);
+    employeeId = _readIntPref(store, ApiConfig.employeeIdPrefKey);
     username = _text(store.getString('username'));
     name = _text(store.getString('nama_lengkap'));
     role = _text(store.getString('role'));
@@ -96,6 +152,16 @@ class AppSession {
     final String? stored = _text(prefs.getString(ApiConfig.authTokenPrefKey)) ??
         _text(prefs.getString(ApiConfig.tokenPrefKey));
     if (stored != null) token = stored;
+    return stored;
+  }
+
+  static Future<int?> resolveUserId([SharedPreferences? prefs]) async {
+    final int? current = userId;
+    if (current != null) return current;
+    final SharedPreferences store =
+        prefs ?? await SharedPreferences.getInstance();
+    final int? stored = _readIntPref(store, userIdPrefKey);
+    if (stored != null) userId = stored;
     return stored;
   }
 
@@ -118,17 +184,14 @@ class AppSession {
     final int? current = employeeId;
     if (current != null) return current;
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final int? stored = _asInt(
-      prefs.getInt(ApiConfig.employeeIdPrefKey) ??
-          prefs.getString(ApiConfig.employeeIdPrefKey),
-    );
+    final int? stored = _readIntPref(prefs, ApiConfig.employeeIdPrefKey);
     if (stored != null) employeeId = stored;
     return stored;
   }
 
   static Future<void> clear() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.remove('user_id');
+    await prefs.remove(userIdPrefKey);
     await prefs.remove('username');
     await prefs.remove('nama_lengkap');
     await prefs.remove('role');
@@ -144,20 +207,11 @@ class AppSession {
     token = null;
   }
 
-  static Map<String, dynamic> _unwrap(Map<String, dynamic> response) {
-    final dynamic nested = response['data'];
-    if (nested is Map<String, dynamic>) return nested;
-    if (nested is List && nested.isNotEmpty && nested.first is Map<String, dynamic>) {
-      return nested.first as Map<String, dynamic>;
-    }
-    return response;
-  }
-
   static Future<void> _persist(SharedPreferences prefs) async {
     if (userId != null) {
-      await prefs.setInt('user_id', userId!);
+      await prefs.setInt(userIdPrefKey, userId!);
     } else {
-      await prefs.remove('user_id');
+      await prefs.remove(userIdPrefKey);
     }
     if (username != null) {
       await prefs.setString('username', username!);
@@ -195,6 +249,10 @@ class AppSession {
       return int.tryParse(value.trim());
     }
     return null;
+  }
+
+  static int? _readIntPref(SharedPreferences prefs, String key) {
+    return _asInt(prefs.get(key));
   }
 
   static String? _text(dynamic value) {

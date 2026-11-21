@@ -13,7 +13,7 @@ void main() async {
 
   final SharedPreferences prefs = await SharedPreferences.getInstance();
   await AppSession.restore(prefs);
-  final bool isLoggedIn = prefs.containsKey('user_id');
+  final bool isLoggedIn = prefs.containsKey(AppSession.userIdPrefKey);
 
   runApp(HrisApp(isLoggedIn: isLoggedIn));
 }

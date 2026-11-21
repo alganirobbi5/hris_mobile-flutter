@@ -228,4 +228,35 @@ void main() {
     expect(AppSession.getEmployeeId(), isNull);
     expect(await AppSession.currentEmployeeId(), isNull);
   });
+
+  test('setFromLogin mengekstrak user_id dari body data bertingkat', () async {
+    await AppSession.setFromLogin(<String, dynamic>{
+      'success': true,
+      'data': <String, dynamic>{
+        'token': 'nested-token',
+        'data': <String, dynamic>{
+          'user_id': 15,
+          'employee_id': 27,
+          'username': 'nested-user',
+          'role': 'hr',
+        },
+      },
+    });
+
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    expect(AppSession.getUserId(), 15);
+    expect(prefs.getInt(AppSession.userIdPrefKey), 15);
+
+    AppSession.userId = null;
+    expect(await AppSession.resolveUserId(prefs), 15);
+  });
+
+  test('resolveUserId menerima user_id lama bertipe string', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      AppSession.userIdPrefKey: '21',
+    });
+
+    expect(await AppSession.resolveUserId(), 21);
+    expect(AppSession.getUserId(), 21);
+  });
 }

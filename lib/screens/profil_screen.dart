@@ -80,7 +80,8 @@ class _ProfilScreenState extends State<ProfilScreen> {
     try {
       // 1. Ambil data user dari penyimpanan HP
       final prefs = await SharedPreferences.getInstance();
-      _userId = prefs.getInt('user_id');
+      await AppSession.restore(prefs);
+      _userId = await AppSession.resolveUserId(prefs);
       _roleUser = prefs.getString('role') ?? '';
       String? savedAvatar;
       String? savedAvatarImage;
