@@ -49,8 +49,14 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
     try {
       final String? token = await AppSession.resolveToken();
 
+      final Uri laporanUri = Uri.parse(_laporanUrl).replace(
+        queryParameters: <String, String>{
+          'bulan': '$_bulanRingkasan',
+          'tahun': '$_tahunRingkasan',
+        },
+      );
       final http.Response response = await http
-          .get(Uri.parse(_laporanUrl), headers: ApiConfig.authHeaders(token))
+          .get(laporanUri, headers: ApiConfig.authHeaders(token))
           .timeout(const Duration(seconds: 20));
 
       if (!mounted) return;
@@ -180,6 +186,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
       _tahunRingkasan = target.year;
     });
     _fetchRingkasanCuti();
+    _fetchPengajuan();
   }
 
   _RingkasanCuti? _parseRingkasan(String body) {
@@ -811,6 +818,29 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
               ),
             ],
           ),
+          if (item.comment.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.chat_bubble_outline_rounded,
+                  size: 15,
+                  color: AppColors.textSecondary,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Komentar HR: ${item.comment}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 14),
           Row(
             children: [
@@ -868,6 +898,7 @@ class _PengajuanCuti {
     required this.leaveFrom,
     required this.leaveTo,
     required this.status,
+    this.comment = '',
   });
 
   factory _PengajuanCuti.fromJson(Map<String, dynamic> json) {
@@ -900,6 +931,7 @@ class _PengajuanCuti {
         '-',
       ),
       status: _stringValue(json['status'] ?? json['staus'], '-'),
+      comment: _stringValue(json['comment'] ?? json['komentar'], ''),
     );
   }
 
@@ -909,6 +941,7 @@ class _PengajuanCuti {
   final String leaveFrom;
   final String leaveTo;
   final String status;
+  final String comment;
 
   static String _stringValue(dynamic value, String fallback) {
     if (value == null) return fallback;
