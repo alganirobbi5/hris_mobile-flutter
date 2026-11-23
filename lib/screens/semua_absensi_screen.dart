@@ -9,6 +9,7 @@ import '../services/app_session.dart';
 import '../theme/app_theme.dart';
 import '../widgets/section_card.dart';
 import '../widgets/status_badge.dart';
+import 'detail_absensi_screen.dart';
 
 class SemuaAbsensiScreen extends StatelessWidget {
   const SemuaAbsensiScreen({super.key});
@@ -44,8 +45,7 @@ class SemuaAbsensiView extends StatefulWidget {
 }
 
 class SemuaAbsensiViewState extends State<SemuaAbsensiView> {
-  static const String _absensiUrl =
-      '${ApiConfig.baseUrl}/laporan_absensi.php';
+  static const String _absensiUrl = '${ApiConfig.baseUrl}/laporan_absensi.php';
 
   final TextEditingController _searchController = TextEditingController();
 
@@ -338,88 +338,114 @@ class SemuaAbsensiViewState extends State<SemuaAbsensiView> {
   }
 
   Widget _buildItem(_AbsensiItem item) {
-    return SectionCard(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(13),
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => DetailAbsensiScreen(
+              nama: item.nama,
+              tanggal: item.tanggal,
+              jamMasuk: item.jamMasuk,
+              jamKeluar: item.jamKeluar,
+              latitude: item.latitude,
+              longitude: item.longitude,
+            ),
+          ),
+        );
+      },
+      child: SectionCard(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  child: const Icon(
+                    Icons.person_outline_rounded,
+                    size: 21,
+                    color: AppColors.primary,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.person_outline_rounded,
-                  size: 21,
-                  color: AppColors.primary,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.nama,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.calendar_today_outlined,
-                          size: 12,
-                          color: AppColors.textSecondary,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.nama,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.textPrimary,
                         ),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            item.tanggal,
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              color: AppColors.textSecondary,
+                      ),
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.calendar_today_outlined,
+                            size: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              item.tanggal,
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                color: AppColors.textSecondary,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              StatusBadge(label: item.status, color: _statusColor(item.status)),
-            ],
-          ),
-          const Divider(height: 20, color: AppColors.border),
-          Row(
-            children: [
-              Expanded(
-                child: _InfoJam(
-                  icon: Icons.login_rounded,
-                  label: 'Jam Masuk',
-                  value: item.jamMasuk,
+                const SizedBox(width: 8),
+                StatusBadge(
+                  label: item.status,
+                  color: _statusColor(item.status),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _InfoJam(
-                  icon: Icons.logout_rounded,
-                  label: 'Jam Keluar',
-                  value: item.jamKeluar,
+                const SizedBox(width: 2),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 17,
+                  color: AppColors.textSecondary,
                 ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+            const Divider(height: 20, color: AppColors.border),
+            Row(
+              children: [
+                Expanded(
+                  child: _InfoJam(
+                    icon: Icons.login_rounded,
+                    label: 'Jam Masuk',
+                    value: item.jamMasuk,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _InfoJam(
+                    icon: Icons.logout_rounded,
+                    label: 'Jam Keluar',
+                    value: item.jamKeluar,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -485,6 +511,8 @@ class _AbsensiItem {
     required this.jamMasuk,
     required this.jamKeluar,
     required this.status,
+    this.latitude = '',
+    this.longitude = '',
   });
 
   final String nama;
@@ -492,6 +520,8 @@ class _AbsensiItem {
   final String jamMasuk;
   final String jamKeluar;
   final String status;
+  final String latitude;
+  final String longitude;
 
   factory _AbsensiItem.fromJson(Map<String, dynamic> json) {
     final String firstName = _textOf(json['first_name'], '');
@@ -534,6 +564,8 @@ class _AbsensiItem {
         jamMasuk: jamMasuk,
         jamKeluar: jamKeluar,
       ),
+      latitude: _textOf(json['latitude'] ?? json['lat'], ''),
+      longitude: _textOf(json['longitude'] ?? json['lng'] ?? json['lon'], ''),
     );
   }
 
