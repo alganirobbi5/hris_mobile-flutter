@@ -20,8 +20,7 @@ class ApprovalCutiScreen extends StatefulWidget {
 class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
   static const String _laporanUrl = '${ApiConfig.baseUrl}/laporan_cuti.php';
   static const String _approveUrl = '${ApiConfig.baseUrl}/approve_cuti.php';
-  static const String _ringkasanUrl =
-      '${ApiConfig.baseUrl}/ringkasan_cuti.php';
+  static const String _ringkasanUrl = '${ApiConfig.baseUrl}/ringkasan_cuti.php';
 
   bool _isLoading = true;
   String? _error;
@@ -31,6 +30,8 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
   _RingkasanCuti _ringkasan = const _RingkasanCuti();
   bool _isLoadingRingkasan = true;
   String? _ringkasanError;
+  int _bulanRingkasan = DateTime.now().month;
+  int _tahunRingkasan = DateTime.now().year;
 
   @override
   void initState() {
@@ -49,7 +50,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
       final String? token = await AppSession.resolveToken();
 
       final http.Response response = await http
-           .get(Uri.parse(_laporanUrl), headers: ApiConfig.authHeaders(token))
+          .get(Uri.parse(_laporanUrl), headers: ApiConfig.authHeaders(token))
           .timeout(const Duration(seconds: 20));
 
       if (!mounted) return;
@@ -90,7 +91,8 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
     dynamic rawData = decoded;
 
     if (decoded is Map<String, dynamic>) {
-      rawData = decoded['data'] ??
+      rawData =
+          decoded['data'] ??
           decoded['pengajuan'] ??
           decoded['result'] ??
           decoded['laporan_cuti'];
@@ -113,12 +115,15 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
 
     try {
       final String? token = await AppSession.resolveToken();
+      final Uri ringkasanUri = Uri.parse(_ringkasanUrl).replace(
+        queryParameters: <String, String>{
+          'bulan': '$_bulanRingkasan',
+          'tahun': '$_tahunRingkasan',
+        },
+      );
 
       final http.Response response = await http
-          .get(
-            Uri.parse(_ringkasanUrl),
-            headers: ApiConfig.authHeaders(token),
-          )
+          .get(ringkasanUri, headers: ApiConfig.authHeaders(token))
           .timeout(const Duration(seconds: 20));
 
       if (!mounted) return;
@@ -138,10 +143,9 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
         });
       } else {
         setState(() {
-          _ringkasan =
-              response.statusCode == 404
-                  ? const _RingkasanCuti()
-                  : _ringkasan;
+          _ringkasan = response.statusCode == 404
+              ? const _RingkasanCuti()
+              : _ringkasan;
           _ringkasanError = _apiErrorMessage(
             response,
             'Gagal memuat ringkasan cuti (HTTP ${response.statusCode}).',
@@ -162,6 +166,20 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
         _isLoadingRingkasan = false;
       });
     }
+  }
+
+  void _geserBulanRingkasan(int delta) {
+    if (!mounted || _isLoadingRingkasan) return;
+    final DateTime target = DateTime(
+      _tahunRingkasan,
+      _bulanRingkasan + delta,
+      1,
+    );
+    setState(() {
+      _bulanRingkasan = target.month;
+      _tahunRingkasan = target.year;
+    });
+    _fetchRingkasanCuti();
   }
 
   _RingkasanCuti? _parseRingkasan(String body) {
@@ -274,6 +292,34 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
               ),
             ),
           ],
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton(
+                onPressed: _isLoadingRingkasan
+                    ? null
+                    : () => _geserBulanRingkasan(-1),
+                tooltip: 'Bulan sebelumnya',
+                icon: const Icon(Icons.chevron_left_rounded, size: 20),
+              ),
+              Text(
+                '$_bulanRingkasan/$_tahunRingkasan',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              IconButton(
+                onPressed: _isLoadingRingkasan
+                    ? null
+                    : () => _geserBulanRingkasan(1),
+                tooltip: 'Bulan berikutnya',
+                icon: const Icon(Icons.chevron_right_rounded, size: 20),
+              ),
+            ],
+          ),
           const SizedBox(height: 14),
           Row(
             children: [
@@ -658,10 +704,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
             child: Text(
               'Belum ada pengajuan cuti',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.textSecondary,
-              ),
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
             ),
           ),
         ),
@@ -890,9 +933,7 @@ class _RingkasanCuti {
 
   factory _RingkasanCuti.fromJson(Map<String, dynamic> json) {
     return _RingkasanCuti(
-      bulan: _textValue(
-        json['bulan'] ?? json['month'] ?? json['nama_bulan'],
-      ),
+      bulan: _textValue(json['bulan'] ?? json['month'] ?? json['nama_bulan']),
       total: _intValue(
         json['total'] ?? json['total_pengajuan'] ?? json['total_cuti'],
       ),

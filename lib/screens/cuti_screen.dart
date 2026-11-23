@@ -389,6 +389,39 @@ class _CutiScreenState extends State<CutiScreen> {
     }
   }
 
+  Map<String, int> _ringkasanStatusBulanIni() {
+    final DateTime now = DateTime.now();
+    int menunggu = 0;
+    int disetujui = 0;
+    int ditolak = 0;
+
+    for (final _RiwayatCuti item in _riwayat) {
+      final DateTime? dibuat = DateTime.tryParse(item.createdAt.trim());
+      if (dibuat == null ||
+          dibuat.year != now.year ||
+          dibuat.month != now.month) {
+        continue;
+      }
+      switch (_statusLabel(item.status)) {
+        case 'Menunggu':
+          menunggu++;
+          break;
+        case 'Disetujui':
+          disetujui++;
+          break;
+        case 'Ditolak':
+          ditolak++;
+          break;
+      }
+    }
+
+    return <String, int>{
+      'menunggu': menunggu,
+      'disetujui': disetujui,
+      'ditolak': ditolak,
+    };
+  }
+
   Future<void> _tampilkanDetailCuti(_RiwayatCuti item) async {
     await showDialog<void>(
       context: context,
@@ -617,6 +650,7 @@ class _CutiScreenState extends State<CutiScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final Map<String, int> ringkasan = _ringkasanStatusBulanIni();
     final Widget content = Form(
       key: _formKey,
       child: Column(
@@ -640,7 +674,11 @@ class _CutiScreenState extends State<CutiScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                const _StatusSummary(),
+                _StatusSummary(
+                  menunggu: ringkasan['menunggu'] ?? 0,
+                  disetujui: ringkasan['disetujui'] ?? 0,
+                  ditolak: ringkasan['ditolak'] ?? 0,
+                ),
                 const SizedBox(height: 16),
                 SectionCard(
                   child: Column(
@@ -874,7 +912,15 @@ class _CutiScreenState extends State<CutiScreen> {
 }
 
 class _StatusSummary extends StatelessWidget {
-  const _StatusSummary();
+  const _StatusSummary({
+    required this.menunggu,
+    required this.disetujui,
+    required this.ditolak,
+  });
+
+  final int menunggu;
+  final int disetujui;
+  final int ditolak;
 
   @override
   Widget build(BuildContext context) {
@@ -893,27 +939,27 @@ class _StatusSummary extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Row(
-            children: const [
+            children: [
               Expanded(
                 child: _StatusCount(
                   label: 'Menunggu',
-                  count: 1,
+                  count: menunggu,
                   color: AppColors.warning,
                 ),
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Expanded(
                 child: _StatusCount(
                   label: 'Disetujui',
-                  count: 2,
+                  count: disetujui,
                   color: AppColors.success,
                 ),
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Expanded(
                 child: _StatusCount(
                   label: 'Ditolak',
-                  count: 0,
+                  count: ditolak,
                   color: AppColors.danger,
                 ),
               ),
@@ -980,6 +1026,7 @@ class _RiwayatCuti {
     required this.status,
     this.alasan,
     this.komentar,
+    this.createdAt = '',
   });
 
   factory _RiwayatCuti.fromJson(Map<String, dynamic> json) {
@@ -996,6 +1043,10 @@ class _RiwayatCuti {
       status: _stringValue(json['staus'] ?? json['status'], '-'),
       alasan: _stringValue(json['reason'] ?? json['alasan'], ''),
       komentar: _stringValue(json['comment'] ?? json['komentar'], ''),
+      createdAt: _stringValue(
+        json['created_at'] ?? json['tanggal_pengajuan'],
+        '',
+      ),
     );
   }
 
@@ -1005,6 +1056,7 @@ class _RiwayatCuti {
   final String status;
   final String? alasan;
   final String? komentar;
+  final String createdAt;
 
   static String _stringValue(dynamic value, String fallback) {
     if (value == null) return fallback;
