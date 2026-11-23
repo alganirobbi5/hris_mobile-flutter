@@ -27,7 +27,8 @@ class _CutiScreenState extends State<CutiScreen> {
   static String get _cutiUrl => ApiConfig.uri('cuti.php').toString();
   static Future<String> _riwayatUrl() async {
     final int? employeeId = await AppSession.currentEmployeeId();
-    return EmployeeRequest.leaveHistory(employeeId).toString();
+    final String? role = await AppSession.resolveRole();
+    return EmployeeRequest.leaveHistory(employeeId, role: role).toString();
   }
 
   static const List<String> _replacementOptions = [
@@ -258,7 +259,7 @@ class _CutiScreenState extends State<CutiScreen> {
       final String? token = await AppSession.resolveToken();
       final http.Response response = await http
           .get(Uri.parse(await _riwayatUrl()),
-              headers: token != null ? {'Authorization': 'Bearer $token'} : {})
+              headers: ApiConfig.authHeaders(token))
           .timeout(const Duration(seconds: 30));
 
       if (!mounted) return;

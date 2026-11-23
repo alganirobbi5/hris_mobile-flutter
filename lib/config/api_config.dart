@@ -33,7 +33,9 @@ class ApiConfig {
       'Content-Type': 'application/json',
     };
     if (token != null && token.trim().isNotEmpty) {
-      headers['Authorization'] = 'Bearer ${token.trim()}';
+      final String bearer = 'Bearer ${token.trim()}';
+      headers['Authorization'] = bearer;
+      headers['X-Authorization'] = bearer;
     }
     return headers;
   }

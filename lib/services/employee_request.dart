@@ -32,8 +32,12 @@ class EmployeeRequest {
   static Uri profile(int? employeeId) =>
       _withEmployeeQuery('profil.php', employeeId);
 
-  static Uri leaveHistory(int? employeeId) =>
-      _withEmployeeQuery('riwayat_cuti.php', employeeId);
+  static Uri leaveHistory(int? employeeId, {String? role}) {
+    if (employeeId == null && AppSession.isHrRole(role)) {
+      return ApiConfig.uri('laporan_cuti.php');
+    }
+    return _withEmployeeQuery('riwayat_cuti.php', employeeId);
+  }
 
   static Map<String, dynamic> absenMasuk({
     required int? employeeId,

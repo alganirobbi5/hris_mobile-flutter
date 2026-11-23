@@ -277,7 +277,9 @@ class _AbsenScreenState extends State<AbsenScreen> {
         Uri.parse('${ApiConfig.baseUrl}/absen.php'),
       );
       if (token != null && token.trim().isNotEmpty) {
-        request.headers['Authorization'] = 'Bearer ${token.trim()}';
+        final String bearer = 'Bearer ${token.trim()}';
+        request.headers['Authorization'] = bearer;
+        request.headers['X-Authorization'] = bearer;
       }
       request.fields.addAll(
         EmployeeRequest.multipartMasuk(
@@ -378,7 +380,9 @@ class _AbsenScreenState extends State<AbsenScreen> {
         Uri.parse('${ApiConfig.baseUrl}/absen_pulang.php'),
       );
       if (token != null && token.trim().isNotEmpty) {
-        request.headers['Authorization'] = 'Bearer ${token.trim()}';
+        final String bearer = 'Bearer ${token.trim()}';
+        request.headers['Authorization'] = bearer;
+        request.headers['X-Authorization'] = bearer;
       }
       request.fields.addAll(
         EmployeeRequest.multipartPulang(
