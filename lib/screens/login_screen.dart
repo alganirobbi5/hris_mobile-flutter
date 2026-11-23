@@ -77,6 +77,45 @@ class _LoginScreenState extends State<LoginScreen> {
     await prefs.setString(ApiConfig.authTokenPrefKey, token);
   }
 
+  String? _validateSessionData(Map<String, dynamic> body) {
+    final dynamic data = body['data'];
+    if (data is! Map<String, dynamic>) {
+      debugPrint(
+        'Login extraction error: field "data" tidak ada atau bukan objek JSON',
+      );
+      return 'Data login dari server tidak valid.';
+    }
+
+    final dynamic user = data['user'];
+    if (user is! Map<String, dynamic>) {
+      debugPrint(
+        'Login extraction error: field "data.user" tidak ada atau bukan objek JSON',
+      );
+      return 'Data user dari server tidak valid.';
+    }
+
+    final String? token = AppSession.getToken();
+    if (token == null || token.isEmpty) {
+      debugPrint('Login extraction error: token kosong di "data.token"');
+      return 'Token autentikasi tidak diterima dari server.';
+    }
+
+    final int? userId = AppSession.getUserId();
+    if (userId == null) {
+      debugPrint('Login extraction error: user_id kosong di "data.user"');
+      return 'ID user tidak diterima dari server.';
+    }
+
+    final String? role = AppSession.getRole();
+    if (role == null || role.isEmpty) {
+      debugPrint('Login extraction error: role kosong di "data.user"');
+      return 'Role user tidak diterima dari server.';
+    }
+
+    debugPrint('Login session extracted: user_id=$userId, role=$role');
+    return null;
+  }
+
   Future<void> _handleLogin() async {
     FocusScope.of(context).unfocus();
     if (!_formKey.currentState!.validate()) return;
@@ -127,13 +166,29 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       if (body == null) {
-        messenger.showSnackBar(
-          SnackBar(content: Text('Server balas: ${response.body}')),
+        debugPrint(
+          'Login response error: status=${response.statusCode}, '
+          'body=${response.body.isEmpty ? "kosong" : "bukan objek JSON"}',
         );
-      } else if (response.statusCode == 200 &&
-          body['success'] != false &&
-          (body['status'] as String?)?.toLowerCase() != 'error') {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              'Server balas: ${response.body} (Status: ${response.statusCode})',
+            ),
+          ),
+        );
+      } else if (response.statusCode == 200 && body['success'] == true) {
         await _saveSession(body);
+
+        final String? extractionError = _validateSessionData(body);
+        if (extractionError != null) {
+          await AppSession.clear();
+          if (!mounted) return;
+          messenger.showSnackBar(
+            SnackBar(content: Text('$extractionError Silakan coba lagi.')),
+          );
+          return;
+        }
 
         // Mode token: backend mengirim field token, jadi token wajib ada.
         // Backend lama tidak mengirim field token sama sekali dan tetap
@@ -161,6 +216,10 @@ class _LoginScreenState extends State<LoginScreen> {
           MaterialPageRoute<void>(builder: (_) => const MainScreen()),
         );
       } else {
+        debugPrint(
+          'Login ditolak server: status=${response.statusCode}, '
+          'success=${body['success']}, message=${body['message']}',
+        );
         final String message =
             body['message'] as String? ??
             'Login gagal (${response.statusCode})';

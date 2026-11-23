@@ -18,30 +18,31 @@ class AppSession {
   /// Both shapes are normalized here; employee_id is never derived from
   /// user_id because the two ids refer to different tables.
   static Future<void> setFromLogin(Map<String, dynamic> response) async {
-    final List<Map<String, dynamic>> sources = _sessionSources(response);
-    final Map<String, dynamic> user = sources
-        .map((Map<String, dynamic> source) => source['user'])
-        .whereType<Map<String, dynamic>>()
-        .fold(<String, dynamic>{}, (Map<String, dynamic> found, Map<String, dynamic> value) {
-          return found.isEmpty ? value : found;
-        });
+    final Map<String, dynamic> data = _asMap(response['data']);
+    final Map<String, dynamic> user = _asMap(data['user']);
 
+    final List<Map<String, dynamic>> sources = _sessionSources(response);
     final List<Map<String, dynamic>> identitySources =
         <Map<String, dynamic>>[user, ...sources];
 
-    userId = _firstInt(identitySources, const <String>['user_id', 'id']);
+    token = _text(data['token']) ?? extractToken(response);
+    userId = _asInt(user['user_id']) ??
+        _firstInt(identitySources, const <String>['user_id', 'id']);
     employeeId = _firstInt(identitySources, const <String>['employee_id']);
     username = _firstText(identitySources, const <String>['username']);
     name = _firstText(
       identitySources,
       const <String>['nama_lengkap', 'full_name', 'name'],
     );
-    role = _firstText(identitySources, const <String>['role']);
-    token = extractToken(response);
+    role = _text(user['role']) ??
+        _firstText(identitySources, const <String>['role']);
 
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await _persist(prefs);
   }
+
+  static Map<String, dynamic> _asMap(dynamic value) =>
+      value is Map<String, dynamic> ? value : <String, dynamic>{};
 
   static List<Map<String, dynamic>> _sessionSources(
     Map<String, dynamic> response,
