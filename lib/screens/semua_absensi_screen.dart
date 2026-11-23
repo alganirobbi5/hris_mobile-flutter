@@ -412,9 +412,11 @@ class SemuaAbsensiViewState extends State<SemuaAbsensiView> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                StatusBadge(
-                  label: item.status,
-                  color: _statusColor(item.status),
+                Flexible(
+                  child: StatusBadge(
+                    label: item.status,
+                    color: _statusColor(item.status),
+                  ),
                 ),
                 const SizedBox(width: 2),
                 const Icon(

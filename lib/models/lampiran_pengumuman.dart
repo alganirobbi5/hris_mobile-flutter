@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 class LampiranPengumuman {
   const LampiranPengumuman({
@@ -12,6 +13,17 @@ class LampiranPengumuman {
   final String mime;
 
   bool get isImage => mime.startsWith('image/');
+
+  Uint8List? decodeBytes() {
+    try {
+      final String raw = dataUrl.contains(',')
+          ? dataUrl.split(',').last
+          : dataUrl;
+      return base64Decode(raw);
+    } catch (_) {
+      return null;
+    }
+  }
 
   String toJsonValue() => jsonEncode(<String, String>{
     'dataUrl': dataUrl,
@@ -43,10 +55,6 @@ class LampiranPengumuman {
     final String mime = raw.startsWith('data:') && raw.contains(';base64,')
         ? raw.substring(5, raw.indexOf(';base64,'))
         : 'application/octet-stream';
-    return LampiranPengumuman(
-      dataUrl: raw,
-      namaFile: 'lampiran',
-      mime: mime,
-    );
+    return LampiranPengumuman(dataUrl: raw, namaFile: 'lampiran', mime: mime);
   }
 }

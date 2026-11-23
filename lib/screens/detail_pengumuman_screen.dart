@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -26,8 +25,10 @@ class DetailPengumumanScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final LampiranPengumuman? lampiranData =
-        LampiranPengumuman.fromJsonValue(lampiran);
+    final LampiranPengumuman? lampiranData = LampiranPengumuman.fromJsonValue(
+      lampiran,
+    );
+    final lampiranBytes = lampiranData?.decodeBytes();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Detail Pengumuman')),
@@ -113,17 +114,24 @@ class DetailPengumumanScreen extends StatelessWidget {
                       if (lampiranData.isImage)
                         ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: Image.memory(
-                            base64Decode(
-                              lampiranData.dataUrl.split(',').last,
-                            ),
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => const Text(
-                              'Pratinjau lampiran tidak tersedia',
-                              style: TextStyle(color: AppColors.textSecondary),
-                            ),
-                          ),
+                          child: lampiranBytes == null
+                              ? const Text(
+                                  'Pratinjau lampiran tidak tersedia',
+                                  style: TextStyle(
+                                    color: AppColors.textSecondary,
+                                  ),
+                                )
+                              : Image.memory(
+                                  lampiranBytes,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, _, _) => const Text(
+                                    'Pratinjau lampiran tidak tersedia',
+                                    style: TextStyle(
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ),
                         )
                       else
                         Container(
@@ -165,8 +173,8 @@ class DetailPengumumanScreen extends StatelessWidget {
 
   Future<void> _bagikanLampiran(LampiranPengumuman lampiran) async {
     try {
-      final List<int> bytes =
-          base64Decode(lampiran.dataUrl.split(',').last);
+      final bytes = lampiran.decodeBytes();
+      if (bytes == null) return;
       final Directory dir = await getTemporaryDirectory();
       final String safeName = lampiran.namaFile.replaceAll(
         RegExp(r'[^a-zA-Z0-9._-]'),

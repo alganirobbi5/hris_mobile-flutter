@@ -79,9 +79,9 @@ class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal membuka pemilih file: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Gagal membuka pemilih file: $e')));
     }
   }
 
@@ -137,11 +137,13 @@ class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
     try {
       final String? token = await AppSession.resolveToken();
 
-      final response = await http.post(
-        Uri.parse(endpoint),
-        headers: ApiConfig.authHeaders(token),
-        body: jsonEncode(body),
-      ).timeout(const Duration(seconds: 10));
+      final response = await http
+          .post(
+            Uri.parse(endpoint),
+            headers: ApiConfig.authHeaders(token),
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 10));
       serverBerhasil = widget.isEdit
           ? response.statusCode == 200
           : response.statusCode == 201;
@@ -164,8 +166,8 @@ class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
           content: Text(
             widget.isEdit
                 ? (serverBerhasil
-                    ? 'Pengumuman berhasil diperbarui!'
-                    : 'Perubahan disimpan di perangkat ini.')
+                      ? 'Pengumuman berhasil diperbarui!'
+                      : 'Perubahan disimpan di perangkat ini.')
                 : 'Pengumuman berhasil dibuat!',
           ),
         ),
@@ -181,6 +183,7 @@ class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
   }
 
   Widget _buildLampiran() {
+    final bytes = _lampiran?.decodeBytes();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -193,18 +196,25 @@ class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
           _lampiran!.isImage
               ? ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: Image.memory(
-                    base64Decode(_lampiran!.dataUrl.split(',').last),
-                    height: 140,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => Container(
-                      height: 140,
-                      alignment: Alignment.center,
-                      color: Colors.grey.shade200,
-                      child: const Text('Pratinjau tidak tersedia'),
-                    ),
-                  ),
+                  child: bytes == null
+                      ? Container(
+                          height: 140,
+                          alignment: Alignment.center,
+                          color: Colors.grey.shade200,
+                          child: const Text('Pratinjau tidak tersedia'),
+                        )
+                      : Image.memory(
+                          bytes,
+                          height: 140,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => Container(
+                            height: 140,
+                            alignment: Alignment.center,
+                            color: Colors.grey.shade200,
+                            child: const Text('Pratinjau tidak tersedia'),
+                          ),
+                        ),
                 )
               : Container(
                   padding: const EdgeInsets.all(12),

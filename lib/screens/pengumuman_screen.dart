@@ -114,19 +114,18 @@ class _PengumumanScreenState extends State<PengumumanScreen> {
     try {
       final String? token = await AppSession.resolveToken();
 
-      final http.Response response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/hapus_pengumuman.php'),
-        headers: ApiConfig.authHeaders(token),
-        body: jsonEncode(<String, dynamic>{'id': item.id}),
-      ).timeout(const Duration(seconds: 10));
+      final http.Response response = await http
+          .post(
+            Uri.parse('${ApiConfig.baseUrl}/hapus_pengumuman.php'),
+            headers: ApiConfig.authHeaders(token),
+            body: jsonEncode(<String, dynamic>{'id': item.id}),
+          )
+          .timeout(const Duration(seconds: 10));
       serverBerhasil = response.statusCode == 200;
     } catch (_) {}
 
     if (!serverBerhasil) {
-      await PengumumanOverlay.upsert(
-        id: item.id!,
-        dihapus: true,
-      );
+      await PengumumanOverlay.upsert(id: item.id!, dihapus: true);
     }
 
     if (!mounted) return;
@@ -149,8 +148,9 @@ class _PengumumanScreenState extends State<PengumumanScreen> {
     });
 
     try {
+      final String? token = await AppSession.resolveToken();
       final http.Response response = await http
-          .get(Uri.parse(_pengumumanUrl))
+          .get(Uri.parse(_pengumumanUrl), headers: ApiConfig.authHeaders(token))
           .timeout(const Duration(seconds: 20));
 
       if (!mounted) return;
@@ -194,23 +194,26 @@ class _PengumumanScreenState extends State<PengumumanScreen> {
         await PengumumanOverlay.load();
     if (overlay.isEmpty) return dariServer;
 
-    return dariServer.where((_Pengumuman item) {
-      final String key = item.id?.toString() ?? '';
-      final Map<String, dynamic>? perubahan = overlay[key];
-      if (perubahan == null) return true;
-      return perubahan['dihapus'] != true;
-    }).map((_Pengumuman item) {
-      final String key = item.id?.toString() ?? '';
-      final Map<String, dynamic>? perubahan = overlay[key];
-      if (perubahan == null) return item;
-      return _Pengumuman(
-        id: item.id,
-        judul: (perubahan['judul'] as String?) ?? item.judul,
-        isi: (perubahan['isi'] as String?) ?? item.isi,
-        tanggal: item.tanggal,
-        lampiran: (perubahan['lampiran'] as String?) ?? item.lampiran,
-      );
-    }).toList();
+    return dariServer
+        .where((_Pengumuman item) {
+          final String key = item.id?.toString() ?? '';
+          final Map<String, dynamic>? perubahan = overlay[key];
+          if (perubahan == null) return true;
+          return perubahan['dihapus'] != true;
+        })
+        .map((_Pengumuman item) {
+          final String key = item.id?.toString() ?? '';
+          final Map<String, dynamic>? perubahan = overlay[key];
+          if (perubahan == null) return item;
+          return _Pengumuman(
+            id: item.id,
+            judul: (perubahan['judul'] as String?) ?? item.judul,
+            isi: (perubahan['isi'] as String?) ?? item.isi,
+            tanggal: item.tanggal,
+            lampiran: (perubahan['lampiran'] as String?) ?? item.lampiran,
+          );
+        })
+        .toList();
   }
 
   List<_Pengumuman> _parsePengumuman(String body) {
@@ -436,15 +439,16 @@ class _PengumumanScreenState extends State<PengumumanScreen> {
   }
 
   Widget _buildLampiranRingkas(String raw) {
-    final LampiranPengumuman? lampiran =
-        LampiranPengumuman.fromJsonValue(raw);
+    final LampiranPengumuman? lampiran = LampiranPengumuman.fromJsonValue(raw);
     if (lampiran == null) return const SizedBox.shrink();
 
     if (lampiran.isImage) {
+      final bytes = lampiran.decodeBytes();
+      if (bytes == null) return const SizedBox.shrink();
       return ClipRRect(
         borderRadius: BorderRadius.circular(10),
         child: Image.memory(
-          base64Decode(lampiran.dataUrl.split(',').last),
+          bytes,
           height: 90,
           width: double.infinity,
           fit: BoxFit.cover,
@@ -473,10 +477,7 @@ class _PengumumanScreenState extends State<PengumumanScreen> {
               lampiran.namaFile,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppColors.primary,
-              ),
+              style: const TextStyle(fontSize: 12, color: AppColors.primary),
             ),
           ),
         ],

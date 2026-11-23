@@ -4,7 +4,6 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/api_config.dart';
 import '../services/app_session.dart';
@@ -63,56 +62,61 @@ class _LoginScreenState extends State<LoginScreen> {
     return null;
   }
 
-  /// Menyimpan sesi login, termasuk Bearer token ke key 'auth_token'.
-  /// Token diambil dari `data['token']` atau `data['data']['token']`
-  /// (lihat [AppSession.extractToken]).
   Future<void> _saveSession(Map<String, dynamic> body) async {
     await AppSession.setFromLogin(body);
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final String? token = AppSession.extractToken(body);
-    if (token == null || token.isEmpty) {
-      await prefs.remove(ApiConfig.authTokenPrefKey);
-      return;
+    final String? token = await AppSession.resolveToken();
+    if (AppSession.responseDeclaresToken(body) &&
+        (token == null || token.isEmpty)) {
+      debugPrint(
+        'Login session error: token gagal disimpan ke SharedPreferences',
+      );
     }
-    await prefs.setString(ApiConfig.authTokenPrefKey, token);
+  }
+
+  bool _isSuccessResponse(Map<String, dynamic> body) {
+    final dynamic success = body['success'];
+    if (success == true) return true;
+    if (success != null) return false;
+
+    final String status =
+        (body['status'] as String?)?.trim().toLowerCase() ?? '';
+    return status == 'success' || status == 'ok';
   }
 
   String? _validateSessionData(Map<String, dynamic> body) {
-    final dynamic data = body['data'];
-    if (data is! Map<String, dynamic>) {
-      debugPrint(
-        'Login extraction error: field "data" tidak ada atau bukan objek JSON',
-      );
-      return 'Data login dari server tidak valid.';
-    }
-
-    final dynamic user = data['user'];
-    if (user is! Map<String, dynamic>) {
-      debugPrint(
-        'Login extraction error: field "data.user" tidak ada atau bukan objek JSON',
-      );
-      return 'Data user dari server tidak valid.';
-    }
+    final Map<String, dynamic>? data = body['data'] is Map<String, dynamic>
+        ? body['data'] as Map<String, dynamic>
+        : null;
+    final String bentuk = data != null && data['user'] is Map<String, dynamic>
+        ? 'data.user'
+        : 'format lama';
 
     final String? token = AppSession.getToken();
-    if (token == null || token.isEmpty) {
-      debugPrint('Login extraction error: token kosong di "data.token"');
+    if (AppSession.responseDeclaresToken(body) &&
+        (token == null || token.isEmpty)) {
+      debugPrint(
+        'Login extraction error: token kosong (data.token / token / api_token)',
+      );
       return 'Token autentikasi tidak diterima dari server.';
     }
 
     final int? userId = AppSession.getUserId();
     if (userId == null) {
-      debugPrint('Login extraction error: user_id kosong di "data.user"');
+      debugPrint(
+        'Login extraction error: user_id kosong (data.user.user_id / user_id)',
+      );
       return 'ID user tidak diterima dari server.';
     }
 
     final String? role = AppSession.getRole();
     if (role == null || role.isEmpty) {
-      debugPrint('Login extraction error: role kosong di "data.user"');
+      debugPrint('Login extraction error: role kosong (data.user.role / role)');
       return 'Role user tidak diterima dari server.';
     }
 
-    debugPrint('Login session extracted: user_id=$userId, role=$role');
+    debugPrint(
+      'Login session extracted ($bentuk): user_id=$userId, role=$role',
+    );
     return null;
   }
 
@@ -177,7 +181,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         );
-      } else if (response.statusCode == 200 && body['success'] == true) {
+      } else if (response.statusCode == 200 && _isSuccessResponse(body)) {
         await _saveSession(body);
 
         final String? extractionError = _validateSessionData(body);

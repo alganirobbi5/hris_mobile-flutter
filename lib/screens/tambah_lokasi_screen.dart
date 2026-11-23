@@ -74,7 +74,6 @@ class _TambahLokasiScreenState extends State<TambahLokasiScreen> {
     return null;
   }
 
-  // FUNGSI BARU: Membuka Google Maps
   Future<void> _bukaMaps() async {
     String lat = _latitudeController.text.trim();
     String lng = _longitudeController.text.trim();
@@ -220,47 +219,53 @@ class _TambahLokasiScreenState extends State<TambahLokasiScreen> {
                       ),
                       const SizedBox(height: 16),
 
-                      // INPUT LATITUDE (Bisa diklik buka Maps)
-                      GestureDetector(
-                        onTap: _bukaMaps,
-                        child: AbsorbPointer(
-                          child: AppTextField(
-                            label: 'Latitude',
-                            hint: 'Contoh: -6.200000',
-                            controller: _latitudeController,
-                            prefixIcon: Icons.my_location_rounded,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                              signed: true,
-                            ),
-                            textInputAction: TextInputAction.next,
-                            validator: _validasiLatitude,
+                      AppTextField(
+                        label: 'Latitude',
+                        hint: 'Contoh: -6.200000',
+                        controller: _latitudeController,
+                        prefixIcon: Icons.my_location_rounded,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                          signed: true,
+                        ),
+                        textInputAction: TextInputAction.next,
+                        validator: _validasiLatitude,
+                        suffixIcon: IconButton(
+                          onPressed: _bukaMaps,
+                          tooltip: 'Cek koordinat di Google Maps',
+                          icon: const Icon(
+                            Icons.map_outlined,
+                            size: 20,
+                            color: AppColors.textSecondary,
                           ),
                         ),
                       ),
                       const SizedBox(height: 4),
                       const Text(
-                        '*Klik kolom Latitude/Longitude untuk cek di Google Maps',
+                        '*Isi koordinat manual atau ketuk ikon peta untuk cek di Google Maps',
                         style: TextStyle(fontSize: 10, color: Colors.grey),
                       ),
 
                       const SizedBox(height: 12),
 
-                      // INPUT LONGITUDE (Bisa diklik buka Maps)
-                      GestureDetector(
-                        onTap: _bukaMaps,
-                        child: AbsorbPointer(
-                          child: AppTextField(
-                            label: 'Longitude',
-                            hint: 'Contoh: 106.816666',
-                            controller: _longitudeController,
-                            prefixIcon: Icons.explore_rounded,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                              signed: true,
-                            ),
-                            textInputAction: TextInputAction.next,
-                            validator: _validasiLongitude,
+                      AppTextField(
+                        label: 'Longitude',
+                        hint: 'Contoh: 106.816666',
+                        controller: _longitudeController,
+                        prefixIcon: Icons.explore_rounded,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                          signed: true,
+                        ),
+                        textInputAction: TextInputAction.next,
+                        validator: _validasiLongitude,
+                        suffixIcon: IconButton(
+                          onPressed: _bukaMaps,
+                          tooltip: 'Cek koordinat di Google Maps',
+                          icon: const Icon(
+                            Icons.map_outlined,
+                            size: 20,
+                            color: AppColors.textSecondary,
                           ),
                         ),
                       ),

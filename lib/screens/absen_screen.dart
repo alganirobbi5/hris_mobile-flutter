@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/api_config.dart';
 import '../services/app_session.dart';
@@ -47,6 +46,34 @@ class _AbsenScreenState extends State<AbsenScreen> {
     _fetchJamKerja();
   }
 
+  String _tanggalHariIni() {
+    const List<String> hari = <String>[
+      'Senin',
+      'Selasa',
+      'Rabu',
+      'Kamis',
+      'Jumat',
+      'Sabtu',
+      'Minggu',
+    ];
+    const List<String> bulan = <String>[
+      'Januari',
+      'Februari',
+      'Maret',
+      'April',
+      'Mei',
+      'Juni',
+      'Juli',
+      'Agustus',
+      'September',
+      'Oktober',
+      'November',
+      'Desember',
+    ];
+    final DateTime now = DateTime.now();
+    return '${hari[now.weekday - 1]}, ${now.day} ${bulan[now.month - 1]} ${now.year}';
+  }
+
   String? _formatJamKerja(dynamic nilai) {
     if (nilai == null) return null;
     final String teks = nilai.toString().trim();
@@ -56,8 +83,12 @@ class _AbsenScreenState extends State<AbsenScreen> {
 
   Future<void> _fetchJamKerja() async {
     try {
+      final String? token = await AppSession.resolveToken();
       final response = await http
-          .get(Uri.parse('${ApiConfig.baseUrl}/get_jam_kerja.php'))
+          .get(
+            Uri.parse('${ApiConfig.baseUrl}/get_jam_kerja.php'),
+            headers: ApiConfig.authHeaders(token),
+          )
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode != 200) return;
@@ -239,15 +270,14 @@ class _AbsenScreenState extends State<AbsenScreen> {
       final String waktuLokal =
           "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
 
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-      final String? token = prefs.getString(ApiConfig.authTokenPrefKey);
+      final String? token = await AppSession.resolveToken();
 
       final http.MultipartRequest request = http.MultipartRequest(
         'POST',
         Uri.parse('${ApiConfig.baseUrl}/absen.php'),
       );
-      if (token != null && token.isNotEmpty) {
-        request.headers['Authorization'] = 'Bearer $token';
+      if (token != null && token.trim().isNotEmpty) {
+        request.headers['Authorization'] = 'Bearer ${token.trim()}';
       }
       request.fields.addAll(
         EmployeeRequest.multipartMasuk(
@@ -341,15 +371,14 @@ class _AbsenScreenState extends State<AbsenScreen> {
       final String waktuLokal =
           "$tanggalLokal ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
 
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-      final String? token = prefs.getString(ApiConfig.authTokenPrefKey);
+      final String? token = await AppSession.resolveToken();
 
       final http.MultipartRequest request = http.MultipartRequest(
         'POST',
         Uri.parse('${ApiConfig.baseUrl}/absen_pulang.php'),
       );
-      if (token != null && token.isNotEmpty) {
-        request.headers['Authorization'] = 'Bearer $token';
+      if (token != null && token.trim().isNotEmpty) {
+        request.headers['Authorization'] = 'Bearer ${token.trim()}';
       }
       request.fields.addAll(
         EmployeeRequest.multipartPulang(
@@ -400,8 +429,6 @@ class _AbsenScreenState extends State<AbsenScreen> {
   }
 
   Future<void> _handleUnauthorized() async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.remove(ApiConfig.authTokenPrefKey);
     await AppSession.clear();
     if (!mounted) return;
     _showMessage('Sesi login berakhir. Silakan login kembali.');
@@ -467,18 +494,18 @@ class _AbsenScreenState extends State<AbsenScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Column(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
+            const Text(
               'Absen',
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
             ),
-            SizedBox(height: 2),
+            const SizedBox(height: 2),
             Text(
-              'Rabu, 11 November 2026',
-              style: TextStyle(
+              _tanggalHariIni(),
+              style: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
                 color: AppColors.textSecondary,

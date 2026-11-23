@@ -545,7 +545,12 @@ class _CutiScreenState extends State<CutiScreen> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          StatusBadge(label: statusLabel, color: statusColor),
+                          Flexible(
+                            child: StatusBadge(
+                              label: statusLabel,
+                              color: statusColor,
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 6),
