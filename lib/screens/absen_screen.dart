@@ -256,13 +256,47 @@ class _AbsenScreenState extends State<AbsenScreen> {
         return;
       }
 
-      final Position position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 20),
-        ),
-      );
+      Position position;
+      try {
+        position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 20),
+          ),
+        );
+      } on LocationServiceDisabledException {
+        _showMessage(
+          'Layanan lokasi tidak aktif. Aktifkan GPS terlebih dahulu.',
+        );
+        return;
+      } on PermissionDeniedException {
+        _showMessage('Izin lokasi diperlukan untuk melakukan absensi.');
+        return;
+      } catch (e) {
+        _showMessage(
+          'Gagal memperoleh koordinat GPS: $e. Pastikan berada di area '
+          'terbuka dengan sinyal GPS yang baik.',
+        );
+        return;
+      }
       if (!mounted) return;
+
+      if (!position.latitude.isFinite ||
+          !position.longitude.isFinite ||
+          position.latitude < -90 ||
+          position.latitude > 90 ||
+          position.longitude < -180 ||
+          position.longitude > 180) {
+        _showMessage('Koordinat GPS tidak valid. Absensi dibatalkan.');
+        return;
+      }
+
+      setState(() {
+        _koordinatTeks =
+            '${position.latitude.toStringAsFixed(6)}, '
+            '${position.longitude.toStringAsFixed(6)}';
+        _lokasiTeks = 'Lokasi terverifikasi';
+      });
 
       final now = DateTime.now();
       final String tanggalLokal =
@@ -288,6 +322,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
           longitude: position.longitude,
           tanggalLokal: tanggalLokal,
           waktuLokal: waktuLokal,
+          accuracy: position.accuracy,
         ),
       );
       request.files.add(
@@ -320,8 +355,19 @@ class _AbsenScreenState extends State<AbsenScreen> {
           ),
         );
       } else {
-        final data = jsonDecode(response.body);
-        _showMessage(data['message'] ?? 'Gagal menyimpan absen.');
+        String message = 'Gagal menyimpan absen (${response.statusCode}).';
+        try {
+          final Object? decoded = jsonDecode(response.body);
+          if (decoded is Map<String, dynamic>) {
+            final Object? serverMessage = decoded['message'];
+            if (serverMessage != null && serverMessage.toString().isNotEmpty) {
+              message = serverMessage.toString();
+            }
+          }
+        } on FormatException {
+          message = 'Balasan server tidak valid (${response.statusCode}).';
+        }
+        _showMessage(message);
       }
     } catch (e) {
       if (mounted) _showMessage('Terjadi kesalahan: $e');

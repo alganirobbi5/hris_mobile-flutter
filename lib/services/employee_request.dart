@@ -81,15 +81,20 @@ class EmployeeRequest {
     required double longitude,
     required String tanggalLokal,
     required String waktuLokal,
+    double? accuracy,
   }) {
     _require(employeeId);
-    return <String, String>{
+    final Map<String, String> fields = <String, String>{
       'employee_id': employeeId.toString(),
       'latitude': latitude.toString(),
       'longitude': longitude.toString(),
       'tanggal_lokal': tanggalLokal,
       'waktu_lokal': waktuLokal,
     };
+    if (accuracy != null && accuracy.isFinite && accuracy >= 0) {
+      fields['gps_accuracy'] = accuracy.toStringAsFixed(2);
+    }
+    return fields;
   }
 
   static Map<String, String> multipartPulang({
