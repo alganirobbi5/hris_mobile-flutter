@@ -32,11 +32,12 @@ class EmployeeRequest {
   static Uri profile(int? employeeId) =>
       _withEmployeeQuery('profil.php', employeeId);
 
+  /// Riwayat cuti memakai satu endpoint untuk semua role.
+  /// Backend `riwayat_cuti.php` sudah mengembalikan semua pengajuan untuk HR
+  /// (employee_id null) dan hanya cuti sendiri untuk karyawan, dengan bentuk
+  /// field yang sama — jadi tampilan tidak boleh bercabang.
   static Uri leaveHistory(int? employeeId, {String? role}) {
-    if (employeeId == null && AppSession.isHrRole(role)) {
-      return ApiConfig.uri('laporan_cuti.php');
-    }
-    return _withEmployeeQuery('riwayat_cuti.php', employeeId);
+    return ApiConfig.uri('riwayat_cuti.php');
   }
 
   static Map<String, dynamic> absenMasuk({

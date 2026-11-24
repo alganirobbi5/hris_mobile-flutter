@@ -53,11 +53,20 @@ class _CutiScreenState extends State<CutiScreen> {
   bool _isLoadingRiwayat = true;
   String? _riwayatError;
   List<_RiwayatCuti> _riwayat = const [];
+  bool _isHr = false;
+  final Set<int> _deletingIds = <int>{};
 
   @override
   void initState() {
     super.initState();
-    _fetchRiwayatCuti();
+    _loadRole();
+  }
+
+  Future<void> _loadRole() async {
+    final String? role = await AppSession.resolveRole();
+    if (!mounted) return;
+    setState(() => _isHr = AppSession.isHrRole(role));
+    await _fetchRiwayatCuti();
   }
 
   @override
@@ -301,6 +310,61 @@ class _CutiScreenState extends State<CutiScreen> {
     }
   }
 
+  Future<void> _hapusCuti(_RiwayatCuti item) async {
+    if (item.id <= 0 || _deletingIds.contains(item.id)) return;
+
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
+        title: const Text('Hapus riwayat cuti'),
+        content: Text(
+          'Yakin ingin menghapus riwayat cuti${item.employeeName.isEmpty ? '' : ' ${item.employeeName}'} ini?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+
+    setState(() => _deletingIds.add(item.id));
+    try {
+      final String? token = await AppSession.resolveToken();
+      final http.Response response = await http
+          .post(
+            ApiConfig.uri('hapus_cuti.php'),
+            headers: ApiConfig.authHeaders(token),
+            body: jsonEncode(<String, int>{'id': item.id}),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (!mounted) return;
+      if (response.statusCode == 200) {
+        _showMessage('Riwayat cuti berhasil dihapus');
+        await _fetchRiwayatCuti();
+      } else {
+        _showMessage(_apiErrorMessage(
+          response,
+          fallbackMessage: 'Gagal menghapus riwayat cuti.',
+        ));
+      }
+    } catch (_) {
+      if (mounted) _showMessage('Gagal terhubung ke server');
+    } finally {
+      if (mounted) {
+        setState(() => _deletingIds.remove(item.id));
+      }
+    }
+  }
+
   List<_RiwayatCuti> _parseRiwayatCuti(String body) {
     if (body.trim().isEmpty) return const [];
 
@@ -432,6 +496,8 @@ class _CutiScreenState extends State<CutiScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (_isHr && item.employeeName.isNotEmpty)
+                _detailRow('Karyawan', item.employeeName),
               _detailRow('Status', _statusLabel(item.status)),
               _detailRow('Tanggal', '${item.leavFrom} s.d. ${item.leavTo}'),
               if (item.alasan != null && item.alasan!.isNotEmpty)
@@ -534,6 +600,7 @@ class _CutiScreenState extends State<CutiScreen> {
         final _RiwayatCuti item = _riwayat[index];
         final String statusLabel = _statusLabel(item.status);
         final Color statusColor = _statusColor(item.status);
+        final bool isDeleting = _deletingIds.contains(item.id);
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
@@ -541,106 +608,162 @@ class _CutiScreenState extends State<CutiScreen> {
             onTap: () => _tampilkanDetailCuti(item),
             borderRadius: BorderRadius.circular(20),
             child: SectionCard(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(13),
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                    child: const Icon(
+                      Icons.event_note_outlined,
+                      size: 21,
+                      color: AppColors.primary,
+                    ),
                   ),
-                  child: const Icon(
-                    Icons.event_note_outlined,
-                    size: 21,
-                    color: AppColors.primary,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              item.type,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.textPrimary,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                item.type,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.textPrimary,
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Flexible(
-                            child: StatusBadge(
-                              label: statusLabel,
-                              color: statusColor,
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: StatusBadge(
+                                label: statusLabel,
+                                color: statusColor,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.date_range_rounded,
-                            size: 14,
-                            color: AppColors.textSecondary,
-                          ),
-                          const SizedBox(width: 5),
-                          Expanded(
-                            child: Text(
-                              '${_formatRiwayatDate(item.leavFrom)} - '
-                              '${_formatRiwayatDate(item.leavTo)}',
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                height: 1.35,
+                          ],
+                        ),
+                        if (_isHr && item.employeeName.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.person_outline_rounded,
+                                size: 14,
                                 color: AppColors.textSecondary,
                               ),
+                              const SizedBox(width: 5),
+                              Expanded(
+                                child: Text(
+                                  item.employeeName,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.date_range_rounded,
+                              size: 14,
+                              color: AppColors.textSecondary,
+                            ),
+                            const SizedBox(width: 5),
+                            Expanded(
+                              child: Text(
+                                '${_formatRiwayatDate(item.leavFrom)} - '
+                                '${_formatRiwayatDate(item.leavTo)}',
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  height: 1.35,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (item.alasan != null && item.alasan!.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            item.alasan!,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              height: 1.35,
+                              color: AppColors.textSecondary,
                             ),
                           ),
                         ],
-                      ),
-                      if (item.alasan != null && item.alasan!.isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          item.alasan!,
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            height: 1.35,
-                            color: AppColors.textSecondary,
+                        if (item.komentar != null &&
+                            item.komentar!.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            'Komentar HR: ${item.komentar}',
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.primary,
+                            ),
                           ),
-                        ),
-                      ],
-                      if (item.komentar != null && item.komentar!.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Text(
-                          'Komentar HR: ${item.komentar}',
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.primary,
+                        ],
+                        if (_isHr && item.id > 0) ...[
+                          const SizedBox(height: 10),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton.icon(
+                              onPressed: isDeleting
+                                  ? null
+                                  : () => _hapusCuti(item),
+                              style: TextButton.styleFrom(
+                                foregroundColor: AppColors.danger,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                              ),
+                              icon: isDeleting
+                                  ? const SizedBox(
+                                      width: 14,
+                                      height: 14,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.delete_outline_rounded,
+                                      size: 17,
+                                    ),
+                              label: Text(
+                                isDeleting ? 'Menghapus...' : 'Hapus',
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
             ),
           ),
         );
@@ -1020,6 +1143,8 @@ class _StatusCount extends StatelessWidget {
 
 class _RiwayatCuti {
   const _RiwayatCuti({
+    this.id = 0,
+    this.employeeName = '',
     required this.type,
     required this.leavFrom,
     required this.leavTo,
@@ -1030,8 +1155,26 @@ class _RiwayatCuti {
   });
 
   factory _RiwayatCuti.fromJson(Map<String, dynamic> json) {
+    final String firstName = _stringValue(
+      json['first_name'] ?? json['firstName'],
+      '',
+    );
+    final String lastName = _stringValue(
+      json['last_name'] ?? json['lastName'],
+      '',
+    );
+    final String fullName = '$firstName $lastName'.trim();
+
     return _RiwayatCuti(
-      type: _stringValue(json['type'], '-'),
+      id: _intValue(json['id'] ?? json['leave_id']),
+      employeeName: _stringValue(
+        json['employee_name'] ?? json['name'],
+        fullName,
+      ),
+      type: _stringValue(
+        json['type'] ?? json['reason'] ?? json['keterangan'],
+        '-',
+      ),
       leavFrom: _stringValue(
         json['leav_from'] ?? json['leave_from'] ?? json['start_date'],
         '-',
@@ -1050,6 +1193,8 @@ class _RiwayatCuti {
     );
   }
 
+  final int id;
+  final String employeeName;
   final String type;
   final String leavFrom;
   final String leavTo;
@@ -1062,5 +1207,10 @@ class _RiwayatCuti {
     if (value == null) return fallback;
     final String text = value.toString().trim();
     return text.isEmpty ? fallback : text;
+  }
+
+  static int _intValue(dynamic value) {
+    if (value is int) return value;
+    return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 }
