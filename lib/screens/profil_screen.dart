@@ -39,6 +39,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
   bool _isLoading = true;
   bool _isUploadingAvatar = false;
   bool _isSavingCompany = false;
+  bool _isSavingQuota = false;
   String? _error;
   Map<String, dynamic>? _profil;
   String _roleUser = '';
@@ -631,6 +632,121 @@ class _ProfilScreenState extends State<ProfilScreen> {
     return saved;
   }
 
+  static int? _parseEmployeeId(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    return int.tryParse(value.toString().trim());
+  }
+
+  Future<void> _showAturKuotaCutiDialog() async {
+    final int? employeeId = await AppSession.currentEmployeeId() ??
+        _parseEmployeeId(_profil?['employee_id']);
+    if (!mounted) return;
+    if (employeeId == null) {
+      _showMessage('employee_id karyawan tidak ditemukan. Silakan login ulang.');
+      return;
+    }
+
+    final TextEditingController quotaController =
+        TextEditingController(text: '12');
+    final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+
+    await showDialog<void>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Atur Kuota Cuti'),
+          content: Form(
+            key: formKey,
+            child: TextFormField(
+              controller: quotaController,
+              keyboardType: TextInputType.number,
+              inputFormatters: <TextInputFormatter>[
+                FilteringTextInputFormatter.digitsOnly,
+              ],
+              decoration: const InputDecoration(
+                labelText: 'Total Kuota Tahunan',
+                hintText: '12',
+              ),
+              validator: (String? value) {
+                final int? quota = int.tryParse((value ?? '').trim());
+                if (quota == null || quota <= 0 || quota > 365) {
+                  return 'Masukkan angka antara 1 sampai 365';
+                }
+                return null;
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              onPressed: _isSavingQuota
+                  ? null
+                  : () async {
+                      if (!formKey.currentState!.validate()) return;
+                      final int quota =
+                          int.parse(quotaController.text.trim());
+                      Navigator.of(dialogContext).pop();
+                      await _saveKuotaCuti(employeeId, quota);
+                    },
+              child: Text(_isSavingQuota ? 'Menyimpan...' : 'Simpan'),
+            ),
+          ],
+        );
+      },
+    );
+
+    quotaController.dispose();
+  }
+
+  Future<void> _saveKuotaCuti(int employeeId, int quota) async {
+    if (!mounted) return;
+    setState(() => _isSavingQuota = true);
+    try {
+      final String? token = await AppSession.resolveToken();
+      final http.Response response = await http
+          .post(
+            ApiConfig.uri('update_kuota_cuti.php'),
+            headers: ApiConfig.authHeaders(token),
+            body: jsonEncode(<String, dynamic>{
+              'employee_id': employeeId,
+              'kuota_baru': quota,
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+
+      if (!mounted) return;
+
+      Map<String, dynamic>? decoded;
+      try {
+        final Object? body = jsonDecode(response.body);
+        if (body is Map<String, dynamic>) decoded = body;
+      } on FormatException {
+        decoded = null;
+      }
+
+      final bool success = response.statusCode == 200 &&
+          (decoded?['status'] == 'success' || decoded?['success'] == true);
+      final Object? serverMessage = decoded?['message'];
+      final String message = success
+          ? 'Kuota cuti berhasil diperbarui.'
+          : (serverMessage != null && serverMessage.toString().isNotEmpty
+              ? serverMessage.toString()
+              : 'Gagal memperbarui kuota cuti (HTTP ${response.statusCode}).');
+
+      _showMessage(message);
+      if (success) await _fetchProfil();
+    } catch (_) {
+      if (!mounted) return;
+      _showMessage('Gagal terhubung ke server saat menyimpan kuota cuti.');
+    } finally {
+      if (mounted) setState(() => _isSavingQuota = false);
+    }
+  }
+
   void _showLogoutConfirmation() {
     showDialog<void>(
       context: context,
@@ -878,6 +994,17 @@ class _ProfilScreenState extends State<ProfilScreen> {
 
           // EDIT PROFIL PERUSAHAAN (Hanya untuk HR)
           if (AppSession.isHrRole(_roleUser)) ...[
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _isSavingQuota
+                    ? null
+                    : _showAturKuotaCutiDialog,
+                icon: const Icon(Icons.event_available_outlined),
+                label: const Text('Atur Kuota Cuti'),
+              ),
+            ),
+            const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
