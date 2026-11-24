@@ -205,9 +205,15 @@ class _LaporanScreenState extends State<LaporanScreen>
       appBar: AppBar(title: const Text('Laporan')),
       body: SafeArea(
         top: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
-          child: Column(
+        child: RefreshIndicator(
+          onRefresh: () async {
+            await _muatRows();
+            _fetchSemuaAbsensi();
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header
@@ -405,6 +411,7 @@ class _LaporanScreenState extends State<LaporanScreen>
             ],
           ),
         ),
+      ),
       ),
     );
   }

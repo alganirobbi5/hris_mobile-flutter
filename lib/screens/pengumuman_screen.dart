@@ -284,20 +284,7 @@ class _PengumumanScreenState extends State<PengumumanScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Pengumuman'),
-        actions: [
-          if (!_isLoading)
-            IconButton(
-              onPressed: _fetchPengumuman,
-              tooltip: 'Muat ulang pengumuman',
-              icon: const Icon(
-                Icons.refresh_rounded,
-                color: AppColors.textSecondary,
-              ),
-            ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Pengumuman')),
       body: SafeArea(
         top: false,
         child: RefreshIndicator(

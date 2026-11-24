@@ -1069,15 +1069,6 @@ class _CutiScreenState extends State<CutiScreen> {
                         width: 18,
                         height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    else
-                      IconButton(
-                        onPressed: _fetchRiwayatCuti,
-                        tooltip: 'Muat ulang riwayat',
-                        icon: const Icon(
-                          Icons.refresh_rounded,
-                          color: AppColors.textSecondary,
-                        ),
                       ),
                   ],
                 ),
@@ -1101,9 +1092,13 @@ class _CutiScreenState extends State<CutiScreen> {
       appBar: AppBar(title: const Text('Cuti')),
       body: SafeArea(
         top: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
-          child: content,
+        child: RefreshIndicator(
+          onRefresh: _fetchRiwayatCuti,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
+            child: content,
+          ),
         ),
       ),
     );

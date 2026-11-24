@@ -712,15 +712,6 @@ class _ProfilScreenState extends State<ProfilScreen> {
       appBar: AppBar(
         title: const Text('Profil'),
         actions: [
-          if (!_isLoading)
-            IconButton(
-              onPressed: _fetchProfil,
-              tooltip: 'Muat ulang profil',
-              icon: const Icon(
-                Icons.refresh_rounded,
-                color: AppColors.textSecondary,
-              ),
-            ),
           IconButton(
             onPressed: _showLogoutConfirmation,
             tooltip: 'Keluar',
@@ -803,9 +794,12 @@ class _ProfilScreenState extends State<ProfilScreen> {
       );
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
-      child: Column(
+    return RefreshIndicator(
+      onRefresh: _fetchProfil,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Center(
@@ -1007,6 +1001,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

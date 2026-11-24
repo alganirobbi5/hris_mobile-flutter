@@ -594,25 +594,20 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Persetujuan Cuti'),
-        actions: [
-          if (!_isLoading)
-            IconButton(
-              onPressed: _fetchPengajuan,
-              tooltip: 'Muat ulang pengajuan',
-              icon: const Icon(
-                Icons.refresh_rounded,
-                color: AppColors.textSecondary,
-              ),
-            ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Persetujuan Cuti')),
       body: SafeArea(
         top: false,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
-          child: Column(
+        child: RefreshIndicator(
+          onRefresh: () async {
+            await Future.wait<void>(<Future<void>>[
+              _fetchPengajuan(),
+              _fetchRingkasanCuti(),
+            ]);
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
@@ -662,6 +657,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
               _buildList(),
             ],
           ),
+        ),
         ),
       ),
     );
