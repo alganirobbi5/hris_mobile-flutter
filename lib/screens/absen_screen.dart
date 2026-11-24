@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/api_config.dart';
 import '../services/app_session.dart';
@@ -27,6 +28,11 @@ class AbsenScreen extends StatefulWidget {
 }
 
 class _AbsenScreenState extends State<AbsenScreen> {
+  static const String _prefSelfieTanggal = 'absen_selfie_tanggal';
+  static const String _prefSelfieMasuk = 'absen_selfie_masuk_path';
+  static const String _prefSelfiePulang = 'absen_selfie_pulang_path';
+  static const String _prefSelfieEmployee = 'absen_selfie_employee_id';
+
   final ImagePicker _imagePicker = ImagePicker();
 
   bool _isProcessing = false;
@@ -40,12 +46,65 @@ class _AbsenScreenState extends State<AbsenScreen> {
   String _jamMasukKerja = '--:--';
   String _jamKeluarKerja = '--:--';
 
+  String? _selfieMasukPath;
+  String? _selfiePulangPath;
+  String? _selfieMasukUrl;
+  String? _selfiePulangUrl;
+  String? _token;
+  String _koordinatAbsenTeks = '';
+
   @override
   void initState() {
     super.initState();
+    _muatPathSelfieLokal();
     _dapatkanLokasi();
     _cekStatusAbsen();
     _fetchJamKerja();
+  }
+
+  String _kunciTanggalHariIni() {
+    final DateTime now = DateTime.now();
+    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _muatPathSelfieLokal() async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final String hariIni = _kunciTanggalHariIni();
+    final int? employeeId = await AppSession.currentEmployeeId();
+    final String? employeeTersimpan = prefs.getString(_prefSelfieEmployee);
+    if (prefs.getString(_prefSelfieTanggal) != hariIni ||
+        employeeTersimpan != employeeId?.toString()) {
+      await prefs.remove(_prefSelfieMasuk);
+      await prefs.remove(_prefSelfiePulang);
+      await prefs.setString(_prefSelfieTanggal, hariIni);
+      await prefs.setString(_prefSelfieEmployee, employeeId?.toString() ?? '');
+    }
+    if (!mounted) return;
+    setState(() {
+      _selfieMasukPath = prefs.getString(_prefSelfieMasuk);
+      _selfiePulangPath = prefs.getString(_prefSelfiePulang);
+    });
+  }
+
+  Future<void> _simpanPathSelfieLokal(String jenis, String path) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_prefSelfieTanggal, _kunciTanggalHariIni());
+    await prefs.setString(
+      _prefSelfieEmployee,
+      (await AppSession.currentEmployeeId())?.toString() ?? '',
+    );
+    await prefs.setString(
+      jenis == 'masuk' ? _prefSelfieMasuk : _prefSelfiePulang,
+      path,
+    );
+    if (!mounted) return;
+    setState(() {
+      if (jenis == 'masuk') {
+        _selfieMasukPath = path;
+      } else {
+        _selfiePulangPath = path;
+      }
+    });
   }
 
   String _tanggalHariIni() {
@@ -124,11 +183,32 @@ class _AbsenScreenState extends State<AbsenScreen> {
     }
   }
 
+  String _teksDari(dynamic nilai) {
+    if (nilai == null) return '';
+    final String teks = nilai.toString().trim();
+    if (teks.isEmpty || teks == '-' || teks.toLowerCase() == 'null') return '';
+    return teks;
+  }
+
+  String? _urlSelfieServer(dynamic nilai, dynamic idAbsen) {
+    final String teks = _teksDari(nilai);
+    if (teks.isEmpty) return null;
+    if (teks.startsWith('http://') || teks.startsWith('https://')) return teks;
+
+    final String id = _teksDari(idAbsen);
+    if (id.isEmpty || id == '0') return null;
+    return ApiConfig.uri('selfie.php')
+        .replace(queryParameters: <String, String>{'id': id})
+        .toString();
+  }
+
   Future<void> _cekStatusAbsen() async {
     final int? employeeId = await AppSession.currentEmployeeId();
     if (employeeId == null) return;
 
     final String? token = await AppSession.resolveToken();
+    if (!mounted) return;
+    setState(() => _token = token);
 
     try {
       final response = await http.get(
@@ -154,6 +234,33 @@ class _AbsenScreenState extends State<AbsenScreen> {
             if (jamMasuk != null) _jamAbsenTeks = '$jamMasuk WIB';
             final String? jamPulang = _formatJamKerja(data['jam_pulang']);
             if (jamPulang != null) _jamPulangTeks = '$jamPulang WIB';
+
+            final dynamic idAbsen = data['attendance_id'] ??
+                data['absen_id'] ??
+                data['id'] ??
+                data['id_masuk'];
+            _selfieMasukUrl = _urlSelfieServer(
+              data['selfie_in_url'] ??
+                  data['selfie_masuk_url'] ??
+                  data['selfie_in'] ??
+                  data['selfie_masuk'] ??
+                  data['selfie_path'],
+              idAbsen,
+            );
+            _selfiePulangUrl = _urlSelfieServer(
+              data['selfie_out_url'] ??
+                  data['selfie_pulang_url'] ??
+                  data['selfie_out'] ??
+                  data['selfie_pulang'] ??
+                  data['selfie_path'],
+              data['attendance_id_pulang'] ?? data['absen_id_pulang'] ?? idAbsen,
+            );
+
+            final String lat = _teksDari(data['latitude'] ?? data['lat']);
+            final String lng = _teksDari(data['longitude'] ?? data['lng'] ?? data['lon']);
+            if (lat.isNotEmpty && lng.isNotEmpty) {
+              _koordinatAbsenTeks = '$lat, $lng';
+            }
           });
         }
       }
@@ -367,6 +474,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
       }
 
       if (response.statusCode == 201) {
+        await _simpanPathSelfieLokal('masuk', selfiePath);
         // Refresh status setelah absen masuk
         await _cekStatusAbsen();
         if (!mounted) return;
@@ -520,6 +628,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
       }
 
       if (response.statusCode == 200) {
+        await _simpanPathSelfieLokal('pulang', selfiePath);
         await _cekStatusAbsen();
         if (!mounted) return;
 
@@ -657,8 +766,20 @@ class _AbsenScreenState extends State<AbsenScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Jarak antar card dibuat konsisten (14)
-                const _CameraPlaceholder(),
+                _SelfiePreview(
+                  sudahMasuk: _sudahAbsenMasuk,
+                  sudahPulang: _sudahAbsenPulang,
+                  jamMasuk: _jamAbsenTeks,
+                  jamPulang: _jamPulangTeks,
+                  lokalMasuk: _selfieMasukPath,
+                  lokalPulang: _selfiePulangPath,
+                  urlMasuk: _selfieMasukUrl,
+                  urlPulang: _selfiePulangUrl,
+                  headers: ApiConfig.authHeaders(_token),
+                  koordinat: _koordinatAbsenTeks.isEmpty
+                      ? _koordinatTeks
+                      : _koordinatAbsenTeks,
+                ),
                 const SizedBox(height: 16),
 
                 SectionCard(
@@ -909,102 +1030,284 @@ class _AbsenScreenState extends State<AbsenScreen> {
   }
 }
 
-class _CameraPlaceholder extends StatelessWidget {
-  const _CameraPlaceholder();
+class _SelfiePreview extends StatefulWidget {
+  const _SelfiePreview({
+    required this.sudahMasuk,
+    required this.sudahPulang,
+    required this.jamMasuk,
+    required this.jamPulang,
+    required this.lokalMasuk,
+    required this.lokalPulang,
+    required this.urlMasuk,
+    required this.urlPulang,
+    required this.headers,
+    required this.koordinat,
+  });
+
+  final bool sudahMasuk;
+  final bool sudahPulang;
+  final String jamMasuk;
+  final String jamPulang;
+  final String? lokalMasuk;
+  final String? lokalPulang;
+  final String? urlMasuk;
+  final String? urlPulang;
+  final Map<String, String> headers;
+  final String koordinat;
+
+  @override
+  State<_SelfiePreview> createState() => _SelfiePreviewState();
+}
+
+class _SelfiePreviewState extends State<_SelfiePreview> {
+  String _mode = 'masuk';
+
+  @override
+  void initState() {
+    super.initState();
+    _mode = widget.sudahPulang ? 'pulang' : 'masuk';
+  }
+
+  @override
+  void didUpdateWidget(covariant _SelfiePreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.sudahPulang && !oldWidget.sudahPulang) {
+      setState(() => _mode = 'pulang');
+    }
+  }
+
+  static const LinearGradient _latar = LinearGradient(
+    colors: <Color>[Color(0xFF23213A), Color(0xFF3A3560)],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  bool _adaFoto(String? lokal, String? url) {
+    if (url != null && url.trim().isNotEmpty) return true;
+    if (lokal != null && lokal.isNotEmpty) return File(lokal).existsSync();
+    return false;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: 4 / 3.1,
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF23213A), Color(0xFF3A3560)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(24),
-        ),
+    final bool masukAda =
+        _adaFoto(widget.lokalMasuk, widget.urlMasuk) || widget.sudahMasuk;
+    final bool pulangAda =
+        _adaFoto(widget.lokalPulang, widget.urlPulang) || widget.sudahPulang;
+
+    if (!masukAda && !pulangAda) return _buildKosong();
+
+    final bool pakaiPulang = _mode == 'pulang' && pulangAda;
+    final String? lokal = pakaiPulang ? widget.lokalPulang : widget.lokalMasuk;
+    final String? url = pakaiPulang ? widget.urlPulang : widget.urlMasuk;
+    final String jam = pakaiPulang ? widget.jamPulang : widget.jamMasuk;
+    final String label = pakaiPulang ? 'Selfie Pulang' : 'Selfie Masuk';
+
+    return SizedBox(
+      height: 195,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
         child: Stack(
+          fit: StackFit.expand,
           children: [
+            const DecoratedBox(decoration: BoxDecoration(gradient: _latar)),
+            _buildGambar(lokal, url),
             Positioned(
-              top: 16,
-              left: 16,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.16),
-                  ),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.camera_alt_outlined,
-                      size: 13,
-                      color: Colors.white,
-                    ),
-                    SizedBox(width: 5),
-                    Text(
-                      'Kamera depan',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
+              top: 12,
+              left: 12,
+              child: _buildBadge('$label • $jam'),
+            ),
+            if (pulangAda)
+              Positioned(
+                top: 12,
+                right: 12,
+                child: _buildToggle(),
+              ),
+            Positioned(
+              left: 12,
+              right: 12,
+              bottom: 12,
+              child: Text(
+                'Koordinat: ${widget.koordinat}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Colors.white,
+                  shadows: <Shadow>[
+                    Shadow(offset: Offset(0, 1), blurRadius: 4),
                   ],
                 ),
               ),
             ),
-            Center(
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGambar(String? lokal, String? url) {
+    if (lokal != null && lokal.isNotEmpty) {
+      final File file = File(lokal);
+      if (file.existsSync()) {
+        return Image.file(
+          file,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
+        );
+      }
+    }
+
+    final String? alamat = url?.trim();
+    if (alamat != null && alamat.isNotEmpty) {
+      return Image.network(
+        alamat,
+        headers: widget.headers,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        loadingBuilder: (BuildContext context, Widget child, Object? progress) {
+          if (progress == null) return child;
+          return const Center(
+            child: CircularProgressIndicator(color: Colors.white),
+          );
+        },
+        errorBuilder: (BuildContext context, Object error, StackTrace? stack) {
+          return _buildTercatat();
+        },
+      );
+    }
+
+    return _buildTercatat();
+  }
+
+  Widget _buildTercatat() {
+    return const Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Icon(Icons.check_circle_rounded, size: 46, color: Color(0xFF66D19E)),
+          SizedBox(height: 10),
+          Text(
+            'Absensi tercatat',
+            style: TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildKosong() {
+    return SizedBox(
+      height: 195,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            const DecoratedBox(decoration: BoxDecoration(gradient: _latar)),
+            const Positioned(
+              top: 12,
+              left: 12,
+              child: Icon(
+                Icons.camera_front_rounded,
+                size: 18,
+                color: Colors.white,
+              ),
+            ),
+            const Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 108,
-                    height: 108,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.08),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.28),
-                        width: 1.5,
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.person_outline_rounded,
-                      size: 58,
-                      color: Colors.white,
-                    ),
+                children: <Widget>[
+                  Icon(
+                    Icons.camera_front_rounded,
+                    size: 54,
+                    color: Colors.white,
                   ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Posisikan wajah di dalam bingkai',
+                  SizedBox(height: 14),
+                  Text(
+                    'Belum ada foto selfie hari ini',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                       color: Colors.white,
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Pastikan pencahayaan cukup',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.white.withValues(alpha: 0.66),
+                  SizedBox(height: 6),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 24),
+                    child: Text(
+                      'Tekan tombol di bawah untuk mengambil selfie absen masuk',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Colors.white70,
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBadge(String teks) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        teks,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToggle() {
+    return Container(
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: Colors.black54,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          _togglePill('Masuk', _mode == 'masuk'),
+          _togglePill('Pulang', _mode == 'pulang'),
+        ],
+      ),
+    );
+  }
+
+  Widget _togglePill(String label, bool aktif) {
+    return GestureDetector(
+      onTap: () => setState(() => _mode = label == 'Pulang' ? 'pulang' : 'masuk'),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: aktif ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 10.5,
+            fontWeight: FontWeight.w700,
+            color: aktif ? const Color(0xFF23213A) : Colors.white,
+          ),
         ),
       ),
     );
