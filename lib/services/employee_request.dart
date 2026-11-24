@@ -45,12 +45,15 @@ class EmployeeRequest {
     required double longitude,
     required String tanggalLokal,
     required String waktuLokal,
+    double? accuracy,
   }) {
     _require(employeeId);
     return <String, dynamic>{
       'employee_id': employeeId,
       'latitude': latitude.toString(),
       'longitude': longitude.toString(),
+      if (accuracy != null && accuracy.isFinite && accuracy >= 0)
+        'gps_accuracy': accuracy.toStringAsFixed(2),
       'tanggal_lokal': tanggalLokal,
       'waktu_lokal': waktuLokal,
     };
@@ -60,55 +63,17 @@ class EmployeeRequest {
     required int? employeeId,
     required double latitude,
     required double longitude,
+    required String tanggalLokal,
     required String waktuLokal,
-    required String selfie,
+    double? accuracy,
   }) {
     _require(employeeId);
     return <String, dynamic>{
       'employee_id': employeeId,
       'latitude': latitude.toString(),
       'longitude': longitude.toString(),
-      'waktu_lokal': waktuLokal,
-      'selfie': selfie,
-    };
-  }
-
-  /// Field teks untuk request multipart. File selfie ditambahkan terpisah
-  /// dengan nama field `selfie` di absen_screen.dart.
-  static Map<String, String> multipartMasuk({
-    required int? employeeId,
-    required double latitude,
-    required double longitude,
-    required String tanggalLokal,
-    required String waktuLokal,
-    double? accuracy,
-  }) {
-    _require(employeeId);
-    final Map<String, String> fields = <String, String>{
-      'employee_id': employeeId.toString(),
-      'latitude': latitude.toString(),
-      'longitude': longitude.toString(),
-      'tanggal_lokal': tanggalLokal,
-      'waktu_lokal': waktuLokal,
-    };
-    if (accuracy != null && accuracy.isFinite && accuracy >= 0) {
-      fields['gps_accuracy'] = accuracy.toStringAsFixed(2);
-    }
-    return fields;
-  }
-
-  static Map<String, String> multipartPulang({
-    required int? employeeId,
-    required double latitude,
-    required double longitude,
-    required String tanggalLokal,
-    required String waktuLokal,
-  }) {
-    _require(employeeId);
-    return <String, String>{
-      'employee_id': employeeId.toString(),
-      'latitude': latitude.toString(),
-      'longitude': longitude.toString(),
+      if (accuracy != null && accuracy.isFinite && accuracy >= 0)
+        'gps_accuracy': accuracy.toStringAsFixed(2),
       'tanggal_lokal': tanggalLokal,
       'waktu_lokal': waktuLokal,
     };

@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import '../config/api_config.dart';
 import '../services/app_session.dart';
 import '../services/employee_request.dart';
+import '../services/selfie_storage.dart';
 import '../theme/app_theme.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/section_card.dart';
@@ -304,33 +305,37 @@ class _AbsenScreenState extends State<AbsenScreen> {
       final String waktuLokal =
           "${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
 
-      final String? token = await AppSession.resolveToken();
-
-      final http.MultipartRequest request = http.MultipartRequest(
-        'POST',
-        Uri.parse('${ApiConfig.baseUrl}/absen.php'),
-      );
-      if (token != null && token.trim().isNotEmpty) {
-        final String bearer = 'Bearer ${token.trim()}';
-        request.headers['Authorization'] = bearer;
-        request.headers['X-Authorization'] = bearer;
+      final String selfiePath;
+      try {
+        selfiePath = await SelfieStorage.save(
+          photo,
+          jenis: 'masuk',
+          takenAt: now,
+        );
+      } catch (e) {
+        if (mounted) {
+          _showMessage('Gagal menyimpan foto selfie di perangkat: $e');
+        }
+        return;
       }
-      request.fields.addAll(
-        EmployeeRequest.multipartMasuk(
-          employeeId: employeeId,
-          latitude: position.latitude,
-          longitude: position.longitude,
-          tanggalLokal: tanggalLokal,
-          waktuLokal: waktuLokal,
-          accuracy: position.accuracy,
-        ),
-      );
-      request.files.add(
-        await http.MultipartFile.fromPath('selfie', photo.path),
-      );
 
-      final http.StreamedResponse streamed = await request.send();
-      final http.Response response = await http.Response.fromStream(streamed);
+      final String? token = await AppSession.resolveToken();
+      final http.Response response = await http
+          .post(
+            Uri.parse('${ApiConfig.baseUrl}/absen.php'),
+            headers: ApiConfig.authHeaders(token),
+            body: jsonEncode(
+              EmployeeRequest.absenMasuk(
+                employeeId: employeeId,
+                latitude: position.latitude,
+                longitude: position.longitude,
+                tanggalLokal: tanggalLokal,
+                waktuLokal: waktuLokal,
+                accuracy: position.accuracy,
+              ),
+            ),
+          )
+          .timeout(ApiConfig.requestTimeout);
 
       if (!mounted) return;
       if (response.statusCode == 401) {
@@ -346,7 +351,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
         await Navigator.of(context).push(
           MaterialPageRoute<void>(
             builder: (_) => AbsenSuccessScreen(
-              photoPath: photo.path,
+              photoPath: selfiePath,
               latitude: position.latitude,
               longitude: position.longitude,
               takenAt: now,
@@ -453,32 +458,37 @@ class _AbsenScreenState extends State<AbsenScreen> {
       final String waktuLokal =
           "$tanggalLokal ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}:${now.second.toString().padLeft(2, '0')}";
 
-      final String? token = await AppSession.resolveToken();
-
-      final http.MultipartRequest request = http.MultipartRequest(
-        'POST',
-        Uri.parse('${ApiConfig.baseUrl}/absen_pulang.php'),
-      );
-      if (token != null && token.trim().isNotEmpty) {
-        final String bearer = 'Bearer ${token.trim()}';
-        request.headers['Authorization'] = bearer;
-        request.headers['X-Authorization'] = bearer;
+      final String selfiePath;
+      try {
+        selfiePath = await SelfieStorage.save(
+          photo,
+          jenis: 'pulang',
+          takenAt: now,
+        );
+      } catch (e) {
+        if (mounted) {
+          _showMessage('Gagal menyimpan foto selfie di perangkat: $e');
+        }
+        return;
       }
-      request.fields.addAll(
-        EmployeeRequest.multipartPulang(
-          employeeId: employeeId,
-          latitude: position.latitude,
-          longitude: position.longitude,
-          tanggalLokal: tanggalLokal,
-          waktuLokal: waktuLokal,
-        ),
-      );
-      request.files.add(
-        await http.MultipartFile.fromPath('selfie', photo.path),
-      );
 
-      final http.StreamedResponse streamed = await request.send();
-      final http.Response response = await http.Response.fromStream(streamed);
+      final String? token = await AppSession.resolveToken();
+      final http.Response response = await http
+          .post(
+            Uri.parse('${ApiConfig.baseUrl}/absen_pulang.php'),
+            headers: ApiConfig.authHeaders(token),
+            body: jsonEncode(
+              EmployeeRequest.absenPulang(
+                employeeId: employeeId,
+                latitude: position.latitude,
+                longitude: position.longitude,
+                tanggalLokal: tanggalLokal,
+                waktuLokal: waktuLokal,
+                accuracy: position.accuracy,
+              ),
+            ),
+          )
+          .timeout(ApiConfig.requestTimeout);
 
       if (!mounted) return;
       if (response.statusCode == 401) {
@@ -493,7 +503,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
         await Navigator.of(context).push(
           MaterialPageRoute<void>(
             builder: (_) => AbsenSuccessScreen(
-              photoPath: photo.path,
+              photoPath: selfiePath,
               latitude: position.latitude,
               longitude: position.longitude,
               takenAt: now,
@@ -502,8 +512,19 @@ class _AbsenScreenState extends State<AbsenScreen> {
           ),
         );
       } else {
-        final data = jsonDecode(response.body);
-        _showMessage(data['message'] ?? 'Gagal absen pulang.');
+        String message = 'Gagal menyimpan absen (${response.statusCode}).';
+        try {
+          final Object? decoded = jsonDecode(response.body);
+          if (decoded is Map<String, dynamic>) {
+            final Object? serverMessage = decoded['message'];
+            if (serverMessage != null && serverMessage.toString().isNotEmpty) {
+              message = serverMessage.toString();
+            }
+          }
+        } on FormatException {
+          message = 'Balasan server tidak valid (${response.statusCode}).';
+        }
+        _showMessage(message);
       }
     } catch (e) {
       if (mounted) _showMessage('Terjadi kesalahan: $e');

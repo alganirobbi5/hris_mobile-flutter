@@ -38,19 +38,6 @@ class _AbsenSuccessScreenState extends State<AbsenSuccessScreen> {
     _getNamaLokasi(); // Panggil API saat halaman dibuka
   }
 
-  @override
-  void dispose() {
-    try {
-      final File foto = File(widget.photoPath);
-      if (foto.existsSync()) {
-        foto.deleteSync();
-      }
-    } catch (_) {
-      // Abaikan jika file sudah tidak ada atau gagal dihapus.
-    }
-    super.dispose();
-  }
-
   Future<void> _getNamaLokasi() async {
     try {
       final url = Uri.parse(

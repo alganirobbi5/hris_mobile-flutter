@@ -63,54 +63,40 @@ void main() {
     expect(payload.values.every((dynamic value) => value != null), isTrue);
   });
 
-  test('field multipart absen masuk memuat employee_id, GPS, waktu, dan selfie', () {
-    final Map<String, String> fields = EmployeeRequest.multipartMasuk(
+  test('payload absen masuk mengirim koordinat dan accuracy tanpa selfie', () {
+    final Map<String, dynamic> payload = EmployeeRequest.absenMasuk(
       employeeId: 42,
       latitude: -6.252707,
       longitude: 106.777752,
       tanggalLokal: '2026-11-20',
       waktuLokal: '08:02:17',
+      accuracy: 12.5,
     );
 
-    expect(fields['employee_id'], '42');
-    expect(fields['latitude'], '-6.252707');
-    expect(fields['longitude'], '106.777752');
-    expect(fields['tanggal_lokal'], '2026-11-20');
-    expect(fields['waktu_lokal'], '08:02:17');
-    expect(fields.containsKey('selfie'), isFalse);
+    expect(payload['latitude'], '-6.252707');
+    expect(payload['longitude'], '106.777752');
+    expect(payload['gps_accuracy'], '12.50');
+    expect(payload.containsKey('selfie'), isFalse);
+    expect(payload.containsKey('selfie_path'), isFalse);
+    expect(payload.values.every((dynamic value) => value != null), isTrue);
   });
 
-  test('field multipart absen pulang memuat employee_id, GPS, waktu, dan selfie', () {
-    final Map<String, String> fields = EmployeeRequest.multipartPulang(
+  test('payload absen pulang mengirim koordinat dan accuracy tanpa selfie', () {
+    final Map<String, dynamic> payload = EmployeeRequest.absenPulang(
       employeeId: 42,
       latitude: -6.252707,
       longitude: 106.777752,
       tanggalLokal: '2026-11-20',
       waktuLokal: '2026-11-20 17:02:38',
+      accuracy: 9.25,
     );
 
-    expect(fields['employee_id'], '42');
-    expect(fields['latitude'], '-6.252707');
-    expect(fields['longitude'], '106.777752');
-    expect(fields['tanggal_lokal'], '2026-11-20');
-    expect(fields['waktu_lokal'], '2026-11-20 17:02:38');
-    expect(fields.containsKey('selfie'), isFalse);
-  });
-
-  test('payload absen pulang memenuhi validasi absen_pulang.php', () {
-    final Map<String, dynamic> payload = EmployeeRequest.absenPulang(
-      employeeId: 42,
-      latitude: -6.252707,
-      longitude: 106.777752,
-      waktuLokal: '2026-11-20 17:02:38',
-      selfie: 'data:image/jpeg;base64,ZmFrZQ==',
-    );
-
-    expect(payload['employee_id'], 42);
-    expect(payload['waktu_lokal'], '2026-11-20 17:02:38');
-    expect(payload['selfie'], 'data:image/jpeg;base64,ZmFrZQ==');
     expect(payload['latitude'], '-6.252707');
     expect(payload['longitude'], '106.777752');
+    expect(payload['gps_accuracy'], '9.25');
+    expect(payload['tanggal_lokal'], '2026-11-20');
+    expect(payload['waktu_lokal'], '2026-11-20 17:02:38');
+    expect(payload.containsKey('selfie'), isFalse);
     expect(payload.values.every((dynamic value) => value != null), isTrue);
   });
 }
