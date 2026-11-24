@@ -26,6 +26,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
   String? _error;
   List<_PengajuanCuti> _pengajuan = const [];
   final Set<int> _processingIds = <int>{};
+  String _filterStatus = 'all';
 
   _RingkasanCuti _ringkasan = const _RingkasanCuti();
   bool _isLoadingRingkasan = true;
@@ -335,6 +336,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
                 value: ringkasan.total,
                 color: AppColors.primary,
                 icon: Icons.format_list_bulleted_rounded,
+                filterKey: 'all',
               ),
               const SizedBox(width: 8),
               _buildRingkasanStat(
@@ -342,6 +344,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
                 value: ringkasan.pending,
                 color: AppColors.warning,
                 icon: Icons.schedule_rounded,
+                filterKey: 'pending',
               ),
               const SizedBox(width: 8),
               _buildRingkasanStat(
@@ -349,6 +352,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
                 value: ringkasan.approved,
                 color: AppColors.success,
                 icon: Icons.check_circle_outline_rounded,
+                filterKey: 'approved',
               ),
               const SizedBox(width: 8),
               _buildRingkasanStat(
@@ -356,6 +360,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
                 value: ringkasan.rejected,
                 color: AppColors.danger,
                 icon: Icons.cancel_outlined,
+                filterKey: 'rejected',
               ),
             ],
           ),
@@ -369,39 +374,66 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
     required int value,
     required Color color,
     required IconData icon,
+    required String filterKey,
   }) {
+    final bool aktif = _filterStatus == filterKey;
     return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 2),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.09),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, size: 16, color: color),
-            const SizedBox(height: 5),
-            Text(
-              '$value',
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-                color: color,
-              ),
+      child: GestureDetector(
+        onTap: () => setState(() => _filterStatus = filterKey),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 2),
+          decoration: BoxDecoration(
+            color: aktif
+                ? color.withValues(alpha: 0.18)
+                : color.withValues(alpha: 0.09),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: aktif ? color : Colors.transparent,
+              width: 2,
             ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 10,
-                color: AppColors.textSecondary,
+          ),
+          child: Column(
+            children: [
+              Icon(icon, size: 16, color: color),
+              const SizedBox(height: 5),
+              Text(
+                '$value',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: color,
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 2),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 10,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  bool _sesuaiFilter(_PengajuanCuti item) {
+    if (_filterStatus == 'all') return true;
+    final int? kode = _statusCode(item.status);
+    switch (_filterStatus) {
+      case 'pending':
+        return kode == 1;
+      case 'approved':
+        return kode == 2;
+      case 'rejected':
+        return kode == 3;
+      default:
+        return true;
+    }
   }
 
   Future<void> _konfirmasiStatus(_PengajuanCuti item, int status) async {
@@ -702,15 +734,23 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
       );
     }
 
-    if (_pengajuan.isEmpty) {
-      return const SectionCard(
+    final List<_PengajuanCuti> tersaring =
+        _pengajuan.where(_sesuaiFilter).toList();
+
+    if (tersaring.isEmpty) {
+      return SectionCard(
         child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 28),
+          padding: const EdgeInsets.symmetric(vertical: 28),
           child: Center(
             child: Text(
-              'Belum ada pengajuan cuti',
+              _pengajuan.isEmpty
+                  ? 'Belum ada pengajuan cuti'
+                  : 'Tidak ada pengajuan untuk filter ini',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.textSecondary,
+              ),
             ),
           ),
         ),
@@ -720,11 +760,11 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: _pengajuan.length,
+      itemCount: tersaring.length,
       itemBuilder: (BuildContext context, int index) {
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
-          child: _buildItem(_pengajuan[index]),
+          child: _buildItem(tersaring[index]),
         );
       },
     );
