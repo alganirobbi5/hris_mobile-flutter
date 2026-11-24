@@ -3,21 +3,27 @@ import 'package:hris_mobile/config/api_config.dart';
 import 'package:hris_mobile/services/employee_request.dart';
 
 void main() {
-  test('profil dan riwayat_cuti menyertakan employee_id dari sesi', () {
+  test('profil menyertakan employee_id, riwayat_cuti memakai token', () {
     final Uri profil = EmployeeRequest.profile(42);
     final Uri riwayat = EmployeeRequest.leaveHistory(42);
 
     expect(profil.path, endsWith('/profil.php'));
     expect(profil.queryParameters['employee_id'], '42');
     expect(riwayat.path, endsWith('/riwayat_cuti.php'));
-    expect(riwayat.queryParameters['employee_id'], '42');
+    expect(riwayat.queryParameters['employee_id'], isNull);
     expect(profil.toString(), startsWith(ApiConfig.baseUrl));
+  });
+
+  test('riwayat_cuti sama untuk HR dan karyawan', () {
+    final Uri karyawan = EmployeeRequest.leaveHistory(42, role: 'employee');
+    final Uri hr = EmployeeRequest.leaveHistory(null, role: 'hr');
+
+    expect(hr.toString(), karyawan.toString());
+    expect(hr.path, endsWith('/riwayat_cuti.php'));
   });
 
   test('employee_id kosong ditolak sebelum request dikirim', () {
     expect(() => EmployeeRequest.profile(null),
-        throwsA(isA<EmployeeIdMissingException>()));
-    expect(() => EmployeeRequest.leaveHistory(null),
         throwsA(isA<EmployeeIdMissingException>()));
     expect(
       () => EmployeeRequest.absenMasuk(
