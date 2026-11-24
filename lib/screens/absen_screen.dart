@@ -190,16 +190,40 @@ class _AbsenScreenState extends State<AbsenScreen> {
     return teks;
   }
 
-  String? _urlSelfieServer(dynamic nilai, dynamic idAbsen) {
+  String? _urlSelfieServer(
+    dynamic nilai,
+    dynamic idAbsen, {
+    bool pulang = false,
+  }) {
     final String teks = _teksDari(nilai);
     if (teks.isEmpty) return null;
-    if (teks.startsWith('http://') || teks.startsWith('https://')) return teks;
 
+    Uri? uri;
+    if (teks.startsWith('http://') || teks.startsWith('https://')) {
+      uri = Uri.tryParse(teks);
+    } else if (teks.startsWith('/')) {
+      uri = Uri.parse(ApiConfig.baseUrl).resolve(teks);
+    } else {
+      uri = ApiConfig.uri('').resolve(teks);
+    }
+    if (uri == null || !uri.hasScheme) return null;
+
+    final Map<String, String> params = Map<String, String>.from(
+      uri.queryParameters,
+    );
     final String id = _teksDari(idAbsen);
-    if (id.isEmpty || id == '0') return null;
-    return ApiConfig.uri('selfie.php')
-        .replace(queryParameters: <String, String>{'id': id})
-        .toString();
+    if ((params['id'] ?? '').isEmpty && id.isNotEmpty && id != '0') {
+      params['id'] = id;
+    }
+    if (pulang && (params['type'] ?? '').isEmpty) {
+      params['type'] = 'out';
+    }
+    if ((params['id'] ?? '').isEmpty) return null;
+
+    final Uri finalUri = uri.path.endsWith('selfie.php')
+        ? uri.replace(queryParameters: params)
+        : ApiConfig.uri('selfie.php').replace(queryParameters: params);
+    return finalUri.toString();
   }
 
   Future<void> _cekStatusAbsen() async {
@@ -254,6 +278,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
                   data['selfie_pulang'] ??
                   data['selfie_path'],
               data['attendance_id_pulang'] ?? data['absen_id_pulang'] ?? idAbsen,
+              pulang: true,
             );
 
             final String lat = _teksDari(data['latitude'] ?? data['lat']);
@@ -603,6 +628,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
         return;
       }
 
+      final String? selfieDataUrl = await _selfieDataUrl(selfiePath);
       final String? token = await AppSession.resolveToken();
       final http.Response response = await http
           .post(
@@ -616,6 +642,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
                 tanggalLokal: tanggalLokal,
                 waktuLokal: waktuLokal,
                 accuracy: position.accuracy,
+                selfie: selfieDataUrl,
               ),
             ),
           )

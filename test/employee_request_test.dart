@@ -119,4 +119,20 @@ void main() {
     expect(payload.containsKey('selfie'), isFalse);
     expect(payload.values.every((dynamic value) => value != null), isTrue);
   });
+
+  test('payload absen pulang menyertakan selfie base64 saat tersedia', () {
+    const String dataUrl = 'data:image/jpeg;base64,AAAA';
+    final Map<String, dynamic> payload = EmployeeRequest.absenPulang(
+      employeeId: 42,
+      latitude: -6.252707,
+      longitude: 106.777752,
+      tanggalLokal: '2026-11-20',
+      waktuLokal: '2026-11-20 17:02:38',
+      accuracy: 9.25,
+      selfie: dataUrl,
+    );
+
+    expect(payload['selfie'], dataUrl);
+    expect(payload['waktu_lokal'], '2026-11-20 17:02:38');
+  });
 }

@@ -69,6 +69,7 @@ class EmployeeRequest {
     required String tanggalLokal,
     required String waktuLokal,
     double? accuracy,
+    String? selfie,
   }) {
     _require(employeeId);
     return <String, dynamic>{
@@ -79,6 +80,7 @@ class EmployeeRequest {
         'gps_accuracy': accuracy.toStringAsFixed(2),
       'tanggal_lokal': tanggalLokal,
       'waktu_lokal': waktuLokal,
+      if (selfie != null && selfie.isNotEmpty) 'selfie': selfie,
     };
   }
 
