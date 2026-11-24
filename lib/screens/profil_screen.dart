@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,6 +12,7 @@ import '../config/company_config.dart';
 import '../services/app_session.dart';
 import '../services/company_profile.dart';
 import '../services/employee_request.dart';
+import '../services/leave_balance.dart';
 import '../services/profile_avatar_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/avatar_picker_sheet.dart';
@@ -39,7 +40,6 @@ class _ProfilScreenState extends State<ProfilScreen> {
   bool _isLoading = true;
   bool _isUploadingAvatar = false;
   bool _isSavingCompany = false;
-  bool _isSavingQuota = false;
   String? _error;
   Map<String, dynamic>? _profil;
   String _roleUser = '';
@@ -399,12 +399,6 @@ class _ProfilScreenState extends State<ProfilScreen> {
     return '$_uploadsBaseUrl/$fileName';
   }
 
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
-  }
-
   Future<void> _openAvatarPicker() async {
     final String? result = await showAvatarPicker(
       context,
@@ -624,7 +618,8 @@ class _ProfilScreenState extends State<ProfilScreen> {
         content: Text(
           saved
               ? 'Profil perusahaan berhasil disimpan.'
-              : 'Gagal menyimpan profil perusahaan.',
+              : (CompanyProfile.lastError ??
+                  'Gagal menyimpan profil perusahaan.'),
         ),
       ),
     );
@@ -632,119 +627,152 @@ class _ProfilScreenState extends State<ProfilScreen> {
     return saved;
   }
 
-  static int? _parseEmployeeId(dynamic value) {
-    if (value == null) return null;
-    if (value is int) return value;
-    return int.tryParse(value.toString().trim());
-  }
-
-  Future<void> _showAturKuotaCutiDialog() async {
-    final int? employeeId = await AppSession.currentEmployeeId() ??
-        _parseEmployeeId(_profil?['employee_id']);
+  Future<void> _showTambahKuotaDialog() async {
+    final List<Map<String, dynamic>> employees =
+        await LeaveBalanceService.fetchEmployees();
     if (!mounted) return;
-    if (employeeId == null) {
-      _showMessage('employee_id karyawan tidak ditemukan. Silakan login ulang.');
+    if (employees.isEmpty) {
+      _showMessage(
+        LeaveBalanceService.lastError ?? 'Tidak ada karyawan yang tersedia',
+      );
       return;
     }
 
-    final TextEditingController quotaController =
-        TextEditingController(text: '12');
-    final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+    int? selectedEmployeeId;
+    final TextEditingController daysController =
+        TextEditingController(text: '1');
+    final int currentYear = DateTime.now().year;
+    final TextEditingController yearController =
+        TextEditingController(text: currentYear.toString());
+    bool isSaving = false;
 
     await showDialog<void>(
       context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: const Text('Atur Kuota Cuti'),
-          content: Form(
-            key: formKey,
-            child: TextFormField(
-              controller: quotaController,
-              keyboardType: TextInputType.number,
-              inputFormatters: <TextInputFormatter>[
-                FilteringTextInputFormatter.digitsOnly,
+      builder: (BuildContext dialogContext) => StatefulBuilder(
+        builder: (BuildContext context, setState) => AlertDialog(
+          title: const Text('Tambah Kuota Cuti Karyawan'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Pilih Karyawan',
+                    style: TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<int>(
+                  initialValue: selectedEmployeeId,
+                  isExpanded: true,
+                  hint: const Text('Pilih karyawan'),
+                  items: employees
+                      .map(
+                        (Map<String, dynamic> employee) =>
+                            DropdownMenuItem<int>(
+                          value: employee['id'] as int,
+                          child: Text(
+                            (employee['nik']?.toString().isNotEmpty ?? false)
+                                ? '${employee['name']} â€¢ ${employee['nik']}'
+                                : employee['name'].toString(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (int? value) {
+                    setState(() => selectedEmployeeId = value);
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: daysController,
+                  keyboardType: TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Jumlah hari',
+                    hintText: 'Contoh: 2 atau 0.5',
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: yearController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Tahun kuota',
+                  ),
+                ),
               ],
-              decoration: const InputDecoration(
-                labelText: 'Total Kuota Tahunan',
-                hintText: '12',
-              ),
-              validator: (String? value) {
-                final int? quota = int.tryParse((value ?? '').trim());
-                if (quota == null || quota <= 0 || quota > 365) {
-                  return 'Masukkan angka antara 1 sampai 365';
-                }
-                return null;
-              },
             ),
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
+              onPressed: isSaving
+                  ? null
+                  : () => Navigator.of(dialogContext).pop(),
               child: const Text('Batal'),
             ),
             FilledButton(
-              onPressed: _isSavingQuota
+              onPressed: isSaving
                   ? null
                   : () async {
-                      if (!formKey.currentState!.validate()) return;
-                      final int quota =
-                          int.parse(quotaController.text.trim());
+                      final int? employeeId = selectedEmployeeId;
+                      final double? days =
+                          double.tryParse(daysController.text.trim());
+                      final int? year = int.tryParse(yearController.text.trim());
+                      if (employeeId == null ||
+                          days == null ||
+                          days <= 0 ||
+                          year == null ||
+                          year < 2000 ||
+                          year > 2100) {
+                        _showMessage('Lengkapi data kuota dengan benar');
+                        return;
+                      }
+                      setState(() => isSaving = true);
+                      final LeaveBalanceResult? result =
+                          await LeaveBalanceService.addEntitlement(
+                        employeeId: employeeId,
+                        days: days,
+                        year: year,
+                      );
+                      if (!dialogContext.mounted) return;
                       Navigator.of(dialogContext).pop();
-                      await _saveKuotaCuti(employeeId, quota);
+                      if (result == null) {
+                        _showMessage(
+                          LeaveBalanceService.lastError ??
+                              'Gagal menambahkan kuota cuti',
+                        );
+                      } else {
+                        _showMessage(
+                          'Kuota cuti berhasil ditambahkan. Sisa: '
+                          '${_formatNumber(result.remainingDays)} hari',
+                        );
+                      }
                     },
-              child: Text(_isSavingQuota ? 'Menyimpan...' : 'Simpan'),
+              child: isSaving
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Simpan'),
             ),
           ],
-        );
-      },
+        ),
+      ),
     );
 
-    quotaController.dispose();
+    daysController.dispose();
+    yearController.dispose();
   }
 
-  Future<void> _saveKuotaCuti(int employeeId, int quota) async {
-    if (!mounted) return;
-    setState(() => _isSavingQuota = true);
-    try {
-      final String? token = await AppSession.resolveToken();
-      final http.Response response = await http
-          .post(
-            ApiConfig.uri('update_kuota_cuti.php'),
-            headers: ApiConfig.authHeaders(token),
-            body: jsonEncode(<String, dynamic>{
-              'employee_id': employeeId,
-              'kuota_baru': quota,
-            }),
-          )
-          .timeout(const Duration(seconds: 20));
+  String _formatNumber(double value) {
+    if (value == value.roundToDouble()) return value.toStringAsFixed(0);
+    return value.toStringAsFixed(1);
+  }
 
-      if (!mounted) return;
-
-      Map<String, dynamic>? decoded;
-      try {
-        final Object? body = jsonDecode(response.body);
-        if (body is Map<String, dynamic>) decoded = body;
-      } on FormatException {
-        decoded = null;
-      }
-
-      final bool success = response.statusCode == 200 &&
-          (decoded?['status'] == 'success' || decoded?['success'] == true);
-      final Object? serverMessage = decoded?['message'];
-      final String message = success
-          ? 'Kuota cuti berhasil diperbarui.'
-          : (serverMessage != null && serverMessage.toString().isNotEmpty
-              ? serverMessage.toString()
-              : 'Gagal memperbarui kuota cuti (HTTP ${response.statusCode}).');
-
-      _showMessage(message);
-      if (success) await _fetchProfil();
-    } catch (_) {
-      if (!mounted) return;
-      _showMessage('Gagal terhubung ke server saat menyimpan kuota cuti.');
-    } finally {
-      if (mounted) setState(() => _isSavingQuota = false);
-    }
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _showLogoutConfirmation() {
@@ -997,17 +1025,6 @@ class _ProfilScreenState extends State<ProfilScreen> {
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: _isSavingQuota
-                    ? null
-                    : _showAturKuotaCutiDialog,
-                icon: const Icon(Icons.event_available_outlined),
-                label: const Text('Atur Kuota Cuti'),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
                 onPressed: _isSavingCompany
                     ? null
                     : _showEditCompanyDialog,
@@ -1081,6 +1098,23 @@ class _ProfilScreenState extends State<ProfilScreen> {
                 },
                 icon: const Icon(Icons.schedule_rounded),
                 label: const Text('Atur Jam Kerja'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _showTambahKuotaDialog,
+                icon: const Icon(Icons.beach_access_outlined),
+                label: const Text('Tambah Kuota Cuti Karyawan'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,

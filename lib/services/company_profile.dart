@@ -22,6 +22,9 @@ class CompanyProfile {
   static const String nameKey = 'company_name';
   static const String codeKey = 'company_code';
 
+  /// Pesan error terakhir dari [update], dipakai UI untuk penjelasan spesifik.
+  static String? lastError;
+
   static CompanyProfileData current = const CompanyProfileData(
     name: CompanyConfig.namaPerusahaan,
     code: CompanyConfig.kodePerusahaan,
@@ -55,8 +58,7 @@ class CompanyProfile {
       if (response.statusCode != 200) return null;
 
       final dynamic decoded = jsonDecode(response.body);
-      if (decoded is Map<String, dynamic> &&
-          !_isSuccessStatus(decoded['status'])) {
+      if (decoded is Map<String, dynamic> && !_isSuccess(decoded)) {
         return null;
       }
       final Map<String, dynamic> data = _unwrap(decoded);
@@ -90,7 +92,11 @@ class CompanyProfile {
     final http.Client httpClient = client ?? http.Client();
     final String cleanedName = name.trim();
     final String cleanedCode = code.trim();
-    if (cleanedName.isEmpty || cleanedCode.isEmpty) return false;
+    lastError = null;
+    if (cleanedName.isEmpty || cleanedCode.isEmpty) {
+      lastError = 'Nama dan kode perusahaan wajib diisi';
+      return false;
+    }
 
     try {
       final String? token = await AppSession.resolveToken();
@@ -104,21 +110,35 @@ class CompanyProfile {
             }),
           )
           .timeout(const Duration(seconds: 15));
+      final dynamic decoded = jsonDecode(response.body);
+      final Map<String, dynamic>? body = decoded is Map<String, dynamic>
+          ? decoded
+          : null;
       if (response.statusCode != 200 && response.statusCode != 201) {
+        lastError = body == null
+            ? 'Server balas HTTP ${response.statusCode}'
+            : body['message']?.toString();
         return false;
       }
-      final dynamic decoded = jsonDecode(response.body);
-      if (decoded is Map<String, dynamic> &&
-          !_isSuccessStatus(decoded['status'])) {
+      if (body == null || !_isSuccess(body)) {
+        lastError = body == null
+            ? 'Balasan server tidak valid'
+            : body['message']?.toString();
         return false;
       }
       await save(
         CompanyProfileData(name: cleanedName, code: cleanedCode),
       );
       return true;
-    } catch (_) {
+    } catch (e) {
+      lastError = 'Gagal terhubung ke server: $e';
       return false;
     }
+  }
+
+  static bool _isSuccess(Map<String, dynamic> body) {
+    if (body['success'] == false) return false;
+    return _isSuccessStatus(body['status']);
   }
 
   static bool _isSuccessStatus(dynamic value) {

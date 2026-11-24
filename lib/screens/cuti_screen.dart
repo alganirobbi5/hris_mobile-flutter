@@ -24,19 +24,12 @@ class CutiScreen extends StatefulWidget {
 }
 
 class _CutiScreenState extends State<CutiScreen> {
-  static String get _cutiUrl => ApiConfig.uri('cuti.php').toString();
+  static String get _cutiUrl => ApiConfig.uri('leave-requests.php').toString();
   static Future<String> _riwayatUrl() async {
     final int? employeeId = await AppSession.currentEmployeeId();
     final String? role = await AppSession.resolveRole();
     return EmployeeRequest.leaveHistory(employeeId, role: role).toString();
   }
-
-  static const List<String> _replacementOptions = [
-    'Siti Aminah',
-    'Andi Wijaya',
-    'Rina Kartika',
-    'Dewi Lestari',
-  ];
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _titleController = TextEditingController();
@@ -47,7 +40,9 @@ class _CutiScreenState extends State<CutiScreen> {
 
   DateTime? _startDate;
   DateTime? _endDate;
-  String? _replacement;
+  int? _replacementId;
+  List<_EmployeeOption> _employees = const [];
+  bool _isLoadingEmployees = true;
   bool _isSubmitting = false;
   int _formResetToken = 0;
   bool _isLoadingRiwayat = true;
@@ -66,7 +61,44 @@ class _CutiScreenState extends State<CutiScreen> {
     final String? role = await AppSession.resolveRole();
     if (!mounted) return;
     setState(() => _isHr = AppSession.isHrRole(role));
-    await _fetchRiwayatCuti();
+    await Future.wait<void>(<Future<void>>[
+      _fetchRiwayatCuti(),
+      _fetchEmployees(),
+    ]);
+  }
+
+  Future<void> _fetchEmployees() async {
+    setState(() => _isLoadingEmployees = true);
+    try {
+      final String? token = await AppSession.resolveToken();
+      final http.Response response = await http
+          .get(
+            ApiConfig.uri('employees.php'),
+            headers: ApiConfig.authHeaders(token),
+          )
+          .timeout(const Duration(seconds: 30));
+      if (!mounted) return;
+      if (response.statusCode != 200) {
+        setState(() => _isLoadingEmployees = false);
+        return;
+      }
+      final dynamic decoded = jsonDecode(response.body);
+      dynamic raw = decoded;
+      if (decoded is Map<String, dynamic>) raw = decoded['data'];
+      if (raw is! List) {
+        setState(() => _isLoadingEmployees = false);
+        return;
+      }
+      setState(() {
+        _employees = raw
+            .whereType<Map<String, dynamic>>()
+            .map(_EmployeeOption.fromJson)
+            .toList();
+        _isLoadingEmployees = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingEmployees = false);
+    }
   }
 
   @override
@@ -184,11 +216,11 @@ class _CutiScreenState extends State<CutiScreen> {
               Uri.parse(_cutiUrl),
               headers: ApiConfig.authHeaders(token),
               body: jsonEncode(<String, dynamic>{
-                'employee_id': await AppSession.currentEmployeeId(),
-                'title': title,
+                'action': 'create',
+                'reason': reason.isEmpty ? title : '$title - $reason',
                 'start_date': _formatApiDate(startDate),
                 'end_date': _formatApiDate(endDate),
-                'reason': reason,
+                'replacement_employee_id': _replacementId,
               }),
             )
             .timeout(const Duration(seconds: 30));
@@ -200,10 +232,13 @@ class _CutiScreenState extends State<CutiScreen> {
 
       if (!mounted) return;
 
-      if (response.statusCode == 201) {
+      if (response.statusCode == 200 || response.statusCode == 201) {
         _clearForm();
         _showMessage('Pengajuan cuti berhasil dikirim');
-        _fetchRiwayatCuti();
+        await Future.wait<void>(<Future<void>>[
+          _fetchRiwayatCuti(),
+          _fetchEmployees(),
+        ]);
       } else {
         _showMessage(_apiErrorMessage(response));
       }
@@ -224,7 +259,7 @@ class _CutiScreenState extends State<CutiScreen> {
     setState(() {
       _startDate = null;
       _endDate = null;
-      _replacement = null;
+      _replacementId = null;
       _formResetToken++;
     });
   }
@@ -925,13 +960,15 @@ class _CutiScreenState extends State<CutiScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      DropdownButtonFormField<String>(
+                      DropdownButtonFormField<int>(
                         key: ValueKey<int>(_formResetToken),
-                        initialValue: _replacement,
+                        initialValue: _replacementId,
                         isExpanded: true,
-                        hint: const Text(
-                          'Pilih pengganti',
-                          style: TextStyle(
+                        hint: Text(
+                          _isLoadingEmployees
+                              ? 'Memuat karyawan...'
+                              : 'Pilih pengganti',
+                          style: const TextStyle(
                             fontSize: 14,
                             color: AppColors.textSecondary,
                           ),
@@ -940,12 +977,17 @@ class _CutiScreenState extends State<CutiScreen> {
                           Icons.keyboard_arrow_down_rounded,
                           color: AppColors.textSecondary,
                         ),
-                        items: _replacementOptions
+                        items: _employees
                             .map(
-                              (String name) => DropdownMenuItem<String>(
-                                value: name,
+                              (_EmployeeOption employee) =>
+                                  DropdownMenuItem<int>(
+                                value: employee.id,
                                 child: Text(
-                                  name,
+                                  employee.nik.isEmpty
+                                      ? employee.name
+                                      : '${employee.name} • ${employee.nik}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w500,
@@ -955,11 +997,13 @@ class _CutiScreenState extends State<CutiScreen> {
                               ),
                             )
                             .toList(),
-                        onChanged: (String? value) {
-                          setState(() => _replacement = value);
-                        },
+                        onChanged: _employees.isEmpty
+                            ? null
+                            : (int? value) {
+                                setState(() => _replacementId = value);
+                              },
                         validator: (value) {
-                          if (value == null || value.isEmpty) {
+                          if (value == null || value <= 0) {
                             return 'Pilih karyawan pengganti';
                           }
                           return null;
@@ -1213,4 +1257,26 @@ class _RiwayatCuti {
     if (value is int) return value;
     return int.tryParse(value?.toString() ?? '') ?? 0;
   }
+}
+
+class _EmployeeOption {
+  const _EmployeeOption({
+    required this.id,
+    required this.name,
+    required this.nik,
+  });
+
+  factory _EmployeeOption.fromJson(Map<String, dynamic> json) {
+    return _EmployeeOption(
+      id: json['id'] is int
+          ? json['id'] as int
+          : int.tryParse(json['id']?.toString() ?? '') ?? 0,
+      name: (json['name'] ?? '').toString().trim(),
+      nik: (json['nik'] ?? '').toString().trim(),
+    );
+  }
+
+  final int id;
+  final String name;
+  final String nik;
 }
