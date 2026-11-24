@@ -22,10 +22,30 @@ class DetailAbsensiScreen extends StatelessWidget {
   final String latitude;
   final String longitude;
 
+  static String _teksKoordinat(String value) {
+    final String text = value.trim();
+    if (text.isEmpty ||
+        text == '-' ||
+        text.toLowerCase() == 'null' ||
+        text.toLowerCase() == 'n/a') {
+      return '-';
+    }
+    return text;
+  }
+
+  double? get _latitude =>
+      double.tryParse(_teksKoordinat(latitude).replaceFirst(',', '.'));
+
+  double? get _longitude =>
+      double.tryParse(_teksKoordinat(longitude).replaceFirst(',', '.'));
+
   String? get _koordinat {
-    final double? lat = double.tryParse(latitude.trim());
-    final double? lng = double.tryParse(longitude.trim());
-    if (lat == null || lng == null) return null;
+    final double? lat = _latitude;
+    final double? lng = _longitude;
+    if (lat == null || lng == null || !lat.isFinite || !lng.isFinite) {
+      return null;
+    }
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
     return '${lat.toString()},${lng.toString()}';
   }
 
@@ -115,13 +135,13 @@ class DetailAbsensiScreen extends StatelessWidget {
                     _DetailRow(
                       icon: Icons.location_on_outlined,
                       label: 'Latitude',
-                      value: latitude.trim().isEmpty ? '-' : latitude,
+                      value: _teksKoordinat(latitude),
                     ),
                     const SizedBox(height: 14),
                     _DetailRow(
                       icon: Icons.location_on_outlined,
                       label: 'Longitude',
-                      value: longitude.trim().isEmpty ? '-' : longitude,
+                      value: _teksKoordinat(longitude),
                     ),
                   ],
                 ),
@@ -148,11 +168,63 @@ class DetailAbsensiScreen extends StatelessWidget {
                         color: AppColors.textSecondary,
                       ),
                     ),
+                    if (_koordinat != null) ...[
+                      const SizedBox(height: 12),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: _buildPeta(context),
+                      ),
+                    ],
                     const SizedBox(height: 16),
                     FilledButton.icon(
                       onPressed: () => _tampilkanPeta(context),
                       icon: const Icon(Icons.map_outlined, size: 18),
                       label: const Text('Lihat Peta'),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              SectionCard(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Foto Selfie',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      height: 180,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: AppColors.field,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.photo_camera_outlined,
+                            size: 36,
+                            color: AppColors.textSecondary,
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'Foto belum tersedia',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
