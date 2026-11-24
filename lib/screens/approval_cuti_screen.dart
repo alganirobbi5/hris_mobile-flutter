@@ -290,7 +290,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
           if (_ringkasanError != null) ...[
             const SizedBox(height: 10),
             Text(
-              ringkasan.bulan == '-'
+              ringkasan.bulan == '-' && _ringkasanError == null
                   ? 'Ringkasan belum tersedia.'
                   : '$_ringkasanError',
               style: const TextStyle(
@@ -474,7 +474,10 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
 
       if (response.statusCode == 200) {
         _showMessage('Status berhasil diubah');
-        await _fetchPengajuan();
+        await Future.wait<void>(<Future<void>>[
+          _fetchPengajuan(),
+          _fetchRingkasanCuti(),
+        ]);
       } else {
         _showMessage(
           _apiErrorMessage(

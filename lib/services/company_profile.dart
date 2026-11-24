@@ -55,6 +55,10 @@ class CompanyProfile {
       if (response.statusCode != 200) return null;
 
       final dynamic decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic> &&
+          !_isSuccessStatus(decoded['status'])) {
+        return null;
+      }
       final Map<String, dynamic> data = _unwrap(decoded);
       final String? name = _text(
         data['nama_perusahaan'] ?? data['company_name'] ?? data['name'],
@@ -103,6 +107,11 @@ class CompanyProfile {
       if (response.statusCode != 200 && response.statusCode != 201) {
         return false;
       }
+      final dynamic decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic> &&
+          !_isSuccessStatus(decoded['status'])) {
+        return false;
+      }
       await save(
         CompanyProfileData(name: cleanedName, code: cleanedCode),
       );
@@ -110,6 +119,12 @@ class CompanyProfile {
     } catch (_) {
       return false;
     }
+  }
+
+  static bool _isSuccessStatus(dynamic value) {
+    if (value == null) return true;
+    final String text = value.toString().trim().toLowerCase();
+    return text.isEmpty || text == 'success' || text == 'ok';
   }
 
   static Map<String, dynamic> _unwrap(dynamic decoded) {

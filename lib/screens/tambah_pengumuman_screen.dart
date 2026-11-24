@@ -7,7 +7,6 @@ import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../services/app_session.dart';
 import '../models/lampiran_pengumuman.dart';
-import '../services/pengumuman_overlay.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/primary_button.dart';
 
@@ -134,6 +133,7 @@ class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
     if (widget.isEdit) body['id'] = widget.id;
 
     bool serverBerhasil = false;
+    String? pesanError;
     try {
       final String? token = await AppSession.resolveToken();
 
@@ -143,31 +143,32 @@ class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
             headers: ApiConfig.authHeaders(token),
             body: jsonEncode(body),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 30));
       serverBerhasil = widget.isEdit
           ? response.statusCode == 200
           : response.statusCode == 201;
-    } catch (_) {}
-
-    if (!serverBerhasil && widget.isEdit) {
-      await PengumumanOverlay.upsert(
-        id: widget.id!,
-        judul: title,
-        isi: message,
-        lampiran: _lampiran?.toJsonValue(),
-      );
+      if (!serverBerhasil) {
+        try {
+          final decoded = jsonDecode(response.body);
+          if (decoded is Map<String, dynamic>) {
+            pesanError = decoded['message']?.toString();
+          }
+        } on FormatException {
+          pesanError = null;
+        }
+      }
+    } catch (e) {
+      pesanError = 'Gagal terhubung ke server: $e';
     }
 
     if (!mounted) return;
 
-    if (serverBerhasil || widget.isEdit) {
+    if (serverBerhasil) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             widget.isEdit
-                ? (serverBerhasil
-                      ? 'Pengumuman berhasil diperbarui!'
-                      : 'Perubahan disimpan di perangkat ini.')
+                ? 'Pengumuman berhasil diperbarui!'
                 : 'Pengumuman berhasil dibuat!',
           ),
         ),
@@ -175,8 +176,17 @@ class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
       Navigator.pop(context, true);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Gagal membuat pengumuman. Coba lagi.')),
+        SnackBar(
+          content: Text(
+            pesanError ??
+                (widget.isEdit
+                    ? 'Gagal memperbarui pengumuman. Coba lagi.'
+                    : 'Gagal membuat pengumuman. Coba lagi.'),
+          ),
+        ),
       );
+      if (mounted) setState(() => _isLoading = false);
+      return;
     }
 
     if (mounted) setState(() => _isLoading = false);
