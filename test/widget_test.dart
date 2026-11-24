@@ -186,7 +186,7 @@ void main() {
     expect(find.text('hr'), findsWidgets);
     expect(find.text('PT Dignity'), findsWidgets);
     expect(find.text('DGN-2026'), findsWidgets);
-    expect(find.text('Edit Profil Perusahaan'), findsOneWidget);
+    expect(find.text('Edit Perusahaan'), findsOneWidget);
     expect(find.byType(DangerButton), findsOneWidget);
     expect(find.byIcon(Icons.logout_rounded), findsWidgets);
   });
@@ -205,9 +205,9 @@ void main() {
     await tester.tap(find.text('Profil').last);
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('Edit Profil Perusahaan'));
+    await tester.ensureVisible(find.text('Edit Perusahaan'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Edit Profil Perusahaan'));
+    await tester.tap(find.text('Edit Perusahaan'));
     await tester.pumpAndSettle();
 
     expect(find.text('Edit Profil Perusahaan'), findsWidgets);

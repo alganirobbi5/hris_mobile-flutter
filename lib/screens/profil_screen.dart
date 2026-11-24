@@ -811,6 +811,44 @@ class _ProfilScreenState extends State<ProfilScreen> {
     );
   }
 
+  Widget _hrActionCard({
+    required IconData icon,
+    required String label,
+    required VoidCallback? onTap,
+  }) {
+    return Card(
+      margin: EdgeInsets.zero,
+      elevation: 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 30, color: AppColors.primary),
+              const SizedBox(height: 10),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1021,128 +1059,86 @@ class _ProfilScreenState extends State<ProfilScreen> {
           ),
           const SizedBox(height: 24),
 
-          // EDIT PROFIL PERUSAHAAN (Hanya untuk HR)
           if (AppSession.isHrRole(_roleUser)) ...[
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: _isSavingCompany
-                    ? null
-                    : _showEditCompanyDialog,
-                icon: const Icon(Icons.business_center_outlined),
-                label: const Text('Edit Profil Perusahaan'),
+            const Text(
+              'MENU HR',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+                color: AppColors.textSecondary,
               ),
             ),
-            const SizedBox(height: 12),
-          ],
-
-          // TOMBOL TAMBAH KARYAWAN (Hanya muncul jika role == hr)
-          if (_roleUser == 'hr') ...[
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const TambahKaryawanScreen(),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.person_add_alt_1_rounded),
-                label: const Text('Tambah Karyawan'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+            const SizedBox(height: 10),
+            GridView.count(
+              crossAxisCount: 2,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 1.25,
+              children: [
+                _hrActionCard(
+                  icon: Icons.business_center_outlined,
+                  label: 'Edit Perusahaan',
+                  onTap: _isSavingCompany ? null : _showEditCompanyDialog,
                 ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const TambahLokasiScreen(),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.add_location_alt_rounded),
-                label: const Text('Tambah Lokasi Absensi'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                _hrActionCard(
+                  icon: Icons.person_add_alt_1_rounded,
+                  label: 'Tambah Karyawan',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => const TambahKaryawanScreen(),
+                      ),
+                    );
+                  },
                 ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const AturJamScreen(),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.schedule_rounded),
-                label: const Text('Atur Jam Kerja'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                _hrActionCard(
+                  icon: Icons.add_location_alt_rounded,
+                  label: 'Tambah Lokasi',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => const TambahLokasiScreen(),
+                      ),
+                    );
+                  },
                 ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _showTambahKuotaDialog,
-                icon: const Icon(Icons.beach_access_outlined),
-                label: const Text('Tambah Kuota Cuti Karyawan'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                _hrActionCard(
+                  icon: Icons.schedule_rounded,
+                  label: 'Atur Jam Kerja',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => const AturJamScreen(),
+                      ),
+                    );
+                  },
                 ),
-              ),
+                _hrActionCard(
+                  icon: Icons.beach_access_outlined,
+                  label: 'Tambah Kuota Cuti',
+                  onTap: _showTambahKuotaDialog,
+                ),
+                _hrActionCard(
+                  icon: Icons.groups_outlined,
+                  label: 'Kelola Kuota Cuti',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute<void>(
+                        builder: (_) => const KelolaKuotaCutiScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(
-                      builder: (_) => const KelolaKuotaCutiScreen(),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.groups_outlined),
-                label: const Text('Kelola Kuota Cuti'),
-              ),
-            ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 24),
           ],
 
           // TOMBOL KELUAR (Dengan konfirmasi & hapus sesi)
