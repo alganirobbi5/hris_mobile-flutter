@@ -12,7 +12,6 @@ import '../config/company_config.dart';
 import '../services/app_session.dart';
 import '../services/company_profile.dart';
 import '../services/employee_request.dart';
-import '../services/leave_balance.dart';
 import '../services/profile_avatar_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/avatar_picker_sheet.dart';
@@ -628,148 +627,6 @@ class _ProfilScreenState extends State<ProfilScreen> {
     return saved;
   }
 
-  Future<void> _showTambahKuotaDialog() async {
-    final List<Map<String, dynamic>> employees =
-        await LeaveBalanceService.fetchEmployees();
-    if (!mounted) return;
-    if (employees.isEmpty) {
-      _showMessage(
-        LeaveBalanceService.lastError ?? 'Tidak ada karyawan yang tersedia',
-      );
-      return;
-    }
-
-    int? selectedEmployeeId;
-    final TextEditingController daysController =
-        TextEditingController(text: '1');
-    final int currentYear = DateTime.now().year;
-    final TextEditingController yearController =
-        TextEditingController(text: currentYear.toString());
-    bool isSaving = false;
-
-    await showDialog<void>(
-      context: context,
-      builder: (BuildContext dialogContext) => StatefulBuilder(
-        builder: (BuildContext context, setState) => AlertDialog(
-          title: const Text('Tambah Kuota Cuti Karyawan'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Pilih Karyawan',
-                    style: TextStyle(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<int>(
-                  initialValue: selectedEmployeeId,
-                  isExpanded: true,
-                  hint: const Text('Pilih karyawan'),
-                  items: employees
-                      .map(
-                        (Map<String, dynamic> employee) =>
-                            DropdownMenuItem<int>(
-                          value: employee['id'] as int,
-                          child: Text(
-                            (employee['nik']?.toString().isNotEmpty ?? false)
-                                ? '${employee['name']} â€¢ ${employee['nik']}'
-                                : employee['name'].toString(),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (int? value) {
-                    setState(() => selectedEmployeeId = value);
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: daysController,
-                  keyboardType: TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    labelText: 'Jumlah hari',
-                    hintText: 'Contoh: 2 atau 0.5',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: yearController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'Tahun kuota',
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: isSaving
-                  ? null
-                  : () => Navigator.of(dialogContext).pop(),
-              child: const Text('Batal'),
-            ),
-            FilledButton(
-              onPressed: isSaving
-                  ? null
-                  : () async {
-                      final int? employeeId = selectedEmployeeId;
-                      final double? days =
-                          double.tryParse(daysController.text.trim());
-                      final int? year = int.tryParse(yearController.text.trim());
-                      if (employeeId == null ||
-                          days == null ||
-                          days <= 0 ||
-                          year == null ||
-                          year < 2000 ||
-                          year > 2100) {
-                        _showMessage('Lengkapi data kuota dengan benar');
-                        return;
-                      }
-                      setState(() => isSaving = true);
-                      final LeaveBalanceResult? result =
-                          await LeaveBalanceService.addEntitlement(
-                        employeeId: employeeId,
-                        days: days,
-                        year: year,
-                      );
-                      if (!dialogContext.mounted) return;
-                      Navigator.of(dialogContext).pop();
-                      if (result == null) {
-                        _showMessage(
-                          LeaveBalanceService.lastError ??
-                              'Gagal menambahkan kuota cuti',
-                        );
-                      } else {
-                        _showMessage(
-                          'Kuota cuti berhasil ditambahkan. Sisa: '
-                          '${_formatNumber(result.remainingDays)} hari',
-                        );
-                      }
-                    },
-              child: isSaving
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Simpan'),
-            ),
-          ],
-        ),
-      ),
-    );
-
-    daysController.dispose();
-    yearController.dispose();
-  }
-
-  String _formatNumber(double value) {
-    if (value == value.roundToDouble()) return value.toStringAsFixed(0);
-    return value.toStringAsFixed(1);
-  }
-
   void _showMessage(String message) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -1118,11 +975,6 @@ class _ProfilScreenState extends State<ProfilScreen> {
                       ),
                     );
                   },
-                ),
-                _hrActionCard(
-                  icon: Icons.beach_access_outlined,
-                  label: 'Tambah Kuota Cuti',
-                  onTap: _showTambahKuotaDialog,
                 ),
                 _hrActionCard(
                   icon: Icons.groups_outlined,
