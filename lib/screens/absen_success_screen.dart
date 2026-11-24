@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import '../services/absen_status.dart';
 import '../theme/app_theme.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/section_card.dart';
@@ -14,6 +15,10 @@ class AbsenSuccessScreen extends StatefulWidget {
   final double longitude;
   final DateTime takenAt;
   final String jamMasuk;
+  final bool isPulang;
+  final String jamMulaiKerja;
+  final String jamSelesaiKerja;
+  final String? statusPulang;
 
   const AbsenSuccessScreen({
     super.key,
@@ -22,6 +27,10 @@ class AbsenSuccessScreen extends StatefulWidget {
     required this.longitude,
     required this.takenAt,
     required this.jamMasuk,
+    this.isPulang = false,
+    this.jamMulaiKerja = AbsenStatus.jamMasukDefault,
+    this.jamSelesaiKerja = AbsenStatus.jamPulangDefault,
+    this.statusPulang,
   });
 
   @override
@@ -108,6 +117,17 @@ class _AbsenSuccessScreenState extends State<AbsenSuccessScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final StatusAbsenKind status = widget.isPulang
+        ? AbsenStatus.statusPulang(
+            jamPulang: widget.jamMasuk,
+            jamSelesaiKerja: widget.jamSelesaiKerja,
+            statusEksplisit: widget.statusPulang,
+          )
+        : AbsenStatus.statusMasuk(
+            jamMasuk: widget.jamMasuk,
+            jamMulaiKerja: widget.jamMulaiKerja,
+          );
+
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
@@ -192,31 +212,26 @@ class _AbsenSuccessScreenState extends State<AbsenSuccessScreen> {
                       icon: Icons.access_time_rounded,
                       label: 'Waktu absen',
                       value: widget.jamMasuk,
-                      trailing: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          // Cek jam: jika lewat jam 8, warna merah (Terlambat)
-                          color: widget.takenAt.hour >= 8
-                              ? Colors.red.withValues(alpha: 0.1)
-                              : Colors.green.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          widget.takenAt.hour >= 8
-                              ? '❌ Terlambat'
-                              : '✓ Tepat waktu',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: widget.takenAt.hour >= 8
-                                ? Colors.red
-                                : Colors.green,
-                          ),
-                        ),
-                      ),
+                      trailing: status == StatusAbsenKind.tidakAda
+                          ? null
+                          : Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: status.color.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                status.label,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: status.color,
+                                ),
+                              ),
+                            ),
                     ),
                     const Divider(height: 24, color: Colors.black12),
 

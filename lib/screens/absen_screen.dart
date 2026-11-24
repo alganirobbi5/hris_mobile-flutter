@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/api_config.dart';
+import '../services/absen_status.dart';
 import '../services/app_session.dart';
 import '../services/employee_request.dart';
 import '../services/selfie_storage.dart';
@@ -52,6 +53,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
   String? _selfiePulangUrl;
   String? _token;
   String _koordinatAbsenTeks = '';
+  String? _statusPulangApi;
 
   @override
   void initState() {
@@ -258,6 +260,11 @@ class _AbsenScreenState extends State<AbsenScreen> {
             if (jamMasuk != null) _jamAbsenTeks = '$jamMasuk WIB';
             final String? jamPulang = _formatJamKerja(data['jam_pulang']);
             if (jamPulang != null) _jamPulangTeks = '$jamPulang WIB';
+            _statusPulangApi = _teksDari(
+              data['status_pulang'] ??
+                  data['status_pulang_label'] ??
+                  data['keterangan_pulang'],
+            );
 
             final dynamic idAbsen = data['attendance_id'] ??
                 data['absen_id'] ??
@@ -512,6 +519,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
               longitude: position.longitude,
               takenAt: now,
               jamMasuk: _jamAbsenTeks,
+              jamMulaiKerja: _jamMasukKerja,
             ),
           ),
         );
@@ -667,6 +675,9 @@ class _AbsenScreenState extends State<AbsenScreen> {
               longitude: position.longitude,
               takenAt: now,
               jamMasuk: _jamPulangTeks,
+              isPulang: true,
+              jamSelesaiKerja: _jamKeluarKerja,
+              statusPulang: _statusPulangApi,
             ),
           ),
         );
@@ -756,6 +767,16 @@ class _AbsenScreenState extends State<AbsenScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final StatusAbsenKind statusMasuk = AbsenStatus.statusMasuk(
+      jamMasuk: _sudahAbsenMasuk ? _jamAbsenTeks : null,
+      jamMulaiKerja: _jamMasukKerja,
+    );
+    final StatusAbsenKind statusPulang = AbsenStatus.statusPulang(
+      jamPulang: _sudahAbsenPulang ? _jamPulangTeks : null,
+      jamSelesaiKerja: _jamKeluarKerja,
+      statusEksplisit: _statusPulangApi,
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -929,6 +950,13 @@ class _AbsenScreenState extends State<AbsenScreen> {
                           ],
                         ),
                       ),
+                      if (statusMasuk != StatusAbsenKind.tidakAda) ...[
+                        const SizedBox(width: 8),
+                        StatusBadge(
+                          label: statusMasuk.label,
+                          color: statusMasuk.color,
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -968,6 +996,13 @@ class _AbsenScreenState extends State<AbsenScreen> {
                           ],
                         ),
                       ),
+                      if (statusPulang != StatusAbsenKind.tidakAda) ...[
+                        const SizedBox(width: 8),
+                        StatusBadge(
+                          label: statusPulang.label,
+                          color: statusPulang.color,
+                        ),
+                      ],
                     ],
                   ),
                 ),
