@@ -82,10 +82,14 @@ void main() {
       archive.findFile('xl/worksheets/sheet1.xml')!.content as List<int>,
     );
     expect(sheetXml.contains('<mergeCells'), isTrue);
-    expect(sheetXml.contains('HYPERLINK'), isTrue);
+    expect(sheetXml.contains('HYPERLINK'), isFalse);
 
     final Data? headerNama = sheet.rows[5][3];
     expect((headerNama?.value as TextCellValue?)?.value.text, 'Nama Karyawan');
+
+    final Data? headerFoto = sheet.rows[5][7];
+    expect((headerFoto?.value as TextCellValue?)?.value.text, 'Koordinat');
+    expect(sheet.rows[5].length, 8);
 
     final Data? nama = sheet.rows[6][3];
     expect((nama?.value as TextCellValue?)?.value.text, 'Budi Santoso');
@@ -96,13 +100,11 @@ void main() {
     final Data? statusTepat = sheet.rows[7][6];
     expect((statusTepat?.value as TextCellValue?)?.value.text, 'Tepat Waktu');
 
-    final Data? foto = sheet.rows[6][7];
-    final CellValue? fotoValue = foto?.value;
-    expect(fotoValue, isA<FormulaCellValue>());
-    expect((fotoValue! as FormulaCellValue).formula, contains('HYPERLINK'));
-
-    final Data? fotoKosong = sheet.rows[7][7];
-    expect((fotoKosong?.value as TextCellValue?)?.value.text, '-');
+    final Data? koordinat = sheet.rows[6][7];
+    expect(
+      (koordinat?.value as TextCellValue?)?.value.text,
+      '-6.252707, 106.777752',
+    );
 
     final Data? jamKeluar = sheet.rows[7][5];
     expect((jamKeluar?.value as TextCellValue?)?.value.text, '-');

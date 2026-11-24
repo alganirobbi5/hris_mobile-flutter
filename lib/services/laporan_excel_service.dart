@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:io';
 
 import 'package:excel/excel.dart';
@@ -244,10 +244,21 @@ class LaporanExcelService {
     String? periodeLabel,
     String? namaPerusahaan,
   }) async {
-    final List<LaporanAbsensiRow> rows = await fetchRows(
+    List<LaporanAbsensiRow> rows = await fetchRows(
       startDate: startDate,
       endDate: endDate,
     );
+    if (startDate != null &&
+        startDate.isNotEmpty &&
+        endDate != null &&
+        endDate.isNotEmpty) {
+      rows = rows.where((LaporanAbsensiRow row) {
+        final String tanggal = row.tanggal;
+        if (tanggal.isEmpty) return false;
+        return tanggal.compareTo(startDate) >= 0 &&
+            tanggal.compareTo(endDate) <= 0;
+      }).toList();
+    }
     if (rows.isEmpty) {
       throw const LaporanExcelException('Belum ada data absensi untuk diekspor.');
     }
@@ -300,7 +311,6 @@ class LaporanExcelService {
     final ExcelColor greenBg = ExcelColor.fromHexString('FFE6F7F1');
     final ExcelColor redText = ExcelColor.fromHexString('FFE5484D');
     final ExcelColor redBg = ExcelColor.fromHexString('FFFDECEC');
-    final ExcelColor linkColor = ExcelColor.fromHexString('FF2563EB');
 
     final Border border = Border(
       borderStyle: BorderStyle.Thin,
@@ -325,13 +335,13 @@ class LaporanExcelService {
     // Judul.
     sheet.merge(
       CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: titleRow),
-      CellIndex.indexByColumnRow(columnIndex: 9, rowIndex: titleRow),
+      CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: titleRow),
       customValue: TextCellValue('LAPORAN ABSENSI KARYAWAN'),
     );
     _styleRange(
       sheet,
       CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: titleRow),
-      CellIndex.indexByColumnRow(columnIndex: 9, rowIndex: titleRow),
+      CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: titleRow),
       CellStyle(
         bold: true,
         fontSize: 18,
@@ -344,7 +354,7 @@ class LaporanExcelService {
 
     sheet.merge(
       CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: companyRow),
-      CellIndex.indexByColumnRow(columnIndex: 9, rowIndex: companyRow),
+      CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: companyRow),
         customValue: TextCellValue(
           (namaPerusahaan != null && namaPerusahaan.trim().isNotEmpty
                   ? namaPerusahaan
@@ -355,7 +365,7 @@ class LaporanExcelService {
     _styleRange(
       sheet,
       CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: companyRow),
-      CellIndex.indexByColumnRow(columnIndex: 9, rowIndex: companyRow),
+      CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: companyRow),
       CellStyle(
         bold: true,
         fontSize: 12,
@@ -368,13 +378,13 @@ class LaporanExcelService {
 
     sheet.merge(
       CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: periodRow),
-      CellIndex.indexByColumnRow(columnIndex: 9, rowIndex: periodRow),
+      CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: periodRow),
       customValue: TextCellValue('Periode: $period'),
     );
     _styleRange(
       sheet,
       CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: periodRow),
-      CellIndex.indexByColumnRow(columnIndex: 9, rowIndex: periodRow),
+      CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: periodRow),
       CellStyle(
         fontSize: 10,
         fontColorHex: textMuted,
@@ -386,7 +396,7 @@ class LaporanExcelService {
 
     sheet.merge(
       CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: printedRow),
-      CellIndex.indexByColumnRow(columnIndex: 9, rowIndex: printedRow),
+      CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: printedRow),
       customValue: TextCellValue(
         'Dicetak: ${_duaDigit(now.day)}/${_duaDigit(now.month)}/${now.year} '
         '${_duaDigit(now.hour)}:${_duaDigit(now.minute)} WIB',
@@ -395,7 +405,7 @@ class LaporanExcelService {
     _styleRange(
       sheet,
       CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: printedRow),
-      CellIndex.indexByColumnRow(columnIndex: 9, rowIndex: printedRow),
+      CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: printedRow),
       CellStyle(
         fontSize: 9,
         fontColorHex: textMuted,
@@ -421,8 +431,6 @@ class LaporanExcelService {
       'Jam Masuk',
       'Jam Keluar',
       'Status',
-      'Foto',
-      'Alamat',
       'Koordinat',
     ];
     final CellStyle headerStyle = CellStyle(
@@ -557,42 +565,10 @@ class LaporanExcelService {
         style: statusStyle,
       );
 
-      if (row.fotoUrl.trim().isEmpty) {
-        _setCell(
-          sheet,
-          row: excelRow,
-          column: 7,
-          value: TextCellValue('-'),
-          style: rowStyle(centeredStyle),
-        );
-      } else {
-        _setCell(
-          sheet,
-          row: excelRow,
-          column: 7,
-          value: FormulaCellValue(
-            'HYPERLINK("${_escapeFormula(row.fotoUrl.trim())}","Lihat Foto")',
-          ),
-          style: rowStyle(
-            centeredStyle.copyWith(
-              fontColorHexVal: linkColor,
-              underlineVal: Underline.Single,
-            ),
-          ),
-        );
-      }
-
       _setCell(
         sheet,
         row: excelRow,
-        column: 8,
-        value: TextCellValue(row.alamatTampil),
-        style: rowStyle(leftStyle),
-      );
-      _setCell(
-        sheet,
-        row: excelRow,
-        column: 9,
+        column: 7,
         value: TextCellValue(row.koordinatTampil),
         style: rowStyle(centeredStyle),
       );
@@ -606,7 +582,7 @@ class LaporanExcelService {
     );
     sheet.merge(
       summaryStart,
-      CellIndex.indexByColumnRow(columnIndex: 9, rowIndex: summaryRow),
+      CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: summaryRow),
       customValue: TextCellValue(
         'Total: ${rows.length} data   |   Tepat Waktu: $tepatWaktu   |   '
         'Terlambat: $terlambat',
@@ -615,7 +591,7 @@ class LaporanExcelService {
     _styleRange(
       sheet,
       summaryStart,
-      CellIndex.indexByColumnRow(columnIndex: 9, rowIndex: summaryRow),
+      CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: summaryRow),
       CellStyle(
         bold: true,
         fontSize: 10,
@@ -634,7 +610,7 @@ class LaporanExcelService {
     );
     sheet.merge(
       noteStart,
-      CellIndex.indexByColumnRow(columnIndex: 9, rowIndex: noteRow),
+      CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: noteRow),
       customValue: TextCellValue(
         'Laporan ini dibuat otomatis oleh HRIS Mobile.',
       ),
@@ -642,7 +618,7 @@ class LaporanExcelService {
     _styleRange(
       sheet,
       noteStart,
-      CellIndex.indexByColumnRow(columnIndex: 9, rowIndex: noteRow),
+      CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: noteRow),
       CellStyle(
         fontSize: 9,
         italic: true,
@@ -668,9 +644,7 @@ class LaporanExcelService {
       12,
       12,
       16,
-      14,
       30,
-      22,
     ];
     for (int i = 0; i < widths.length; i++) {
       sheet.setColumnWidth(i, widths[i]);
@@ -731,7 +705,8 @@ class LaporanExcelService {
   String _tanggalFile(DateTime date) =>
       '${date.year}${_duaDigit(date.month)}${_duaDigit(date.day)}';
 
-  String _escapeFormula(String value) => value.replaceAll('"', '""');
+
 
   String _duaDigit(int value) => value.toString().padLeft(2, '0');
 }
+
