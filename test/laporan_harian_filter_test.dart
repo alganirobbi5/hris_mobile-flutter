@@ -16,6 +16,28 @@ void main() {
     AppSession.token = null;
   });
 
+  test('fetchRows mengirim start_date dan end_date ke server', () async {
+    late Uri terimaUrl;
+    final http.Client client = MockClient((http.Request request) async {
+      terimaUrl = request.url;
+      return http.Response(
+        jsonEncode(<String, dynamic>{
+          'status': 'success',
+          'data': <dynamic>[],
+        }),
+        200,
+        headers: <String, String>{'content-type': 'application/json'},
+      );
+    });
+
+    final LaporanExcelService service = LaporanExcelService(client: client);
+    await service.fetchRows(startDate: '2026-11-01', endDate: '2026-11-30');
+
+    expect(terimaUrl.queryParameters['start_date'], '2026-11-01');
+    expect(terimaUrl.queryParameters['end_date'], '2026-11-30');
+    expect(terimaUrl.queryParameters.containsKey('date'), isFalse);
+  });
+
   test('fetchHariIni mengirim token dan parameter date ke server', () async {
     late Uri terimaUrl;
     late String? headerOtorisasi;

@@ -135,13 +135,27 @@ class LaporanExcelService {
   static const String _excelMime =
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
-  Future<List<LaporanAbsensiRow>> fetchRows({String? tanggal}) async {
+  Future<List<LaporanAbsensiRow>> fetchRows({
+    String? tanggal,
+    String? startDate,
+    String? endDate,
+  }) async {
     final String? token = await AppSession.resolveToken();
 
     final Uri url = ApiConfig.uri(_endpoint);
-    final Uri target = (tanggal == null || tanggal.isEmpty)
+    final Map<String, String> query = <String, String>{};
+    if (startDate != null &&
+        startDate.isNotEmpty &&
+        endDate != null &&
+        endDate.isNotEmpty) {
+      query['start_date'] = startDate;
+      query['end_date'] = endDate;
+    } else if (tanggal != null && tanggal.isNotEmpty) {
+      query['date'] = tanggal;
+    }
+    final Uri target = query.isEmpty
         ? url
-        : url.replace(queryParameters: <String, String>{'date': tanggal});
+        : url.replace(queryParameters: query);
 
     final http.Response response;
     try {
@@ -224,29 +238,47 @@ class LaporanExcelService {
 
   /// Membuat file Excel lalu membuka share sheet agar user bisa
   /// menyimpan/mengirim file ke perangkat lain.
-  Future<void> exportAndShare() async {
-    final List<LaporanAbsensiRow> rows = await fetchRows();
+  Future<void> exportAndShare({
+    String? startDate,
+    String? endDate,
+    String? periodeLabel,
+    String? namaPerusahaan,
+  }) async {
+    final List<LaporanAbsensiRow> rows = await fetchRows(
+      startDate: startDate,
+      endDate: endDate,
+    );
     if (rows.isEmpty) {
       throw const LaporanExcelException('Belum ada data absensi untuk diekspor.');
     }
 
-    final List<int> bytes = buildWorkbookBytes(rows);
+    final List<int> bytes = buildWorkbookBytes(
+      rows,
+      periodeLabel: periodeLabel,
+      namaPerusahaan: namaPerusahaan,
+    );
 
     final Directory dir = await getTemporaryDirectory();
-    final String tanggalFile = _tanggalFile(DateTime.now());
+    final String tanggalFile = (startDate != null && endDate != null)
+        ? '${startDate.replaceAll('-', '')}_sampai_${endDate.replaceAll('-', '')}'
+        : _tanggalFile(DateTime.now());
     final File file = File('${dir.path}/Laporan_Absensi_$tanggalFile.xlsx');
     await file.writeAsBytes(bytes, flush: true);
 
     await SharePlus.instance.share(
       ShareParams(
         files: <XFile>[XFile(file.path, mimeType: _excelMime)],
-        subject: 'Laporan Absensi',
-        text: 'Laporan absensi $tanggalFile',
+        subject: 'Laporan Absensi ${periodeLabel ?? tanggalFile}',
+        text: 'Laporan absensi ${periodeLabel ?? tanggalFile}',
       ),
     );
   }
 
-  List<int> buildWorkbookBytes(List<LaporanAbsensiRow> rows) {
+  List<int> buildWorkbookBytes(
+    List<LaporanAbsensiRow> rows, {
+    String? periodeLabel,
+    String? namaPerusahaan,
+  }) {
     final Excel excel = Excel.createExcel();
     final Sheet sheet = excel[_sheetName];
     excel.setDefaultSheet(_sheetName);
@@ -286,7 +318,9 @@ class LaporanExcelService {
     final int dataEndRow = dataStartRow + rows.length - 1;
 
     final DateTime now = DateTime.now();
-    final String period = _periode(rows);
+    final String period = (periodeLabel != null && periodeLabel.isNotEmpty)
+        ? periodeLabel
+        : _periode(rows);
 
     // Judul.
     sheet.merge(
@@ -311,7 +345,12 @@ class LaporanExcelService {
     sheet.merge(
       CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: companyRow),
       CellIndex.indexByColumnRow(columnIndex: 9, rowIndex: companyRow),
-      customValue: TextCellValue(_companyName.toUpperCase()),
+        customValue: TextCellValue(
+          (namaPerusahaan != null && namaPerusahaan.trim().isNotEmpty
+                  ? namaPerusahaan
+                  : _companyName)
+              .toUpperCase(),
+        ),
     );
     _styleRange(
       sheet,

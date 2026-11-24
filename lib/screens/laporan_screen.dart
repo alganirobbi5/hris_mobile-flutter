@@ -1,5 +1,7 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
+import '../services/company_profile.dart';
 import '../services/laporan_excel_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/section_card.dart';
@@ -12,6 +14,8 @@ class LaporanScreen extends StatefulWidget {
   State<LaporanScreen> createState() => _LaporanScreenState();
 }
 
+enum LaporanPeriode { harian, mingguan, bulanan, tahunan, rentang }
+
 class _LaporanScreenState extends State<LaporanScreen>
     with WidgetsBindingObserver {
   final LaporanExcelService _excelService = LaporanExcelService();
@@ -23,6 +27,11 @@ class _LaporanScreenState extends State<LaporanScreen>
   List<LaporanAbsensiRow> _rows = const <LaporanAbsensiRow>[];
   String? _rowsError;
   String _tanggalAktif = LaporanExcelService.tanggalHariIni();
+
+  LaporanPeriode _periode = LaporanPeriode.harian;
+  DateTime _tanggalAcuan = DateTime.now();
+  DateTime? _rentangMulai;
+  DateTime? _rentangAkhir;
 
   @override
   void initState() {
@@ -77,11 +86,114 @@ class _LaporanScreenState extends State<LaporanScreen>
     _absensiKey.currentState?.reload();
   }
 
+  String _formatTanggalApi(DateTime value) =>
+      '${value.year.toString().padLeft(4, '0')}-'
+      '${value.month.toString().padLeft(2, '0')}-'
+      '${value.day.toString().padLeft(2, '0')}';
+
+  ({DateTime mulai, DateTime akhir}) _rentangTerpilih() {
+    final DateTime t = _tanggalAcuan;
+    switch (_periode) {
+      case LaporanPeriode.harian:
+        return (mulai: t, akhir: t);
+      case LaporanPeriode.mingguan:
+        final DateTime mulai = t.subtract(Duration(days: t.weekday - 1));
+        return (mulai: mulai, akhir: mulai.add(const Duration(days: 6)));
+      case LaporanPeriode.bulanan:
+        return (
+          mulai: DateTime(t.year, t.month),
+          akhir: DateTime(t.year, t.month + 1, 0),
+        );
+      case LaporanPeriode.tahunan:
+        return (mulai: DateTime(t.year), akhir: DateTime(t.year, 12, 31));
+      case LaporanPeriode.rentang:
+        return (
+          mulai: _rentangMulai ?? t,
+          akhir: _rentangAkhir ?? _rentangMulai ?? t,
+        );
+    }
+  }
+
+  String _labelPeriode(DateTime mulai, DateTime akhir) {
+    final String awal = DateFormat('dd/MM/yyyy').format(mulai);
+    final String akhirTeks = DateFormat('dd/MM/yyyy').format(akhir);
+    final String nama = switch (_periode) {
+      LaporanPeriode.harian => 'Harian',
+      LaporanPeriode.mingguan => 'Mingguan',
+      LaporanPeriode.bulanan => 'Bulanan',
+      LaporanPeriode.tahunan => 'Tahunan',
+      LaporanPeriode.rentang => 'Rentang',
+    };
+    return awal == akhirTeks
+        ? '$awal ($nama)'
+        : '$awal s/d $akhirTeks ($nama)';
+  }
+
+  Future<void> _pilihTanggalAcuan() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _tanggalAcuan,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      helpText: 'Pilih tanggal acuan',
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _tanggalAcuan = picked;
+      _rentangMulai = picked;
+      _rentangAkhir = picked;
+    });
+  }
+
+  Future<void> _pilihTanggalRentang({required bool mulai}) async {
+    final DateTime initial = mulai
+        ? (_rentangMulai ?? _tanggalAcuan)
+        : (_rentangAkhir ?? _rentangMulai ?? _tanggalAcuan);
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      helpText: mulai ? 'Pilih tanggal mulai' : 'Pilih tanggal akhir',
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      if (mulai) {
+        _rentangMulai = picked;
+        if (_rentangAkhir != null && _rentangAkhir!.isBefore(picked)) {
+          _rentangAkhir = picked;
+        }
+      } else {
+        final DateTime awal = _rentangMulai ?? _tanggalAcuan;
+        _rentangAkhir = picked.isBefore(awal) ? awal : picked;
+      }
+    });
+  }
+
   Future<void> _downloadExcel() async {
     setState(() => _isLoading = true);
 
     try {
-      await _excelService.exportAndShare();
+      final DateTime acuan = _tanggalAcuan;
+      final DateTime mulai = _periode == LaporanPeriode.rentang
+          ? (_rentangMulai ?? acuan)
+          : _rentangTerpilih().mulai;
+      final DateTime akhir = _periode == LaporanPeriode.rentang
+          ? (_rentangAkhir ?? _rentangMulai ?? acuan)
+          : _rentangTerpilih().akhir;
+      if (mulai.isAfter(akhir)) {
+        throw const LaporanExcelException(
+          'Tanggal akhir tidak boleh sebelum tanggal mulai.',
+        );
+      }
+      final String label = _labelPeriode(mulai, akhir);
+      await CompanyProfile.load();
+      await _excelService.exportAndShare(
+        startDate: _formatTanggalApi(mulai),
+        endDate: _formatTanggalApi(akhir),
+        periodeLabel: label,
+        namaPerusahaan: CompanyProfile.current.name,
+      );
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -308,7 +420,79 @@ class _LaporanScreenState extends State<LaporanScreen>
                         ),
                       ],
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
+
+                    const Text(
+                      'Periode laporan',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: LaporanPeriode.values.map((LaporanPeriode p) {
+                        final String label = switch (p) {
+                          LaporanPeriode.harian => 'Harian',
+                          LaporanPeriode.mingguan => 'Mingguan',
+                          LaporanPeriode.bulanan => 'Bulanan',
+                          LaporanPeriode.tahunan => 'Tahunan',
+                          LaporanPeriode.rentang => 'Rentang',
+                        };
+                        return ChoiceChip(
+                          label: Text(label),
+                          selected: _periode == p,
+                          onSelected: _isLoading
+                              ? null
+                              : (bool selected) {
+                                  if (!selected) return;
+                                  setState(() => _periode = p);
+                                },
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: _isLoading ? null : _pilihTanggalAcuan,
+                      icon: const Icon(Icons.calendar_month_outlined, size: 18),
+                      label: Text(
+                        _periode == LaporanPeriode.rentang
+                            ? 'Mulai: ${DateFormat('dd/MM/yyyy').format(_rentangMulai ?? _tanggalAcuan)}  •  Akhir: ${DateFormat('dd/MM/yyyy').format(_rentangAkhir ?? _rentangMulai ?? _tanggalAcuan)}'
+                            : 'Tanggal acuan: ${DateFormat('dd/MM/yyyy').format(_tanggalAcuan)}',
+                      ),
+                    ),
+                    if (_periode == LaporanPeriode.rentang) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: _isLoading
+                                  ? null
+                                  : () => _pilihTanggalRentang(mulai: true),
+                              child: Text(
+                                'Mulai: ${DateFormat('dd/MM/yyyy').format(_rentangMulai ?? _tanggalAcuan)}',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: _isLoading
+                                  ? null
+                                  : () => _pilihTanggalRentang(mulai: false),
+                              child: Text(
+                                'Akhir: ${DateFormat('dd/MM/yyyy').format(_rentangAkhir ?? _rentangMulai ?? _tanggalAcuan)}',
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 20),
 
                     // Tombol Download
                     SizedBox(

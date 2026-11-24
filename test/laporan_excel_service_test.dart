@@ -6,6 +6,35 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hris_mobile/services/laporan_excel_service.dart';
 
 void main() {
+  test('buildWorkbookBytes memakai nama perusahaan dan periode dari parameter',
+      () {
+    const List<LaporanAbsensiRow> rows = <LaporanAbsensiRow>[
+      LaporanAbsensiRow(
+        id: 1,
+        tanggal: '2026-11-01',
+        jamMasuk: '08:00:00',
+        jamKeluar: '17:00:00',
+        nama: 'Budi Santoso',
+      ),
+    ];
+
+    final List<int> bytes = LaporanExcelService().buildWorkbookBytes(
+      rows,
+      namaPerusahaan: 'PT Deswa Invisco Multitama',
+      periodeLabel: '01/11/2026 s/d 30/11/2026 (Bulanan)',
+    );
+    final Sheet sheet = Excel.decodeBytes(bytes).tables['Laporan Absensi']!;
+
+    expect(
+      (sheet.rows[1][0]?.value as TextCellValue?)?.value.text,
+      'PT DESWA INVISCO MULTITAMA',
+    );
+    expect(
+      (sheet.rows[2][0]?.value as TextCellValue?)?.value.text,
+      'Periode: 01/11/2026 s/d 30/11/2026 (Bulanan)',
+    );
+  });
+
   test('buildWorkbookBytes menghasilkan file xlsx ber-style yang valid', () {
     const List<LaporanAbsensiRow> rows = <LaporanAbsensiRow>[
       LaporanAbsensiRow(
