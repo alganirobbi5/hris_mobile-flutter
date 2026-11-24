@@ -23,6 +23,7 @@ import 'login_screen.dart';
 import 'tambah_karyawan_screen.dart';
 import 'tambah_lokasi_screen.dart';
 import 'atur_jam_screen.dart';
+import 'kelola_kuota_cuti_screen.dart';
 
 class ProfilScreen extends StatefulWidget {
   const ProfilScreen({super.key});
@@ -1123,6 +1124,22 @@ class _ProfilScreenState extends State<ProfilScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => const KelolaKuotaCutiScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.groups_outlined),
+                label: const Text('Kelola Kuota Cuti'),
               ),
             ),
             const SizedBox(height: 12),
