@@ -344,12 +344,14 @@ class SemuaAbsensiViewState extends State<SemuaAbsensiView> {
         Navigator.of(context).push(
           MaterialPageRoute<void>(
             builder: (_) => DetailAbsensiScreen(
+              absensiId: item.id,
               nama: item.nama,
               tanggal: item.tanggal,
               jamMasuk: item.jamMasuk,
               jamKeluar: item.jamKeluar,
               latitude: item.latitude,
               longitude: item.longitude,
+              selfiePath: item.selfiePath,
             ),
           ),
         );
@@ -508,6 +510,7 @@ class _InfoJam extends StatelessWidget {
 
 class _AbsensiItem {
   const _AbsensiItem({
+    this.id = 0,
     required this.nama,
     required this.tanggal,
     required this.jamMasuk,
@@ -515,8 +518,10 @@ class _AbsensiItem {
     required this.status,
     this.latitude = '',
     this.longitude = '',
+    this.selfiePath = '',
   });
 
+  final int id;
   final String nama;
   final String tanggal;
   final String jamMasuk;
@@ -524,6 +529,7 @@ class _AbsensiItem {
   final String status;
   final String latitude;
   final String longitude;
+  final String selfiePath;
 
   factory _AbsensiItem.fromJson(Map<String, dynamic> json) {
     final String firstName = _textOf(json['first_name'], '');
@@ -551,6 +557,9 @@ class _AbsensiItem {
     );
 
     return _AbsensiItem(
+      id: json['id'] is int
+          ? json['id'] as int
+          : int.tryParse(json['id']?.toString() ?? '') ?? 0,
       nama: nama,
       tanggal: _formatTanggal(
         json['tanggal'] ??
@@ -568,6 +577,10 @@ class _AbsensiItem {
       ),
       latitude: _textOf(json['latitude'] ?? json['lat'], ''),
       longitude: _textOf(json['longitude'] ?? json['lng'] ?? json['lon'], ''),
+      selfiePath: _textOf(
+        json['selfie_path'] ?? json['selfie'] ?? json['foto_selfie'],
+        '',
+      ),
     );
   }
 

@@ -1,5 +1,6 @@
 ﻿import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
@@ -228,6 +229,26 @@ class _AbsenScreenState extends State<AbsenScreen> {
     }
   }
 
+  Future<String?> _selfieDataUrl(String path) async {
+    try {
+      final File file = File(path);
+      if (!await file.exists()) return null;
+      final List<int> bytes = await file.readAsBytes();
+      if (bytes.isEmpty || bytes.length > 2 * 1024 * 1024) return null;
+      final String ext = path.contains('.')
+          ? path.substring(path.lastIndexOf('.') + 1).toLowerCase()
+          : 'jpg';
+      final String mime = switch (ext) {
+        'png' => 'image/png',
+        'webp' => 'image/webp',
+        _ => 'image/jpeg',
+      };
+      return 'data:$mime;base64,${base64Encode(bytes)}';
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _handleAbsenMasuk() async {
     if (_isProcessing) return;
     setState(() => _isProcessing = true);
@@ -319,6 +340,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
         return;
       }
 
+      final String? selfieDataUrl = await _selfieDataUrl(selfiePath);
       final String? token = await AppSession.resolveToken();
       final http.Response response = await http
           .post(
@@ -332,6 +354,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
                 tanggalLokal: tanggalLokal,
                 waktuLokal: waktuLokal,
                 accuracy: position.accuracy,
+                selfie: selfieDataUrl,
               ),
             ),
           )

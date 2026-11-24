@@ -87,6 +87,20 @@ void main() {
     expect(payload.values.every((dynamic value) => value != null), isTrue);
   });
 
+  test('payload absen masuk menyertakan selfie base64 saat tersedia', () {
+    const String dataUrl = 'data:image/jpeg;base64,AAAA';
+    final Map<String, dynamic> payload = EmployeeRequest.absenMasuk(
+      employeeId: 42,
+      latitude: -6.252707,
+      longitude: 106.777752,
+      tanggalLokal: '2026-11-20',
+      waktuLokal: '08:02:17',
+      selfie: dataUrl,
+    );
+
+    expect(payload['selfie'], dataUrl);
+  });
+
   test('payload absen pulang mengirim koordinat dan accuracy tanpa selfie', () {
     final Map<String, dynamic> payload = EmployeeRequest.absenPulang(
       employeeId: 42,
