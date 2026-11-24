@@ -244,18 +244,6 @@ class _AbsenScreenState extends State<AbsenScreen> {
       if (!mounted) return;
       if (!hasLocationPermission) return;
 
-      final XFile? photo = await _imagePicker.pickImage(
-        source: ImageSource.camera,
-        preferredCameraDevice: CameraDevice.front,
-        imageQuality: 85,
-        maxWidth: 1600,
-      );
-      if (!mounted) return;
-      if (photo == null) {
-        _showMessage('Pengambilan foto dibatalkan.');
-        return;
-      }
-
       Position position;
       try {
         position = await Geolocator.getCurrentPosition(
@@ -297,6 +285,18 @@ class _AbsenScreenState extends State<AbsenScreen> {
             '${position.longitude.toStringAsFixed(6)}';
         _lokasiTeks = 'Lokasi terverifikasi';
       });
+
+      final XFile? photo = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+        preferredCameraDevice: CameraDevice.front,
+        imageQuality: 85,
+        maxWidth: 1600,
+      );
+      if (!mounted) return;
+      if (photo == null) {
+        _showMessage('Pengambilan foto dibatalkan.');
+        return;
+      }
 
       final now = DateTime.now();
       final String tanggalLokal =
@@ -393,6 +393,48 @@ class _AbsenScreenState extends State<AbsenScreen> {
       if (!mounted) return;
       if (!hasLocationPermission) return;
 
+      Position position;
+      try {
+        position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 20),
+          ),
+        );
+      } on LocationServiceDisabledException {
+        _showMessage(
+          'Layanan lokasi tidak aktif. Aktifkan GPS terlebih dahulu.',
+        );
+        return;
+      } on PermissionDeniedException {
+        _showMessage('Izin lokasi diperlukan untuk melakukan absensi.');
+        return;
+      } catch (e) {
+        _showMessage(
+          'Gagal memperoleh koordinat GPS: $e. Pastikan berada di area '
+          'terbuka dengan sinyal GPS yang baik.',
+        );
+        return;
+      }
+      if (!mounted) return;
+
+      if (!position.latitude.isFinite ||
+          !position.longitude.isFinite ||
+          position.latitude < -90 ||
+          position.latitude > 90 ||
+          position.longitude < -180 ||
+          position.longitude > 180) {
+        _showMessage('Koordinat GPS tidak valid. Absensi dibatalkan.');
+        return;
+      }
+
+      setState(() {
+        _koordinatTeks =
+            '${position.latitude.toStringAsFixed(6)}, '
+            '${position.longitude.toStringAsFixed(6)}';
+        _lokasiTeks = 'Lokasi terverifikasi';
+      });
+
       final XFile? photo = await _imagePicker.pickImage(
         source: ImageSource.camera,
         preferredCameraDevice: CameraDevice.front,
@@ -404,14 +446,6 @@ class _AbsenScreenState extends State<AbsenScreen> {
         _showMessage('Pengambilan foto dibatalkan.');
         return;
       }
-
-      final Position position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 20),
-        ),
-      );
-      if (!mounted) return;
 
       final now = DateTime.now();
       final String tanggalLokal =
