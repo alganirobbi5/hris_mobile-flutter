@@ -997,9 +997,7 @@ class _CutiScreenState extends State<CutiScreen> {
                                   DropdownMenuItem<int>(
                                 value: employee.id,
                                 child: Text(
-                                  employee.nik.isEmpty
-                                      ? employee.name
-                                      : '${employee.name} • ${employee.nik}',
+                                  employee.name,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
@@ -1297,7 +1295,6 @@ class _EmployeeOption {
   const _EmployeeOption({
     required this.id,
     required this.name,
-    required this.nik,
   });
 
   factory _EmployeeOption.fromJson(Map<String, dynamic> json) {
@@ -1306,11 +1303,9 @@ class _EmployeeOption {
           ? json['id'] as int
           : int.tryParse(json['id']?.toString() ?? '') ?? 0,
       name: (json['name'] ?? '').toString().trim(),
-      nik: (json['nik'] ?? '').toString().trim(),
     );
   }
 
   final int id;
   final String name;
-  final String nik;
 }
