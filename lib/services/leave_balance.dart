@@ -38,6 +38,10 @@ class LeaveBalanceResult {
   final double remainingDays;
 }
 
+class LeaveEmployeeError {
+  static String? message;
+}
+
 class LeaveBalanceService {
   const LeaveBalanceService._();
 

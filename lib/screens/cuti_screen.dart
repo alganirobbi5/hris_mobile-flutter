@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../config/api_config.dart';
 import '../services/app_session.dart';
 import '../services/employee_request.dart';
+import '../services/leave_balance.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/primary_button.dart';
@@ -68,6 +69,7 @@ class _CutiScreenState extends State<CutiScreen> {
   }
 
   Future<void> _fetchEmployees() async {
+    LeaveEmployeeError.message = null;
     setState(() => _isLoadingEmployees = true);
     try {
       final String? token = await AppSession.resolveToken();
@@ -79,6 +81,8 @@ class _CutiScreenState extends State<CutiScreen> {
           .timeout(const Duration(seconds: 30));
       if (!mounted) return;
       if (response.statusCode != 200) {
+        LeaveEmployeeError.message =
+            'Gagal memuat karyawan (HTTP ${response.statusCode})';
         setState(() => _isLoadingEmployees = false);
         return;
       }
@@ -86,17 +90,25 @@ class _CutiScreenState extends State<CutiScreen> {
       dynamic raw = decoded;
       if (decoded is Map<String, dynamic>) raw = decoded['data'];
       if (raw is! List) {
+        LeaveEmployeeError.message = 'Format daftar karyawan tidak valid';
         setState(() => _isLoadingEmployees = false);
         return;
       }
+      final List<_EmployeeOption> parsed = raw
+          .whereType<Map<String, dynamic>>()
+          .map<_EmployeeOption>(
+            (Map<String, dynamic> item) => _EmployeeOption.fromJson(item),
+          )
+          .toList();
       setState(() {
-        _employees = raw
-            .whereType<Map<String, dynamic>>()
-            .map(_EmployeeOption.fromJson)
-            .toList();
+        _employees = parsed;
         _isLoadingEmployees = false;
+        if (_employees.isEmpty) {
+          LeaveEmployeeError.message = 'Belum ada karyawan aktif tersedia';
+        }
       });
-    } catch (_) {
+    } catch (e) {
+      LeaveEmployeeError.message = 'Gagal terhubung ke server: $e';
       if (mounted) setState(() => _isLoadingEmployees = false);
     }
   }
@@ -967,7 +979,9 @@ class _CutiScreenState extends State<CutiScreen> {
                         hint: Text(
                           _isLoadingEmployees
                               ? 'Memuat karyawan...'
-                              : 'Pilih pengganti',
+                              : (_employees.isEmpty
+                                  ? 'Belum ada karyawan tersedia'
+                                  : 'Pilih pengganti'),
                           style: const TextStyle(
                             fontSize: 14,
                             color: AppColors.textSecondary,
@@ -997,11 +1011,9 @@ class _CutiScreenState extends State<CutiScreen> {
                               ),
                             )
                             .toList(),
-                        onChanged: _employees.isEmpty
-                            ? null
-                            : (int? value) {
-                                setState(() => _replacementId = value);
-                              },
+                        onChanged: (int? value) {
+                          setState(() => _replacementId = value);
+                        },
                         validator: (value) {
                           if (value == null || value <= 0) {
                             return 'Pilih karyawan pengganti';
@@ -1009,6 +1021,28 @@ class _CutiScreenState extends State<CutiScreen> {
                           return null;
                         },
                       ),
+                      if (!_isLoadingEmployees && _employees.isEmpty) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                LeaveEmployeeError.message ??
+                                    'Daftar karyawan belum tersedia',
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                            TextButton.icon(
+                              onPressed: _fetchEmployees,
+                              icon: const Icon(Icons.refresh_rounded, size: 15),
+                              label: const Text('Muat ulang'),
+                            ),
+                          ],
+                        ),
+                      ],
                       const SizedBox(height: 24),
                       PrimaryButton(
                         label: _isSubmitting ? 'Mengirim...' : 'Ajukan Cuti',
