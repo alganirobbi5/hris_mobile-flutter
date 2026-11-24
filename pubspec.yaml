@@ -2,7 +2,7 @@ name: hris_mobile
 description: "HRIS Dignity - Human Resource Information System"
 publish_to: 'none'
 
-version: 1.8.0+8
+version: 2.1.0+21
 
 environment:
   sdk: ^3.13.7
