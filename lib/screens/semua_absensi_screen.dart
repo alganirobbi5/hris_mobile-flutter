@@ -53,13 +53,20 @@ class SemuaAbsensiViewState extends State<SemuaAbsensiView> {
   String? _error;
   String _query = '';
   List<_AbsensiItem> _daftarAbsensi = const [];
+  bool _isHr = false;
+  final Set<int> _deletingIds = <int>{};
 
   @override
   void initState() {
     super.initState();
-    if (widget.autoFetch) {
-      _fetchSemuaAbsensi();
-    }
+    _loadRole();
+  }
+
+  Future<void> _loadRole() async {
+    final String? role = await AppSession.resolveRole();
+    if (!mounted) return;
+    setState(() => _isHr = AppSession.isHrRole(role));
+    if (widget.autoFetch) await _fetchSemuaAbsensi();
   }
 
   @override
@@ -337,6 +344,60 @@ class SemuaAbsensiViewState extends State<SemuaAbsensiView> {
     );
   }
 
+  Future<void> _hapusAbsensi(_AbsensiItem item) async {
+    if (item.id <= 0 || _deletingIds.contains(item.id)) return;
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('Hapus data absensi'),
+        content: Text(
+          'Yakin ingin menghapus absensi ${item.nama} pada ${item.tanggal}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+
+    setState(() => _deletingIds.add(item.id));
+    try {
+      final String? token = await AppSession.resolveToken();
+      final http.Response response = await http
+          .post(
+            ApiConfig.uri('hapus_absensi.php'),
+            headers: ApiConfig.authHeaders(token),
+            body: jsonEncode(<String, int>{'id': item.id}),
+          )
+          .timeout(const Duration(seconds: 20));
+      if (!mounted) return;
+      if (response.statusCode == 200) {
+        _showMessage('Data absensi berhasil dihapus');
+        await _fetchSemuaAbsensi();
+      } else {
+        _showMessage('Gagal menghapus data absensi (HTTP ${response.statusCode})');
+      }
+    } catch (_) {
+      if (mounted) _showMessage('Gagal terhubung ke server');
+    } finally {
+      if (mounted) setState(() => _deletingIds.remove(item.id));
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
   Widget _buildItem(_AbsensiItem item) {
     return InkWell(
       borderRadius: BorderRadius.circular(20),
@@ -420,6 +481,31 @@ class SemuaAbsensiViewState extends State<SemuaAbsensiView> {
                     color: _statusColor(item.status),
                   ),
                 ),
+                if (_isHr && item.id > 0) ...[
+                  const SizedBox(width: 4),
+                  SizedBox(
+                    width: 28,
+                    height: 28,
+                    child: IconButton(
+                      padding: EdgeInsets.zero,
+                      tooltip: 'Hapus absensi',
+                      onPressed: _deletingIds.contains(item.id)
+                          ? null
+                          : () => _hapusAbsensi(item),
+                      icon: _deletingIds.contains(item.id)
+                          ? const SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(
+                              Icons.delete_outline_rounded,
+                              size: 17,
+                              color: AppColors.danger,
+                            ),
+                    ),
+                  ),
+                ],
                 const SizedBox(width: 2),
                 const Icon(
                   Icons.chevron_right_rounded,
