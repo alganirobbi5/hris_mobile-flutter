@@ -91,8 +91,10 @@ class _AbsenScreenState extends State<AbsenScreen> {
     );
   }
 
+  DateTime _wibSekarang() => DateTime.now().toUtc().add(const Duration(hours: 7));
+
   String _kunciTanggalHariIni() {
-    final DateTime now = DateTime.now();
+    final DateTime now = _wibSekarang();
     return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 
@@ -171,7 +173,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
       'November',
       'Desember',
     ];
-    final DateTime now = DateTime.now();
+    final DateTime now = _wibSekarang();
     return '${hari[now.weekday - 1]}, ${now.day} ${bulan[now.month - 1]} ${now.year}';
   }
 
@@ -179,7 +181,12 @@ class _AbsenScreenState extends State<AbsenScreen> {
     if (nilai == null) return null;
     final String teks = nilai.toString().trim();
     if (teks.isEmpty) return null;
-    return teks.length >= 5 ? teks.substring(0, 5) : teks;
+    final RegExpMatch? match = RegExp(r'(\d{1,2}):(\d{2})').firstMatch(teks);
+    if (match == null) return null;
+    final int jam = int.tryParse(match.group(1) ?? '') ?? -1;
+    final int menit = int.tryParse(match.group(2) ?? '') ?? -1;
+    if (jam < 0 || jam > 23 || menit < 0 || menit > 59) return null;
+    return '${jam.toString().padLeft(2, '0')}:${menit.toString().padLeft(2, '0')}';
   }
 
   Future<void> _fetchJamKerja() async {

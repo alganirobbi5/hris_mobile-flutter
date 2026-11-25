@@ -35,6 +35,8 @@ class LaporanAbsensiRow {
     this.alamat = '',
     this.latitude = '',
     this.longitude = '',
+    this.terlambatDariServer,
+    this.jamMasukKerja = '',
   });
 
   factory LaporanAbsensiRow.fromJson(Map<String, dynamic> json) {
@@ -90,6 +92,14 @@ class LaporanAbsensiRow {
       alamat: (json['alamat'] ?? '').toString(),
       latitude: (json['latitude'] ?? '').toString(),
       longitude: (json['longitude'] ?? '').toString(),
+      terlambatDariServer: json['terlambat'] is bool
+          ? json['terlambat'] as bool
+          : (json['terlambat']?.toString().toLowerCase() == 'true'
+              ? true
+              : (json['terlambat']?.toString().toLowerCase() == 'false'
+                  ? false
+                  : null)),
+      jamMasukKerja: (json['jam_masuk_kerja'] ?? '').toString(),
     );
   }
 
@@ -107,6 +117,8 @@ class LaporanAbsensiRow {
   final String alamat;
   final String latitude;
   final String longitude;
+  final bool? terlambatDariServer;
+  final String jamMasukKerja;
 
   DateTime? get tanggalDate => DateTime.tryParse(tanggal);
 
@@ -138,7 +150,11 @@ class LaporanAbsensiRow {
   bool get terlambat {
     final String masuk = jamMasuk.trim();
     if (masuk.isEmpty || masuk.startsWith('00:00:00')) return false;
-    return masuk.compareTo('08:00:00') > 0;
+    if (terlambatDariServer != null) return terlambatDariServer!;
+    final String batas = jamMasukKerja.trim().isEmpty
+        ? '08:00:00'
+        : jamMasukKerja.trim();
+    return masuk.compareTo(batas) > 0;
   }
 
   String get statusTampil {
