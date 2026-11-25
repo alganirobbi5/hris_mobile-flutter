@@ -141,6 +141,47 @@ class EmployeeRequest {
     );
   }
 
+  static Uri izinKeluarUri({bool allScope = false, String? status}) {
+    final Map<String, String> params = <String, String>{};
+    if (allScope) params['scope'] = 'all';
+    final String? filter = status?.trim();
+    if (filter != null && filter.isNotEmpty && filter != 'all') {
+      params['status'] = filter;
+    }
+    return ApiConfig.uri('izin_keluar.php').replace(queryParameters: params);
+  }
+
+  static Map<String, dynamic> ajukanIzinKeluarBody({
+    required String tanggal,
+    required String jamKeluar,
+    String? jamKembali,
+    required bool kembaliKeKantor,
+    required String kategori,
+    required String alasan,
+  }) {
+    return <String, dynamic>{
+      'tanggal': tanggal,
+      'jam_keluar': jamKeluar,
+      'jam_kembali': jamKembali ?? '',
+      'kembali_ke_kantor': kembaliKeKantor ? 1 : 0,
+      'kategori': kategori,
+      'alasan': alasan,
+    };
+  }
+
+  static Map<String, dynamic> approveIzinKeluarBody(
+    int id,
+    String status, {
+    String? catatanHr,
+  }) {
+    return <String, dynamic>{
+      'id': id,
+      'status': status,
+      if (catatanHr != null && catatanHr.trim().isNotEmpty)
+        'catatan_hr': catatanHr.trim(),
+    };
+  }
+
   static Uri _withEmployeeQuery(String path, int? employeeId) {
     _require(employeeId);
     return ApiConfig.uri(path).replace(

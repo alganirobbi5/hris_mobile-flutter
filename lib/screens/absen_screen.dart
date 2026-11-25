@@ -18,8 +18,13 @@ import '../widgets/primary_button.dart';
 import '../widgets/section_card.dart';
 import '../widgets/status_badge.dart';
 import 'absen_success_screen.dart';
+import 'approval_cuti_screen.dart';
+import 'atur_jam_screen.dart';
 import 'cuti_screen.dart';
+import 'izin_keluar_screen.dart';
+import 'kelola_kuota_cuti_screen.dart';
 import 'login_screen.dart';
+import 'tambah_lokasi_screen.dart';
 
 class AbsenScreen extends StatefulWidget {
   const AbsenScreen({super.key});
@@ -54,10 +59,12 @@ class _AbsenScreenState extends State<AbsenScreen> {
   String? _token;
   String _koordinatAbsenTeks = '';
   String? _statusPulangApi;
+  String _role = '';
 
   @override
   void initState() {
     super.initState();
+    _muatRole();
     _muatPathSelfieLokal();
     _dapatkanLokasi();
     _cekStatusAbsen();
@@ -67,6 +74,12 @@ class _AbsenScreenState extends State<AbsenScreen> {
   String _kunciTanggalHariIni() {
     final DateTime now = DateTime.now();
     return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _muatRole() async {
+    final String? role = await AppSession.resolveRole();
+    if (!mounted) return;
+    setState(() => _role = role ?? '');
   }
 
   Future<String> _kunciIdentitas() async {
@@ -796,6 +809,44 @@ class _AbsenScreenState extends State<AbsenScreen> {
       );
   }
 
+  Widget _actionCard({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return Card(
+      margin: EdgeInsets.zero,
+      elevation: 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              Icon(icon, size: 28, color: AppColors.primary),
+              const SizedBox(height: 10),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final StatusAbsenKind statusMasuk = AbsenStatus.statusMasuk(
@@ -807,6 +858,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
       jamSelesaiKerja: _jamKeluarKerja,
       statusEksplisit: _statusPulangApi,
     );
+    final bool hr = AppSession.isHrRole(_role);
 
     return Scaffold(
       appBar: AppBar(
@@ -841,7 +893,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
           },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 110),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -1113,7 +1165,115 @@ class _AbsenScreenState extends State<AbsenScreen> {
                 const SizedBox(height: 28),
                 const Divider(color: AppColors.border),
                 const SizedBox(height: 20),
-                const CutiScreen(embedded: true),
+                Text(
+                  hr ? 'MENU HR' : 'FITUR',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.8,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                GridView.count(
+                  crossAxisCount: 2,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 1.25,
+                  children: hr
+                      ? <Widget>[
+                          _actionCard(
+                            icon: Icons.approval_rounded,
+                            label: 'Persetujuan Cuti',
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const ApprovalCutiScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                          _actionCard(
+                            icon: Icons.exit_to_app_rounded,
+                            label: 'Izin Keluar',
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute<void>(
+                                  builder: (_) =>
+                                      const IzinKeluarScreen(hrMode: true),
+                                ),
+                              );
+                            },
+                          ),
+                          _actionCard(
+                            icon: Icons.beach_access_outlined,
+                            label: 'Kelola Kuota Cuti',
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute<void>(
+                                  builder: (_) =>
+                                      const KelolaKuotaCutiScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                          _actionCard(
+                            icon: Icons.schedule_rounded,
+                            label: 'Atur Jam Kerja',
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const AturJamScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                          _actionCard(
+                            icon: Icons.add_location_alt_rounded,
+                            label: 'Tambah Lokasi',
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const TambahLokasiScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                        ]
+                      : <Widget>[
+                          _actionCard(
+                            icon: Icons.calendar_month_outlined,
+                            label: 'Pengajuan Cuti',
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const CutiScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                          _actionCard(
+                            icon: Icons.exit_to_app_rounded,
+                            label: 'Izin Keluar',
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute<void>(
+                                  builder: (_) => const IzinKeluarScreen(),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                ),
               ],
             ),
           ),
