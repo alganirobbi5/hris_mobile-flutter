@@ -12,8 +12,10 @@ import '../config/api_config.dart';
 import '../services/absen_status.dart';
 import '../services/app_session.dart';
 import '../services/employee_request.dart';
+import '../services/notification_service.dart';
 import '../services/selfie_storage.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_toast.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/section_card.dart';
 import '../widgets/status_badge.dart';
@@ -68,6 +70,13 @@ class _AbsenScreenState extends State<AbsenScreen> {
     _dapatkanLokasi();
     _cekStatusAbsen();
     _fetchJamKerja();
+    _jadwalkanPengingatAbsen();
+  }
+
+  Future<void> _jadwalkanPengingatAbsen() async {
+    final String? role = await AppSession.resolveRole();
+    if (AppSession.isHrRole(role)) return;
+    await AppNotificationService.scheduleDefaultReminders();
   }
 
   String _kunciTanggalHariIni() {
@@ -540,6 +549,10 @@ class _AbsenScreenState extends State<AbsenScreen> {
         await _simpanPathSelfieLokal('masuk', selfiePath);
         // Refresh status setelah absen masuk
         await _cekStatusAbsen();
+        await AppNotificationService.showAttendanceReminderNow(
+          title: 'Absen Masuk Berhasil',
+          body: 'Absen masuk tercatat pukul $_jamAbsenTeks. Selamat bekerja!',
+        );
         if (!mounted) return;
 
         await Navigator.of(context).push(
@@ -708,6 +721,11 @@ class _AbsenScreenState extends State<AbsenScreen> {
       if (response.statusCode == 200) {
         await _simpanPathSelfieLokal('pulang', selfiePath);
         await _cekStatusAbsen();
+        await AppNotificationService.showAttendanceReminderNow(
+          title: 'Absen Pulang Berhasil',
+          body: 'Absen pulang tercatat pukul $_jamPulangTeks. Terima kasih!',
+          id: AppNotificationService.checkOutId,
+        );
         if (!mounted) return;
 
         await Navigator.of(context).push(
@@ -792,20 +810,14 @@ class _AbsenScreenState extends State<AbsenScreen> {
     String? actionLabel,
     VoidCallback? onAction,
   }) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          action: actionLabel == null || onAction == null
-              ? null
-              : SnackBarAction(
-                  label: actionLabel,
-                  textColor: Colors.white,
-                  onPressed: onAction,
-                ),
-        ),
-      );
+    final AppToastType type = AppToast.typeFromMessage(message);
+    AppToast.show(
+      message,
+      type: type,
+      action: actionLabel == null || onAction == null
+          ? null
+          : AppToastAction(label: actionLabel, onPressed: onAction),
+    );
   }
 
   Widget _actionCard({

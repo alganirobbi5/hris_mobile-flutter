@@ -10,8 +10,10 @@ import '../services/cuti_refresh.dart';
 import '../services/employee_request.dart';
 import '../services/leave_balance.dart';
 import '../services/leave_leader_service.dart';
+import '../services/notification_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_text_field.dart';
+import '../widgets/app_toast.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/section_card.dart';
 import '../widgets/status_badge.dart';
@@ -111,6 +113,15 @@ class _CutiScreenState extends State<CutiScreen>
   void _onCutiChanged() {
     if (!mounted) return;
     _fetchRiwayatCuti();
+
+    final LeaveUpdate? update = CutiRefresh.lastUpdate.value;
+    if (update == null || _isHr) return;
+    final String statusText = update.status == 2 ? 'Disetujui' : 'Ditolak';
+    AppNotificationService.showLeaveStatus(
+      title: 'Pengajuan Cuti $statusText',
+      body: 'Pengajuan "${update.title}" telah $statusText oleh HR.',
+    );
+    CutiRefresh.lastUpdate.value = null;
   }
 
   Future<void> _loadRole() async {
@@ -398,9 +409,7 @@ class _CutiScreenState extends State<CutiScreen>
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+    AppToast.show(message, type: AppToast.typeFromMessage(message));
   }
 
   Future<void> _fetchRiwayatCuti() async {

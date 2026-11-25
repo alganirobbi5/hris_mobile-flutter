@@ -2,7 +2,9 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../config/api_config.dart';
+import 'notification_service.dart';
 
 class AppSession {
   static const String userIdPrefKey = 'user_id';
@@ -273,6 +275,11 @@ class AppSession {
     role = null;
     token = null;
     isLeaveLeader = false;
+    try {
+      await AppNotificationService.cancelReminders();
+    } catch (_) {
+      // Pembersihan notifikasi gagal tidak boleh menggagalkan logout.
+    }
   }
 
   static Future<void> _persist(SharedPreferences prefs) async {
