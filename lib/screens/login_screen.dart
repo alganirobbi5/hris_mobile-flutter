@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../services/app_session.dart';
 import '../services/company_profile.dart';
+import '../services/push_notification_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/app_toast.dart';
@@ -201,6 +202,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
         if (!mounted) return;
 
+        await PushNotificationService.syncToken();
+        if (!mounted) return;
         AppToast.success('Login Berhasil');
         Navigator.of(context).pushReplacement(
           MaterialPageRoute<void>(builder: (_) => const MainScreen()),
