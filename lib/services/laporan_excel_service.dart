@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../config/api_config.dart';
 import '../services/app_session.dart';
+import '../services/laporan_absensi_admin_service.dart';
 
 class LaporanExcelException implements Exception {
   const LaporanExcelException(this.message);
@@ -42,19 +43,41 @@ class LaporanAbsensiRow {
     final String namaLengkap = '$firstName $lastName'.trim();
     final String nama = (json['nama'] ??
             json['nama_lengkap'] ??
+            json['nama_karyawan'] ??
             json['employee_name'] ??
+            json['name'] ??
             namaLengkap)
         .toString()
         .trim();
 
     return LaporanAbsensiRow(
-      id: int.tryParse((json['id'] ?? '').toString()) ?? 0,
-      tanggal: (json['date'] ?? '').toString(),
-      jamMasuk: (json['clock_in'] ?? '').toString(),
-      jamKeluar: (json['clock_out'] ?? '').toString(),
+      id: int.tryParse(
+            (json['id'] ?? json['absen_id'] ?? json['attendance_id'] ?? '')
+                .toString(),
+          ) ??
+          0,
+      tanggal: (json['date'] ??
+              json['tanggal'] ??
+              json['tanggal_lokal'] ??
+              json['created_at'] ??
+              '')
+          .toString(),
+      jamMasuk: (json['clock_in'] ?? json['jam_masuk'] ?? json['masuk'] ?? '')
+          .toString(),
+      jamKeluar: (json['clock_out'] ??
+              json['jam_keluar'] ??
+              json['jam_pulang'] ??
+              json['pulang'] ??
+              '')
+          .toString(),
       nama: nama.isEmpty ? 'Tanpa Nama' : nama,
       // Field opsional: otomatis dipakai kalau backend mulai mengirimnya.
-      fotoUrl: (json['foto_url'] ?? json['foto'] ?? '').toString(),
+      fotoUrl: (json['foto_url'] ??
+              json['foto'] ??
+              json['selfie'] ??
+              json['selfie_in_url'] ??
+              '')
+          .toString(),
       selfieInUrl: (json['selfie_in_url'] ?? '').toString(),
       selfieOutUrl: (json['selfie_out_url'] ?? '').toString(),
       jabatan: (json['jabatan'] ??
@@ -273,6 +296,30 @@ class LaporanExcelService {
       startDate: startDate,
       endDate: endDate,
     );
+    try {
+      final List<LaporanAbsensiRow> adminRows =
+          await LaporanAbsensiAdminService.fetchRentang(
+        startDate: startDate,
+        endDate: endDate,
+      );
+      final Set<String> kunci = rows
+          .map(
+            (LaporanAbsensiRow row) => row.id > 0
+                ? 'id:${row.id}'
+                : '${row.tanggal}|${row.nama}|${row.jamMasuk}',
+          )
+          .toSet();
+      for (final LaporanAbsensiRow row in adminRows) {
+        final String rowKey = row.id > 0
+            ? 'id:${row.id}'
+            : '${row.tanggal}|${row.nama}|${row.jamMasuk}';
+        if (kunci.add(rowKey)) rows.add(row);
+      }
+    } on LaporanAbsensiAdminException catch (_) {
+      // Laporan admin belum tersedia di server; ekspor tetap berjalan.
+    } catch (_) {
+      // Laporan admin gagal; ekspor tetap berjalan.
+    }
     if (startDate != null &&
         startDate.isNotEmpty &&
         endDate != null &&

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../services/company_profile.dart';
+import '../services/laporan_absensi_admin_service.dart';
 import '../services/laporan_excel_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_toast.dart';
@@ -70,8 +71,16 @@ class _LaporanScreenState extends State<LaporanScreen>
     try {
       final List<LaporanAbsensiRow> rows =
           await _excelService.fetchHariIni();
+      List<LaporanAbsensiRow> adminRows = const <LaporanAbsensiRow>[];
+      try {
+        adminRows = await LaporanAbsensiAdminService.fetchHariIni();
+      } on LaporanAbsensiAdminException catch (e) {
+        debugPrint('Laporan absensi admin tidak tersedia: ${e.message}');
+      } catch (e) {
+        debugPrint('Laporan absensi admin gagal: $e');
+      }
       if (!mounted) return;
-      setState(() => _rows = rows);
+      setState(() => _rows = _gabungkanTanpaDuplikat(rows, adminRows));
     } on LaporanExcelException catch (e) {
       if (!mounted) return;
       setState(() => _rowsError = e.message);
@@ -81,6 +90,27 @@ class _LaporanScreenState extends State<LaporanScreen>
     } finally {
       if (mounted) setState(() => _isLoadingRows = false);
     }
+  }
+
+  List<LaporanAbsensiRow> _gabungkanTanpaDuplikat(
+    List<LaporanAbsensiRow> utama,
+    List<LaporanAbsensiRow> admin,
+  ) {
+    final Map<String, LaporanAbsensiRow> hasil =
+        <String, LaporanAbsensiRow>{};
+    for (final LaporanAbsensiRow row in <LaporanAbsensiRow>[...utama, ...admin]) {
+      final String kunci = row.id > 0
+          ? 'id:${row.id}'
+          : '${row.tanggal}|${row.nama}|${row.jamMasuk}';
+      hasil.putIfAbsent(kunci, () => row);
+    }
+    final List<LaporanAbsensiRow> gabungan = hasil.values.toList()
+      ..sort((LaporanAbsensiRow a, LaporanAbsensiRow b) {
+        final int tanggal = b.tanggal.compareTo(a.tanggal);
+        if (tanggal != 0) return tanggal;
+        return a.jamMasuk.compareTo(b.jamMasuk);
+      });
+    return gabungan;
   }
 
   void _fetchSemuaAbsensi() {

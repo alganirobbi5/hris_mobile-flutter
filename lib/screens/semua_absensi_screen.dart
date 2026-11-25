@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
 import '../config/api_config.dart';
+import '../services/laporan_absensi_admin_service.dart';
 import '../services/app_session.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_toast.dart';
@@ -94,8 +95,36 @@ class SemuaAbsensiViewState extends State<SemuaAbsensiView> {
       if (!mounted) return;
 
       if (response.statusCode == 200) {
+        List<dynamic> adminRows = const <dynamic>[];
+        try {
+          final http.Response adminResponse = await http
+              .get(
+                ApiConfig.uri(LaporanAbsensiAdminService.endpoint),
+                headers: ApiConfig.authHeaders(token),
+              )
+              .timeout(const Duration(seconds: 15));
+          if (adminResponse.statusCode == 200) {
+            adminRows = _parseAbsensiRaw(adminResponse.body);
+          }
+        } catch (_) {
+          // Endpoint laporan admin opsional; abaikan bila belum tersedia.
+        }
         setState(() {
-          _daftarAbsensi = _parseAbsensi(response.body);
+          final List<_AbsensiItem> gabungan = _parseAbsensi(response.body);
+          final Set<String> kunci = gabungan
+              .map(
+                (_AbsensiItem item) =>
+                    '${item.tanggal}|${item.nama}|${item.jamMasuk}',
+              )
+              .toSet();
+          for (final dynamic raw in adminRows) {
+            if (raw is! Map<String, dynamic>) continue;
+            final _AbsensiItem item = _AbsensiItem.fromJson(raw);
+            final String rowKey =
+                '${item.tanggal}|${item.nama}|${item.jamMasuk}';
+            if (kunci.add(rowKey)) gabungan.add(item);
+          }
+          _daftarAbsensi = gabungan;
           _isLoading = false;
         });
       } else {
@@ -120,6 +149,21 @@ class SemuaAbsensiViewState extends State<SemuaAbsensiView> {
         _isLoading = false;
       });
     }
+  }
+
+  List<dynamic> _parseAbsensiRaw(String body) {
+    if (body.trim().isEmpty) return const <dynamic>[];
+    final dynamic decoded = jsonDecode(body);
+    if (decoded is List) return decoded;
+    if (decoded is Map<String, dynamic>) {
+      final dynamic raw = decoded['data'] ??
+          decoded['absensi'] ??
+          decoded['result'] ??
+          decoded['list'] ??
+          decoded['admin'];
+      if (raw is List) return raw;
+    }
+    return const <dynamic>[];
   }
 
   List<_AbsensiItem> _parseAbsensi(String body) {
