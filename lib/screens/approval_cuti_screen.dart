@@ -509,7 +509,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
                 columns: const <DataColumn>[
                   DataColumn(label: Text('No')),
                   DataColumn(label: Text('Nama Leader')),
-                  DataColumn(label: Text('Username / Keterangan')),
+                  DataColumn(label: Text('Keterangan')),
                 ],
                 rows: _leaders.asMap().entries.map((MapEntry<int, LeaveLeader> entry) {
                   final int index = entry.key;
@@ -525,8 +525,8 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
                             Expanded(
                               child: Text(
                                 leader.keterangan.isEmpty
-                                    ? leader.username
-                                    : '${leader.username} • ${leader.keterangan}',
+                                      ? '-'
+                                      : leader.keterangan,
                                 style: const TextStyle(fontSize: 12),
                               ),
                             ),
@@ -577,7 +577,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
                         child: Text(
                           user.namaLengkap.isEmpty
                               ? user.username
-                              : '${user.namaLengkap} (${user.username})',
+                              : user.namaLengkap,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
