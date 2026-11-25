@@ -65,6 +65,34 @@ class _KelolaKuotaCutiScreenState extends State<KelolaKuotaCutiScreen> {
         return;
       }
 
+      Map<String, dynamic>? envelope;
+      try {
+        final dynamic decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) envelope = decoded;
+      } on FormatException {
+        envelope = null;
+      }
+      if (envelope == null) {
+        setState(() {
+          _error = 'Format data karyawan tidak valid.';
+          _isLoading = false;
+        });
+        return;
+      }
+
+      final String status =
+          envelope['status']?.toString().trim().toLowerCase() ?? '';
+      if (status.isNotEmpty && status != 'success' && envelope['success'] != true) {
+        final Object? serverMessage = envelope['message'];
+        setState(() {
+          _error = serverMessage != null && serverMessage.toString().isNotEmpty
+              ? serverMessage.toString()
+              : 'Gagal memuat data karyawan.';
+          _isLoading = false;
+        });
+        return;
+      }
+
       setState(() {
         _karyawan = _parseKaryawan(response.body);
         _selectedIds.removeWhere(

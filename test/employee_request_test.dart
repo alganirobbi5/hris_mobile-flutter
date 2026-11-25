@@ -135,4 +135,29 @@ void main() {
     expect(payload['selfie'], dataUrl);
     expect(payload['waktu_lokal'], '2026-11-20 17:02:38');
   });
+
+  test('payload absen HR tidak menyertakan employee_id buatan', () {
+    const String dataUrl = 'data:image/jpeg;base64,AAAA';
+    final Map<String, dynamic> masuk = EmployeeRequest.absenMasukAdmin(
+      latitude: -6.252707,
+      longitude: 106.777752,
+      tanggalLokal: '2026-11-20',
+      waktuLokal: '08:02:17',
+      accuracy: 12.5,
+      selfie: dataUrl,
+    );
+    final Map<String, dynamic> pulang = EmployeeRequest.absenPulangAdmin(
+      latitude: -6.252707,
+      longitude: 106.777752,
+      tanggalLokal: '2026-11-20',
+      waktuLokal: '2026-11-20 17:02:38',
+      selfie: dataUrl,
+    );
+
+    expect(masuk.containsKey('employee_id'), isFalse);
+    expect(masuk['selfie'], dataUrl);
+    expect(masuk['gps_accuracy'], '12.50');
+    expect(pulang.containsKey('employee_id'), isFalse);
+    expect(pulang['selfie'], dataUrl);
+  });
 }

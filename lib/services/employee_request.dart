@@ -40,6 +40,25 @@ class EmployeeRequest {
     return ApiConfig.uri('riwayat_cuti.php');
   }
 
+  static Map<String, dynamic> _absenBody({
+    required double latitude,
+    required double longitude,
+    required String tanggalLokal,
+    required String waktuLokal,
+    double? accuracy,
+    String? selfie,
+  }) {
+    return <String, dynamic>{
+      'latitude': latitude.toString(),
+      'longitude': longitude.toString(),
+      if (accuracy != null && accuracy.isFinite && accuracy >= 0)
+        'gps_accuracy': accuracy.toStringAsFixed(2),
+      'tanggal_lokal': tanggalLokal,
+      'waktu_lokal': waktuLokal,
+      if (selfie != null && selfie.isNotEmpty) 'selfie': selfie,
+    };
+  }
+
   static Map<String, dynamic> absenMasuk({
     required int? employeeId,
     required double latitude,
@@ -52,14 +71,33 @@ class EmployeeRequest {
     _require(employeeId);
     return <String, dynamic>{
       'employee_id': employeeId,
-      'latitude': latitude.toString(),
-      'longitude': longitude.toString(),
-      if (accuracy != null && accuracy.isFinite && accuracy >= 0)
-        'gps_accuracy': accuracy.toStringAsFixed(2),
-      'tanggal_lokal': tanggalLokal,
-      'waktu_lokal': waktuLokal,
-      if (selfie != null && selfie.isNotEmpty) 'selfie': selfie,
+      ..._absenBody(
+        latitude: latitude,
+        longitude: longitude,
+        tanggalLokal: tanggalLokal,
+        waktuLokal: waktuLokal,
+        accuracy: accuracy,
+        selfie: selfie,
+      ),
     };
+  }
+
+  static Map<String, dynamic> absenMasukAdmin({
+    required double latitude,
+    required double longitude,
+    required String tanggalLokal,
+    required String waktuLokal,
+    double? accuracy,
+    String? selfie,
+  }) {
+    return _absenBody(
+      latitude: latitude,
+      longitude: longitude,
+      tanggalLokal: tanggalLokal,
+      waktuLokal: waktuLokal,
+      accuracy: accuracy,
+      selfie: selfie,
+    );
   }
 
   static Map<String, dynamic> absenPulang({
@@ -74,14 +112,33 @@ class EmployeeRequest {
     _require(employeeId);
     return <String, dynamic>{
       'employee_id': employeeId,
-      'latitude': latitude.toString(),
-      'longitude': longitude.toString(),
-      if (accuracy != null && accuracy.isFinite && accuracy >= 0)
-        'gps_accuracy': accuracy.toStringAsFixed(2),
-      'tanggal_lokal': tanggalLokal,
-      'waktu_lokal': waktuLokal,
-      if (selfie != null && selfie.isNotEmpty) 'selfie': selfie,
+      ..._absenBody(
+        latitude: latitude,
+        longitude: longitude,
+        tanggalLokal: tanggalLokal,
+        waktuLokal: waktuLokal,
+        accuracy: accuracy,
+        selfie: selfie,
+      ),
     };
+  }
+
+  static Map<String, dynamic> absenPulangAdmin({
+    required double latitude,
+    required double longitude,
+    required String tanggalLokal,
+    required String waktuLokal,
+    double? accuracy,
+    String? selfie,
+  }) {
+    return _absenBody(
+      latitude: latitude,
+      longitude: longitude,
+      tanggalLokal: tanggalLokal,
+      waktuLokal: waktuLokal,
+      accuracy: accuracy,
+      selfie: selfie,
+    );
   }
 
   static Uri _withEmployeeQuery(String path, int? employeeId) {

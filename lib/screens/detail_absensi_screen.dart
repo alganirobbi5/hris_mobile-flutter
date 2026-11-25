@@ -158,13 +158,13 @@ class _DetailAbsensiScreenState extends State<DetailAbsensiScreen> {
                     const SizedBox(height: 10),
                     _DetailRow(
                       icon: Icons.person_outline_rounded,
-                      label: 'widget.Nama',
+                      label: 'Nama',
                       value: widget.nama,
                     ),
                     const SizedBox(height: 14),
                     _DetailRow(
                       icon: Icons.calendar_today_outlined,
-                      label: 'widget.Tanggal',
+                      label: 'Tanggal',
                       value: widget.tanggal,
                     ),
                     const SizedBox(height: 14),
@@ -182,13 +182,13 @@ class _DetailAbsensiScreenState extends State<DetailAbsensiScreen> {
                     const SizedBox(height: 14),
                     _DetailRow(
                       icon: Icons.location_on_outlined,
-                      label: 'widget.Latitude',
+                      label: 'Latitude',
                       value: _teksKoordinat(widget.latitude),
                     ),
                     const SizedBox(height: 14),
                     _DetailRow(
                       icon: Icons.location_on_outlined,
-                      label: 'widget.Longitude',
+                      label: 'Longitude',
                       value: _teksKoordinat(widget.longitude),
                     ),
                   ],

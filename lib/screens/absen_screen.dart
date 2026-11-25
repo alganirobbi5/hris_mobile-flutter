@@ -69,17 +69,25 @@ class _AbsenScreenState extends State<AbsenScreen> {
     return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 
+  Future<String> _kunciIdentitas() async {
+    final int? employeeId = await AppSession.currentEmployeeId();
+    if (employeeId != null) return 'emp_$employeeId';
+    final int? userId = await AppSession.resolveUserId();
+    if (userId != null) return 'user_$userId';
+    return 'role_${(await AppSession.resolveRole()) ?? 'unknown'}';
+  }
+
   Future<void> _muatPathSelfieLokal() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final String hariIni = _kunciTanggalHariIni();
-    final int? employeeId = await AppSession.currentEmployeeId();
-    final String? employeeTersimpan = prefs.getString(_prefSelfieEmployee);
+    final String identitas = await _kunciIdentitas();
+    final String? identitasTersimpan = prefs.getString(_prefSelfieEmployee);
     if (prefs.getString(_prefSelfieTanggal) != hariIni ||
-        employeeTersimpan != employeeId?.toString()) {
+        identitasTersimpan != identitas) {
       await prefs.remove(_prefSelfieMasuk);
       await prefs.remove(_prefSelfiePulang);
       await prefs.setString(_prefSelfieTanggal, hariIni);
-      await prefs.setString(_prefSelfieEmployee, employeeId?.toString() ?? '');
+      await prefs.setString(_prefSelfieEmployee, identitas);
     }
     if (!mounted) return;
     setState(() {
@@ -91,10 +99,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
   Future<void> _simpanPathSelfieLokal(String jenis, String path) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefSelfieTanggal, _kunciTanggalHariIni());
-    await prefs.setString(
-      _prefSelfieEmployee,
-      (await AppSession.currentEmployeeId())?.toString() ?? '',
-    );
+    await prefs.setString(_prefSelfieEmployee, await _kunciIdentitas());
     await prefs.setString(
       jenis == 'masuk' ? _prefSelfieMasuk : _prefSelfiePulang,
       path,
@@ -230,7 +235,11 @@ class _AbsenScreenState extends State<AbsenScreen> {
 
   Future<void> _cekStatusAbsen() async {
     final int? employeeId = await AppSession.currentEmployeeId();
-    if (employeeId == null) return;
+    final Uri statusUri = ApiConfig.uri('status_absen.php').replace(
+      queryParameters: employeeId == null
+          ? <String, String>{}
+          : <String, String>{'employee_id': employeeId.toString()},
+    );
 
     final String? token = await AppSession.resolveToken();
     if (!mounted) return;
@@ -238,9 +247,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
 
     try {
       final response = await http.get(
-        Uri.parse(
-          '${ApiConfig.baseUrl}/status_absen.php?employee_id=$employeeId',
-        ),
+        statusUri,
         headers: ApiConfig.authHeaders(token),
       );
       if (response.statusCode == 200) {
@@ -393,9 +400,10 @@ class _AbsenScreenState extends State<AbsenScreen> {
     setState(() => _isProcessing = true);
 
     try {
+      final String? role = await AppSession.resolveRole();
+      final bool hr = AppSession.isHrRole(role);
       final int? employeeId = await AppSession.currentEmployeeId();
-      if (employeeId == null) {
-        final String? role = await AppSession.resolveRole();
+      if (employeeId == null && !hr) {
         if (!mounted) return;
         _showMessage(EmployeeRequest.absenUnavailableMessage(role));
         return;
@@ -483,18 +491,29 @@ class _AbsenScreenState extends State<AbsenScreen> {
       final String? token = await AppSession.resolveToken();
       final http.Response response = await http
           .post(
-            Uri.parse('${ApiConfig.baseUrl}/absen.php'),
+            Uri.parse(
+              '${ApiConfig.baseUrl}/${hr ? 'absen_admin.php' : 'absen.php'}',
+            ),
             headers: ApiConfig.authHeaders(token),
             body: jsonEncode(
-              EmployeeRequest.absenMasuk(
-                employeeId: employeeId,
-                latitude: position.latitude,
-                longitude: position.longitude,
-                tanggalLokal: tanggalLokal,
-                waktuLokal: waktuLokal,
-                accuracy: position.accuracy,
-                selfie: selfieDataUrl,
-              ),
+              hr
+                  ? EmployeeRequest.absenMasukAdmin(
+                      latitude: position.latitude,
+                      longitude: position.longitude,
+                      tanggalLokal: tanggalLokal,
+                      waktuLokal: waktuLokal,
+                      accuracy: position.accuracy,
+                      selfie: selfieDataUrl,
+                    )
+                  : EmployeeRequest.absenMasuk(
+                      employeeId: employeeId,
+                      latitude: position.latitude,
+                      longitude: position.longitude,
+                      tanggalLokal: tanggalLokal,
+                      waktuLokal: waktuLokal,
+                      accuracy: position.accuracy,
+                      selfie: selfieDataUrl,
+                    ),
             ),
           )
           .timeout(ApiConfig.requestTimeout);
@@ -550,9 +569,10 @@ class _AbsenScreenState extends State<AbsenScreen> {
     setState(() => _isProcessing = true);
 
     try {
+      final String? role = await AppSession.resolveRole();
+      final bool hr = AppSession.isHrRole(role);
       final int? employeeId = await AppSession.currentEmployeeId();
-      if (employeeId == null) {
-        final String? role = await AppSession.resolveRole();
+      if (employeeId == null && !hr) {
         if (!mounted) return;
         _showMessage(EmployeeRequest.absenUnavailableMessage(role));
         return;
@@ -640,18 +660,29 @@ class _AbsenScreenState extends State<AbsenScreen> {
       final String? token = await AppSession.resolveToken();
       final http.Response response = await http
           .post(
-            Uri.parse('${ApiConfig.baseUrl}/absen_pulang.php'),
+            Uri.parse(
+              '${ApiConfig.baseUrl}/${hr ? 'absen_pulang_admin.php' : 'absen_pulang.php'}',
+            ),
             headers: ApiConfig.authHeaders(token),
             body: jsonEncode(
-              EmployeeRequest.absenPulang(
-                employeeId: employeeId,
-                latitude: position.latitude,
-                longitude: position.longitude,
-                tanggalLokal: tanggalLokal,
-                waktuLokal: waktuLokal,
-                accuracy: position.accuracy,
-                selfie: selfieDataUrl,
-              ),
+              hr
+                  ? EmployeeRequest.absenPulangAdmin(
+                      latitude: position.latitude,
+                      longitude: position.longitude,
+                      tanggalLokal: tanggalLokal,
+                      waktuLokal: waktuLokal,
+                      accuracy: position.accuracy,
+                      selfie: selfieDataUrl,
+                    )
+                  : EmployeeRequest.absenPulang(
+                      employeeId: employeeId,
+                      latitude: position.latitude,
+                      longitude: position.longitude,
+                      tanggalLokal: tanggalLokal,
+                      waktuLokal: waktuLokal,
+                      accuracy: position.accuracy,
+                      selfie: selfieDataUrl,
+                    ),
             ),
           )
           .timeout(ApiConfig.requestTimeout);
