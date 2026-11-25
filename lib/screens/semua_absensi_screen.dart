@@ -113,16 +113,13 @@ class SemuaAbsensiViewState extends State<SemuaAbsensiView> {
           final List<_AbsensiItem> gabungan = _parseAbsensi(response.body);
           final Set<String> kunci = gabungan
               .map(
-                (_AbsensiItem item) =>
-                    '${item.tanggal}|${item.nama}|${item.jamMasuk}',
+                (_AbsensiItem item) => _rowKey(item),
               )
               .toSet();
           for (final dynamic raw in adminRows) {
             if (raw is! Map<String, dynamic>) continue;
             final _AbsensiItem item = _AbsensiItem.fromJson(raw);
-            final String rowKey =
-                '${item.tanggal}|${item.nama}|${item.jamMasuk}';
-            if (kunci.add(rowKey)) gabungan.add(item);
+            if (kunci.add(_rowKey(item))) gabungan.add(item);
           }
           _daftarAbsensi = gabungan;
           _isLoading = false;
@@ -420,7 +417,10 @@ class SemuaAbsensiViewState extends State<SemuaAbsensiView> {
           .post(
             ApiConfig.uri('hapus_absensi.php'),
             headers: ApiConfig.authHeaders(token),
-            body: jsonEncode(<String, int>{'id': item.id}),
+            body: jsonEncode(<String, Object>{
+              'id': item.id,
+              'record_type': item.recordType == 'admin' ? 'admin' : 'employee',
+            }),
           )
           .timeout(const Duration(seconds: 20));
       if (!mounted) return;
@@ -436,6 +436,9 @@ class SemuaAbsensiViewState extends State<SemuaAbsensiView> {
       if (mounted) setState(() => _deletingIds.remove(item.id));
     }
   }
+
+  String _rowKey(_AbsensiItem item) =>
+      '${item.recordType}|${item.id}|${item.tanggal}|${item.nama}|${item.jamMasuk}';
 
   void _showMessage(String message) {
     AppToast.show(message, type: AppToast.typeFromMessage(message));
