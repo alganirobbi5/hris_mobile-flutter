@@ -96,7 +96,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('MENU HR'), findsOneWidget);
-    expect(find.text('Persetujuan Cuti'), findsOneWidget);
+    expect(find.text('Persetujuan Cuti'), findsNothing);
     expect(find.text('Cuti & Izin Keluar'), findsOneWidget);
     expect(find.text('Kelola Kuota Cuti'), findsOneWidget);
     expect(find.text('Pengajuan Cuti'), findsNothing);

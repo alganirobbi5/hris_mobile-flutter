@@ -9,6 +9,7 @@ import '../services/app_session.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/section_card.dart';
+import '../widgets/selfie_fullscreen_viewer.dart';
 
 class DetailAbsensiScreen extends StatefulWidget {
   const DetailAbsensiScreen({
@@ -21,10 +22,20 @@ class DetailAbsensiScreen extends StatefulWidget {
     required this.jamKeluar,
     required this.latitude,
     required this.longitude,
+    this.selfieInUrl = '',
+    this.selfieOutUrl = '',
+    this.jabatan = '',
+    this.totalWork = '',
+    this.recordType = '',
   });
 
   final int absensiId;
   final String selfiePath;
+  final String selfieInUrl;
+  final String selfieOutUrl;
+  final String jabatan;
+  final String totalWork;
+  final String recordType;
   final String nama;
   final String tanggal;
   final String jamMasuk;
@@ -39,11 +50,23 @@ class DetailAbsensiScreen extends StatefulWidget {
 class _DetailAbsensiScreenState extends State<DetailAbsensiScreen> {
   Uint8List? _selfieBytes;
   bool _isLoadingSelfie = false;
+  String? _token;
 
   @override
   void initState() {
     super.initState();
-    if (widget.absensiId > 0) _fetchSelfie();
+    _resolveToken();
+    if (widget.absensiId > 0 &&
+        widget.selfieInUrl.isEmpty &&
+        widget.selfiePath.isNotEmpty) {
+      _fetchSelfie();
+    }
+  }
+
+  Future<void> _resolveToken() async {
+    final String? token = await AppSession.resolveToken();
+    if (!mounted) return;
+    setState(() => _token = token);
   }
 
   Future<void> _fetchSelfie() async {
@@ -180,6 +203,22 @@ class _DetailAbsensiScreenState extends State<DetailAbsensiScreen> {
                       label: 'Jam Keluar',
                       value: widget.jamKeluar,
                     ),
+                    if (widget.jabatan.isNotEmpty) ...<Widget>[
+                      const SizedBox(height: 14),
+                      _DetailRow(
+                        icon: Icons.badge_outlined,
+                        label: 'Jabatan',
+                        value: widget.jabatan,
+                      ),
+                    ],
+                    if (widget.totalWork.isNotEmpty) ...<Widget>[
+                      const SizedBox(height: 14),
+                      _DetailRow(
+                        icon: Icons.access_time_rounded,
+                        label: 'Durasi Kerja',
+                        value: widget.totalWork,
+                      ),
+                    ],
                     const SizedBox(height: 14),
                     _DetailRow(
                       icon: Icons.location_on_outlined,
@@ -243,7 +282,7 @@ class _DetailAbsensiScreenState extends State<DetailAbsensiScreen> {
               ),
               const SizedBox(height: 16),
               SectionCard(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -256,44 +295,29 @@ class _DetailAbsensiScreenState extends State<DetailAbsensiScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    Container(
-                      width: double.infinity,
-                      height: 180,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: AppColors.field,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: _isLoadingSelfie
-                          ? const CircularProgressIndicator()
-                          : (_selfieBytes != null
-                              ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: Image.memory(
-                                    _selfieBytes!,
-                                    width: double.infinity,
-                                    height: 180,
-                                    fit: BoxFit.cover,
-                                  ),
-                                )
-                              : const Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.photo_camera_outlined,
-                                      size: 36,
-                                      color: AppColors.textSecondary,
-                                    ),
-                                    SizedBox(height: 8),
-                                    Text(
-                                      'Foto belum tersedia',
-                                      style: TextStyle(
-                                        fontSize: 12.5,
-                                        color: AppColors.textSecondary,
-                                      ),
-                                    ),
-                                  ],
-                                )),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: <Widget>[
+                        Expanded(
+                          child: _buildSelfieWindow(
+                            judul: 'Absen Masuk',
+                            jam: widget.jamMasuk,
+                            url: widget.selfieInUrl,
+                            fallbackBytes: _selfieBytes,
+                            placeholder: 'Belum ada foto masuk',
+                            loading: _isLoadingSelfie && widget.selfieInUrl.isEmpty,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildSelfieWindow(
+                            judul: 'Absen Pulang',
+                            jam: widget.jamKeluar,
+                            url: widget.selfieOutUrl,
+                            placeholder: 'Belum ada foto pulang',
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -302,6 +326,142 @@ class _DetailAbsensiScreenState extends State<DetailAbsensiScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildSelfieWindow({
+    required String judul,
+    required String jam,
+    required String url,
+    required String placeholder,
+    Uint8List? fallbackBytes,
+    bool loading = false,
+  }) {
+    final String alamat = url.trim();
+    final bool adaFoto = alamat.isNotEmpty || (fallbackBytes?.isNotEmpty ?? false);
+    final String jamTeks = jam.trim().isEmpty || jam.trim() == '-' ? '' : jam;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          jamTeks.isEmpty ? judul : '$judul • $jamTeks',
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Stack(
+          children: <Widget>[
+            Container(
+              width: double.infinity,
+              height: 138,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.field,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: loading
+                  ? const CircularProgressIndicator()
+                  : adaFoto
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: alamat.isNotEmpty
+                              ? Image.network(
+                                  alamat,
+                                  headers: ApiConfig.authHeaders(_token),
+                                  width: double.infinity,
+                                  height: 138,
+                                  fit: BoxFit.cover,
+                                  loadingBuilder: (BuildContext context,
+                                      Widget child, Object? progress) {
+                                    if (progress == null) return child;
+                                    return const Center(
+                                      child: CircularProgressIndicator(),
+                                    );
+                                  },
+                                  errorBuilder: (BuildContext context,
+                                      Object error, StackTrace? stack) {
+                                    return Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: <Widget>[
+                                        const Icon(
+                                          Icons.broken_image_outlined,
+                                          size: 30,
+                                          color: AppColors.textSecondary,
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          placeholder,
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: AppColors.textSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                )
+                              : Image.memory(
+                                  fallbackBytes!,
+                                  width: double.infinity,
+                                  height: 138,
+                                  fit: BoxFit.cover,
+                                ),
+                        )
+                      : Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            const Icon(
+                              Icons.photo_camera_outlined,
+                              size: 32,
+                              color: AppColors.textSecondary,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              placeholder,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+            ),
+            if (adaFoto)
+              Positioned.fill(
+                child: GestureDetector(
+                  onTap: () => SelfieFullScreenViewer.show(
+                    context,
+                    title: judul.startsWith('Absen Masuk')
+                        ? 'Foto Absen Masuk'
+                        : 'Foto Absen Pulang',
+                    subtitle: '$widget.nama${jamTeks.isEmpty ? '' : ' • $jamTeks'}',
+                    networkUrl: alamat.isEmpty ? null : alamat,
+                    headers: ApiConfig.authHeaders(_token),
+                    bytes: alamat.isEmpty ? fallbackBytes : null,
+                  ),
+                  child: const Align(
+                    alignment: Alignment.bottomRight,
+                    child: Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Icon(
+                        Icons.zoom_out_map_rounded,
+                        size: 17,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
     );
   }
 

@@ -412,6 +412,11 @@ class SemuaAbsensiViewState extends State<SemuaAbsensiView> {
               latitude: item.latitude,
               longitude: item.longitude,
               selfiePath: item.selfiePath,
+              selfieInUrl: item.selfieInUrl,
+              selfieOutUrl: item.selfieOutUrl,
+              jabatan: item.jabatan,
+              totalWork: item.totalWork,
+              recordType: item.recordType,
             ),
           ),
         );
@@ -604,6 +609,11 @@ class _AbsensiItem {
     this.latitude = '',
     this.longitude = '',
     this.selfiePath = '',
+    this.selfieInUrl = '',
+    this.selfieOutUrl = '',
+    this.jabatan = '',
+    this.totalWork = '',
+    this.recordType = '',
   });
 
   final int id;
@@ -615,6 +625,11 @@ class _AbsensiItem {
   final String latitude;
   final String longitude;
   final String selfiePath;
+  final String selfieInUrl;
+  final String selfieOutUrl;
+  final String jabatan;
+  final String totalWork;
+  final String recordType;
 
   factory _AbsensiItem.fromJson(Map<String, dynamic> json) {
     final String firstName = _textOf(json['first_name'], '');
@@ -666,6 +681,17 @@ class _AbsensiItem {
         json['selfie_path'] ?? json['selfie'] ?? json['foto_selfie'],
         '',
       ),
+      selfieInUrl: _textOf(json['selfie_in_url'], ''),
+      selfieOutUrl: _textOf(json['selfie_out_url'], ''),
+      jabatan: _textOf(
+        json['jabatan'] ?? json['designation_name'] ?? json['position'],
+        '',
+      ),
+      totalWork: _textOf(
+        json['total_work'] ?? json['total_jam_kerja'],
+        '',
+      ),
+      recordType: _textOf(json['record_type'], 'employee'),
     );
   }
 

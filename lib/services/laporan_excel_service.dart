@@ -26,6 +26,11 @@ class LaporanAbsensiRow {
     required this.jamKeluar,
     required this.nama,
     this.fotoUrl = '',
+    this.selfieInUrl = '',
+    this.selfieOutUrl = '',
+    this.jabatan = '',
+    this.totalWork = '',
+    this.recordType = '',
     this.alamat = '',
     this.latitude = '',
     this.longitude = '',
@@ -34,7 +39,13 @@ class LaporanAbsensiRow {
   factory LaporanAbsensiRow.fromJson(Map<String, dynamic> json) {
     final String firstName = (json['first_name'] ?? '').toString().trim();
     final String lastName = (json['last_name'] ?? '').toString().trim();
-    final String nama = '$firstName $lastName'.trim();
+    final String namaLengkap = '$firstName $lastName'.trim();
+    final String nama = (json['nama'] ??
+            json['nama_lengkap'] ??
+            json['employee_name'] ??
+            namaLengkap)
+        .toString()
+        .trim();
 
     return LaporanAbsensiRow(
       id: int.tryParse((json['id'] ?? '').toString()) ?? 0,
@@ -44,6 +55,15 @@ class LaporanAbsensiRow {
       nama: nama.isEmpty ? 'Tanpa Nama' : nama,
       // Field opsional: otomatis dipakai kalau backend mulai mengirimnya.
       fotoUrl: (json['foto_url'] ?? json['foto'] ?? '').toString(),
+      selfieInUrl: (json['selfie_in_url'] ?? '').toString(),
+      selfieOutUrl: (json['selfie_out_url'] ?? '').toString(),
+      jabatan: (json['jabatan'] ??
+              json['designation_name'] ??
+              json['position'] ??
+              '')
+          .toString(),
+      totalWork: (json['total_work'] ?? json['total_jam_kerja'] ?? '').toString(),
+      recordType: (json['record_type'] ?? 'employee').toString(),
       alamat: (json['alamat'] ?? '').toString(),
       latitude: (json['latitude'] ?? '').toString(),
       longitude: (json['longitude'] ?? '').toString(),
@@ -56,6 +76,11 @@ class LaporanAbsensiRow {
   final String jamKeluar;
   final String nama;
   final String fotoUrl;
+  final String selfieInUrl;
+  final String selfieOutUrl;
+  final String jabatan;
+  final String totalWork;
+  final String recordType;
   final String alamat;
   final String latitude;
   final String longitude;
