@@ -30,9 +30,11 @@ void main() {
       reason: 'Keperluan keluarga',
       startDate: '2026-11-25',
       endDate: '2026-11-26',
+      leaderUserId: 9,
     );
 
     expect(endpoint.path, endsWith('/cuti.php'));
+    expect(payload['leader_user_id'], 9);
     expect(payload['employee_id'], 42);
     expect(payload['title'], 'Cuti Tahunan');
     expect(payload['start_date'], '2026-11-25');
@@ -47,6 +49,7 @@ void main() {
       reason: 'Keperluan keluarga',
       startDate: '2026-11-25',
       endDate: '2026-11-26',
+      leaderUserId: 9,
       days: 2,
       employeeName: 'Siti Aminah',
       nik: 'EMP001',
@@ -68,6 +71,7 @@ void main() {
       reason: 'Demos',
       startDate: '2026-11-25',
       endDate: '2026-11-25',
+      leaderUserId: 9,
       replacementEmployeeId: 7,
     );
 

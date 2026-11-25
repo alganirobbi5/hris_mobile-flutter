@@ -20,9 +20,8 @@ import '../widgets/status_badge.dart';
 import 'absen_success_screen.dart';
 import 'approval_cuti_screen.dart';
 import 'atur_jam_screen.dart';
-import 'cuti_screen.dart';
-import 'izin_keluar_screen.dart';
 import 'kelola_kuota_cuti_screen.dart';
+import 'layanan_cuti_screen.dart';
 import 'login_screen.dart';
 import 'tambah_lokasi_screen.dart';
 
@@ -813,6 +812,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
     required IconData icon,
     required String label,
     required VoidCallback onTap,
+    String? subtitle,
   }) {
     return Card(
       margin: EdgeInsets.zero,
@@ -824,22 +824,41 @@ class _AbsenScreenState extends State<AbsenScreen> {
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
-              Icon(icon, size: 28, color: AppColors.primary),
-              const SizedBox(height: 10),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
+              Icon(icon, size: 24, color: AppColors.primary),
+              const SizedBox(height: 6),
+              Flexible(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
               ),
+              if (subtitle != null && subtitle.isNotEmpty) ...<Widget>[
+                const SizedBox(height: 3),
+                Flexible(
+                  child: Text(
+                    subtitle,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 9,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -1181,7 +1200,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
                   physics: const NeverScrollableScrollPhysics(),
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
-                  childAspectRatio: 1.25,
+                  childAspectRatio: 1.15,
                   children: hr
                       ? <Widget>[
                           _actionCard(
@@ -1197,14 +1216,14 @@ class _AbsenScreenState extends State<AbsenScreen> {
                             },
                           ),
                           _actionCard(
-                            icon: Icons.exit_to_app_rounded,
-                            label: 'Izin Keluar',
+                            icon: Icons.event_available_outlined,
+                            label: 'Cuti & Izin Keluar',
+                            subtitle: 'Pengajuan cuti, izin keluar & riwayat',
                             onTap: () {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute<void>(
-                                  builder: (_) =>
-                                      const IzinKeluarScreen(hrMode: true),
+                                  builder: (_) => const LayananCutiScreen(),
                                 ),
                               );
                             },
@@ -1249,25 +1268,14 @@ class _AbsenScreenState extends State<AbsenScreen> {
                         ]
                       : <Widget>[
                           _actionCard(
-                            icon: Icons.calendar_month_outlined,
-                            label: 'Pengajuan Cuti',
+                            icon: Icons.event_available_outlined,
+                            label: 'Cuti & Izin Keluar',
+                            subtitle: 'Pengajuan cuti, izin keluar & riwayat',
                             onTap: () {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute<void>(
-                                  builder: (_) => const CutiScreen(),
-                                ),
-                              );
-                            },
-                          ),
-                          _actionCard(
-                            icon: Icons.exit_to_app_rounded,
-                            label: 'Izin Keluar',
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute<void>(
-                                  builder: (_) => const IzinKeluarScreen(),
+                                  builder: (_) => const LayananCutiScreen(),
                                 ),
                               );
                             },

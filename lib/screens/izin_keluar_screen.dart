@@ -9,9 +9,14 @@ import '../widgets/section_card.dart';
 import '../widgets/status_badge.dart';
 
 class IzinKeluarScreen extends StatefulWidget {
-  const IzinKeluarScreen({super.key, this.hrMode = false});
+  const IzinKeluarScreen({
+    super.key,
+    this.hrMode = false,
+    this.embedded = false,
+  });
 
   final bool hrMode;
+  final bool embedded;
 
   @override
   State<IzinKeluarScreen> createState() => _IzinKeluarScreenState();
@@ -250,27 +255,28 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final Widget content = RefreshIndicator(
+      onRefresh: _fetchData,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 110),
+        children: <Widget>[
+          if (!_isHr) _buildForm(),
+          if (!_isHr) const SizedBox(height: 16),
+          if (_isHr) _buildFilter(),
+          if (_isHr) const SizedBox(height: 12),
+          _buildList(),
+        ],
+      ),
+    );
+
+    if (widget.embedded) return content;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(_isHr ? 'Persetujuan Izin Keluar' : 'Izin Keluar'),
       ),
-      body: SafeArea(
-        top: false,
-        child: RefreshIndicator(
-          onRefresh: _fetchData,
-          child: ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 110),
-            children: <Widget>[
-              if (!_isHr) _buildForm(),
-              if (!_isHr) const SizedBox(height: 16),
-              if (_isHr) _buildFilter(),
-              if (_isHr) const SizedBox(height: 12),
-              _buildList(),
-            ],
-          ),
-        ),
-      ),
+      body: SafeArea(top: false, child: content),
     );
   }
 

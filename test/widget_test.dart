@@ -71,7 +71,7 @@ void main() {
 
     final Finder navigationBar = find.byType(GlassBottomNav);
 
-    expect(find.text('Pengajuan Cuti'), findsOneWidget);
+    expect(find.text('Cuti & Izin Keluar'), findsOneWidget);
 
     await tester.tap(
       find.descendant(
@@ -140,7 +140,7 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: MainScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Pengajuan Cuti'), findsWidgets);
+    expect(find.text('Cuti & Izin Keluar'), findsWidgets);
     expect(find.text('Ambil Selfie & Absen Masuk'), findsOneWidget);
 
     final Finder navigationBar = find.byType(GlassBottomNav);

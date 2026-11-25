@@ -6,9 +6,10 @@ import 'package:intl/intl.dart';
 
 import '../config/api_config.dart';
 import '../services/app_session.dart';
+import '../services/cuti_approval_access.dart';
 import '../services/cuti_refresh.dart';
-import '../services/employee_request.dart';
 import '../services/leave_balance.dart';
+import '../services/leave_leader_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/section_card.dart';
 import '../widgets/status_badge.dart';
@@ -21,7 +22,8 @@ class ApprovalCutiScreen extends StatefulWidget {
 }
 
 class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
-  static String get _laporanUrl => EmployeeRequest.leaveHistory(null).toString();
+  static String get _laporanUrl =>
+      ApiConfig.uri('laporan_cuti.php').toString();
   static const String _approveUrl = '${ApiConfig.baseUrl}/approve_cuti.php';
   static const String _ringkasanUrl = '${ApiConfig.baseUrl}/ringkasan_cuti.php';
 
@@ -32,6 +34,11 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
       const <int, Map<String, dynamic>>{};
   final Set<int> _processingIds = <int>{};
   String _filterStatus = 'all';
+  bool _isHr = false;
+  bool _isLeaveLeader = false;
+  List<LeaveLeader> _leaders = const <LeaveLeader>[];
+  List<EligibleLeaveUser> _eligibleUsers = const <EligibleLeaveUser>[];
+  bool _isLoadingLeaders = true;
 
   _RingkasanCuti _ringkasan = const _RingkasanCuti();
   bool _isLoadingRingkasan = true;
@@ -42,8 +49,51 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchPengajuan();
-    _fetchRingkasanCuti();
+    _refreshIdentity();
+  }
+
+  Future<void> _refreshIdentity() async {
+    final String? role = await AppSession.resolveRole();
+    await AppSession.refreshFromMe();
+    if (!mounted) return;
+    setState(() {
+      _isHr = AppSession.isHrRole(role);
+      _isLeaveLeader = AppSession.getLeaveLeaderFlag();
+    });
+    await Future.wait<void>(<Future<void>>[
+      _fetchPengajuan(),
+      _fetchRingkasanCuti(),
+      _fetchLeaders(),
+    ]);
+  }
+
+  Future<void> _fetchLeaders() async {
+    if (!mounted) return;
+    setState(() => _isLoadingLeaders = true);
+    try {
+      final LeaveLeadersResult result = await LeaveLeaderService.fetch(
+        includeEligible: _isHr,
+      );
+      if (!mounted) return;
+      setState(() {
+        _leaders = result.leaders;
+        _eligibleUsers = result.eligibleUsers;
+        _isLoadingLeaders = false;
+      });
+    } on LeaveLeaderException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _leaders = const <LeaveLeader>[];
+        _eligibleUsers = const <EligibleLeaveUser>[];
+        _isLoadingLeaders = false;
+      });
+      _showMessage(e.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingLeaders = false;
+      });
+    }
   }
 
   Future<void> _fetchPengajuan() async {
@@ -256,6 +306,196 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
 
     if (data == null) return null;
     return _RingkasanCuti.fromJson(data);
+  }
+
+  Widget _buildLeaderCard() {
+    return SectionCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              const Expanded(
+                child: Text(
+                  'Daftar Leader Pemberi Persetujuan Cuti',
+                  style: TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+              if (_isHr)
+                TextButton.icon(
+                  onPressed: _tambahLeaderDialog,
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: const Text('Tambah Leader'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (_isLoadingLeaders)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 18),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_leaders.isEmpty)
+            const Text(
+              'Belum ada Leader terdaftar.',
+              style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+            )
+          else
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                columnSpacing: 16,
+                columns: const <DataColumn>[
+                  DataColumn(label: Text('No')),
+                  DataColumn(label: Text('Nama Leader')),
+                  DataColumn(label: Text('Username / Keterangan')),
+                ],
+                rows: _leaders.asMap().entries.map((MapEntry<int, LeaveLeader> entry) {
+                  final int index = entry.key;
+                  final LeaveLeader leader = entry.value;
+                  return DataRow(
+                    cells: <DataCell>[
+                      DataCell(Text('${index + 1}')),
+                      DataCell(Text(leader.displayName)),
+                      DataCell(
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            Expanded(
+                              child: Text(
+                                leader.keterangan.isEmpty
+                                    ? leader.username
+                                    : '${leader.username} • ${leader.keterangan}',
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ),
+                            if (_isHr)
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                tooltip: 'Hapus leader',
+                                icon: const Icon(
+                                  Icons.delete_outline_rounded,
+                                  size: 18,
+                                  color: AppColors.danger,
+                                ),
+                                onPressed: () => _hapusLeader(leader),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _tambahLeaderDialog() async {
+    int? selectedUserId;
+    final TextEditingController keteranganController =
+        TextEditingController();
+    final bool? saved = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => StatefulBuilder(
+        builder: (BuildContext context, setState) => AlertDialog(
+          title: const Text('Tambah Leader'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              DropdownButtonFormField<int>(
+                initialValue: selectedUserId,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Pilih User'),
+                items: _eligibleUsers
+                    .map(
+                      (EligibleLeaveUser user) => DropdownMenuItem<int>(
+                        value: user.userId,
+                        child: Text(
+                          user.namaLengkap.isEmpty
+                              ? user.username
+                              : '${user.namaLengkap} (${user.username})',
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (int? value) => setState(() => selectedUserId = value),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: keteranganController,
+                decoration: const InputDecoration(
+                  labelText: 'Keterangan (opsional)',
+                ),
+              ),
+            ],
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              onPressed: selectedUserId == null
+                  ? null
+                  : () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Simpan'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (saved != true || selectedUserId == null || !mounted) return;
+    try {
+      await LeaveLeaderService.add(
+        selectedUserId!,
+        keterangan: keteranganController.text.trim(),
+      );
+      if (!mounted) return;
+      _showMessage('Leader berhasil ditambahkan');
+      await _fetchLeaders();
+    } on LeaveLeaderException catch (e) {
+      if (mounted) _showMessage(e.message);
+    } finally {
+      keteranganController.dispose();
+    }
+  }
+
+  Future<void> _hapusLeader(LeaveLeader leader) async {
+    final bool? yakin = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('Hapus Leader?'),
+        content: Text('${leader.displayName} akan dihapus dari daftar Leader.'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+    if (yakin != true || !mounted) return;
+    try {
+      await LeaveLeaderService.remove(leader.id);
+      if (!mounted) return;
+      _showMessage('Leader berhasil dihapus');
+      await _fetchLeaders();
+    } on LeaveLeaderException catch (e) {
+      if (mounted) _showMessage(e.message);
+    }
   }
 
   Widget _buildRingkasanCard() {
@@ -571,6 +811,11 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
                         position: item.position,
                         replacementName: item.replacementName,
                         days: item.days,
+                        targetLeaderName: item.targetLeaderName,
+                        approvedByName: item.approvedByName,
+                        catatanLeader: item.catatanLeader,
+                        leaderUserId: item.leaderUserId,
+                        approvedByUserId: item.approvedByUserId,
                       )
                     : item,
               )
@@ -741,6 +986,8 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
                 ),
               ),
               const SizedBox(height: 20),
+              _buildLeaderCard(),
+              const SizedBox(height: 16),
               _buildRingkasanCard(),
               const SizedBox(height: 20),
               Row(
@@ -957,6 +1204,13 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
     final Color statusColor = _statusColor(item.status);
     final bool isPending = _statusCode(item.status) == 1;
     final bool isProcessing = _processingIds.contains(item.id);
+    final bool bisaApprove = CutiApprovalAccess.canApprove(
+      isHr: _isHr,
+      isLeaveLeader: _isLeaveLeader,
+      isPending: isPending,
+      leaderUserId: item.leaderUserId,
+      currentUserId: AppSession.getUserId(),
+    );
 
     return SectionCard(
       padding: const EdgeInsets.all(16),
@@ -1076,14 +1330,57 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
               ],
             ),
           ],
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: isPending && !isProcessing
-                      ? () => _konfirmasiStatus(item, 2)
-                      : null,
+          if (item.targetLeaderName.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Ditujukan ke: ${item.targetLeaderName}',
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+          if (statusLabel == 'Disetujui' && item.approvedByName.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Disetujui oleh ${item.approvedByName}',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.success,
+              ),
+            ),
+          ],
+          if (statusLabel == 'Ditolak' && item.approvedByName.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Ditolak oleh ${item.approvedByName}',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.danger,
+              ),
+            ),
+            if (item.catatanLeader.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Catatan Leader: ${item.catatanLeader}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ],
+          if (bisaApprove) ...[
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: isPending && !isProcessing
+                        ? () => _konfirmasiStatus(item, 2)
+                        : null,
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.success,
                     foregroundColor: Colors.white,
@@ -1119,6 +1416,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
               ),
             ],
           ),
+          ],
         ],
       ),
     );
@@ -1143,6 +1441,11 @@ class _PengajuanCuti {
     this.position = '',
     this.replacementName = '',
     this.days = 0,
+    this.targetLeaderName = '',
+    this.approvedByName = '',
+    this.catatanLeader = '',
+    this.leaderUserId = 0,
+    this.approvedByUserId = 0,
   });
 
   factory _PengajuanCuti.fromJson(Map<String, dynamic> json) {
@@ -1207,6 +1510,11 @@ class _PengajuanCuti {
         '',
       ),
       days: _intValue(json['days'] ?? json['jumlah_hari'] ?? json['total_hari']),
+      targetLeaderName: _stringValue(json['target_leader_name'], ''),
+      approvedByName: _stringValue(json['approved_by_name'], ''),
+      catatanLeader: _stringValue(json['catatan_leader'], ''),
+      leaderUserId: _intValue(json['leader_user_id']),
+      approvedByUserId: _intValue(json['approved_by_user_id']),
     );
   }
 
@@ -1226,6 +1534,11 @@ class _PengajuanCuti {
   final String position;
   final String replacementName;
   final int days;
+  final String targetLeaderName;
+  final String approvedByName;
+  final String catatanLeader;
+  final int leaderUserId;
+  final int approvedByUserId;
 
   static String _stringValue(dynamic value, String fallback) {
     if (value == null) return fallback;

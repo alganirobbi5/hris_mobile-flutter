@@ -9,6 +9,7 @@ import '../services/app_session.dart';
 import '../services/cuti_refresh.dart';
 import '../services/employee_request.dart';
 import '../services/leave_balance.dart';
+import '../services/leave_leader_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/primary_button.dart';
@@ -16,10 +17,17 @@ import '../widgets/section_card.dart';
 import '../widgets/status_badge.dart';
 
 class CutiScreen extends StatefulWidget {
-  const CutiScreen({super.key, this.embedded = false});
+  const CutiScreen({
+    super.key,
+    this.embedded = false,
+    this.onlyHistory = false,
+  });
 
   /// Saat true, widget dirender tanpa Scaffold untuk disisipkan di halaman lain.
   final bool embedded;
+
+  /// Saat true, hanya menampilkan riwayat (dipakai tab Riwayat Cuti).
+  final bool onlyHistory;
 
   @override
   State<CutiScreen> createState() => _CutiScreenState();
@@ -47,6 +55,9 @@ class _CutiScreenState extends State<CutiScreen>
   DateTime? _endDate;
   int? _replacementId;
   List<_EmployeeOption> _employees = const [];
+  List<LeaveLeader> _leaders = const <LeaveLeader>[];
+  int? _selectedLeaderId;
+  bool _isLoadingLeaders = true;
   bool _isLoadingEmployees = true;
   bool _isSubmitting = false;
   int _formResetToken = 0;
@@ -62,6 +73,34 @@ class _CutiScreenState extends State<CutiScreen>
     WidgetsBinding.instance.addObserver(this);
     CutiRefresh.revision.addListener(_onCutiChanged);
     _loadRole();
+    if (!widget.onlyHistory) _fetchLeaders();
+  }
+
+  Future<void> _fetchLeaders() async {
+    if (!mounted) return;
+    setState(() => _isLoadingLeaders = true);
+    try {
+      final LeaveLeadersResult result =
+          await LeaveLeaderService.fetch(includeEligible: false);
+      if (!mounted) return;
+      setState(() {
+        _leaders = result.leaders;
+        _isLoadingLeaders = false;
+      });
+    } on LeaveLeaderException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _leaders = const <LeaveLeader>[];
+        _isLoadingLeaders = false;
+      });
+      _showMessage(e.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _leaders = const <LeaveLeader>[];
+        _isLoadingLeaders = false;
+      });
+    }
   }
 
   @override
@@ -232,6 +271,11 @@ class _CutiScreenState extends State<CutiScreen>
       return;
     }
 
+    if (_selectedLeaderId == null) {
+      _showMessage('Pilih Leader pemberi persetujuan terlebih dahulu');
+      return;
+    }
+
     if (!_formKey.currentState!.validate()) return;
 
     final int? employeeId = await AppSession.currentEmployeeId();
@@ -256,6 +300,7 @@ class _CutiScreenState extends State<CutiScreen>
           reason: reason,
           startDate: _formatApiDate(startDate),
           endDate: _formatApiDate(endDate),
+          leaderUserId: _selectedLeaderId!,
           replacementEmployeeId: _replacementId,
           days: int.tryParse(_daysController.text.trim()),
           employeeName: AppSession.name?.trim(),
@@ -826,6 +871,50 @@ class _CutiScreenState extends State<CutiScreen>
                             ),
                           ),
                         ],
+                        if (item.targetLeaderName.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            'Tujuan Persetujuan: ${item.targetLeaderName}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                        if (statusLabel == 'Disetujui' &&
+                            item.approvedByName.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            'Disetujui oleh ${item.approvedByName}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.success,
+                            ),
+                          ),
+                        ],
+                        if (statusLabel == 'Ditolak' &&
+                            item.approvedByName.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            'Ditolak oleh ${item.approvedByName}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.danger,
+                            ),
+                          ),
+                          if (item.catatanLeader.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              'Catatan: ${item.catatanLeader}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ],
                         if (_isHr && item.id > 0) ...[
                           const SizedBox(height: 10),
                           Align(
@@ -874,7 +963,7 @@ class _CutiScreenState extends State<CutiScreen>
   @override
   Widget build(BuildContext context) {
     final Map<String, int> ringkasan = _ringkasanStatusBulanIni();
-    final Widget content = Form(
+    final Widget formSection = Form(
       key: _formKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -986,6 +1075,37 @@ class _CutiScreenState extends State<CutiScreen>
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: 18),
+                      DropdownButtonFormField<int>(
+                        initialValue: _selectedLeaderId,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Pilih Leader Pemberi Persetujuan',
+                        ),
+                        hint: _isLoadingLeaders
+                            ? const Text('Memuat leader...')
+                            : const Text('Pilih leader'),
+                        items: _leaders
+                            .map(
+                              (LeaveLeader leader) => DropdownMenuItem<int>(
+                                value: leader.userId,
+                                child: Text(
+                                  leader.keterangan.isEmpty
+                                      ? leader.displayName
+                                      : '${leader.displayName} • ${leader.keterangan}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        validator: (int? value) => value == null
+                            ? 'Leader wajib dipilih'
+                            : null,
+                        onChanged: (int? value) {
+                          setState(() => _selectedLeaderId = value);
+                        },
                       ),
                       const SizedBox(height: 18),
                       AppTextField(
@@ -1139,6 +1259,24 @@ class _CutiScreenState extends State<CutiScreen>
       ),
     );
 
+    final Widget content = widget.onlyHistory
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              const Text(
+                'Riwayat Cuti',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              _buildRiwayatCuti(),
+            ],
+          )
+        : formSection;
+
     if (widget.embedded) return content;
 
     return Scaffold(
@@ -1275,6 +1413,11 @@ class _RiwayatCuti {
     required this.status,
     this.alasan,
     this.komentar,
+    this.targetLeaderName = '',
+    this.approvedByName = '',
+    this.catatanLeader = '',
+    this.leaderUserId = 0,
+    this.approvedByUserId = 0,
     this.createdAt = '',
   });
 
@@ -1310,6 +1453,11 @@ class _RiwayatCuti {
       status: _stringValue(json['staus'] ?? json['status'], '-'),
       alasan: _stringValue(json['reason'] ?? json['alasan'], ''),
       komentar: _stringValue(json['comment'] ?? json['komentar'], ''),
+      targetLeaderName: _stringValue(json['target_leader_name'], ''),
+      approvedByName: _stringValue(json['approved_by_name'], ''),
+      catatanLeader: _stringValue(json['catatan_leader'], ''),
+      leaderUserId: _intValue(json['leader_user_id']),
+      approvedByUserId: _intValue(json['approved_by_user_id']),
       createdAt: _stringValue(
         json['created_at'] ?? json['tanggal_pengajuan'],
         '',
@@ -1325,6 +1473,11 @@ class _RiwayatCuti {
   final String status;
   final String? alasan;
   final String? komentar;
+  final String targetLeaderName;
+  final String approvedByName;
+  final String catatanLeader;
+  final int leaderUserId;
+  final int approvedByUserId;
   final String createdAt;
 
   static String _stringValue(dynamic value, String fallback) {

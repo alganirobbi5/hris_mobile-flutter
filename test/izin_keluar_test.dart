@@ -70,7 +70,7 @@ void main() {
     expect(item.catatanHr, isEmpty);
   });
 
-  testWidgets('karyawan melihat tombol Pengajuan Cuti dan Izin Keluar', (
+  testWidgets('karyawan melihat tombol terpadu Cuti & Izin Keluar', (
     WidgetTester tester,
   ) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -81,12 +81,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('FITUR'), findsOneWidget);
-    expect(find.text('Pengajuan Cuti'), findsOneWidget);
-    expect(find.text('Izin Keluar'), findsOneWidget);
+    expect(find.text('Cuti & Izin Keluar'), findsOneWidget);
     expect(find.text('Kelola Kuota Cuti'), findsNothing);
   });
 
-  testWidgets('HR melihat tombol aksi HR termasuk Izin Keluar', (
+  testWidgets('HR melihat tombol aksi HR termasuk Cuti & Izin Keluar', (
     WidgetTester tester,
   ) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -98,7 +97,7 @@ void main() {
 
     expect(find.text('MENU HR'), findsOneWidget);
     expect(find.text('Persetujuan Cuti'), findsOneWidget);
-    expect(find.text('Izin Keluar'), findsOneWidget);
+    expect(find.text('Cuti & Izin Keluar'), findsOneWidget);
     expect(find.text('Kelola Kuota Cuti'), findsOneWidget);
     expect(find.text('Pengajuan Cuti'), findsNothing);
   });

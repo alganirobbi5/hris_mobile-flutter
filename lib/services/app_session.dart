@@ -1,8 +1,12 @@
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/api_config.dart';
 
 class AppSession {
   static const String userIdPrefKey = 'user_id';
+  static const String isLeaveLeaderPrefKey = 'is_leave_leader';
 
   static int? userId;
   static int? employeeId;
@@ -10,6 +14,7 @@ class AppSession {
   static String? name;
   static String? role;
   static String? token;
+  static bool isLeaveLeader = false;
 
   /// Populate from the login JSON response.
   /// Deployed login.php (pre-token): { status, message, data: { user_id,
@@ -36,6 +41,10 @@ class AppSession {
     );
     role = _text(user['role']) ??
         _firstText(identitySources, const <String>['role']);
+    isLeaveLeader = _firstBool(
+      identitySources,
+      const <String>['is_leave_leader'],
+    );
 
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await _persist(prefs);
@@ -78,6 +87,25 @@ class AppSession {
       }
     }
     return null;
+  }
+
+  static bool _firstBool(
+    List<Map<String, dynamic>> sources,
+    List<String> keys,
+  ) {
+    for (final Map<String, dynamic> source in sources) {
+      for (final String key in keys) {
+        final dynamic value = source[key];
+        if (value is bool) return value;
+        if (value is num) return value == 1;
+        if (value is String) {
+          final String text = value.trim().toLowerCase();
+          if (text == 'true' || text == '1') return true;
+          if (text == 'false' || text == '0') return false;
+        }
+      }
+    }
+    return false;
   }
 
   static String? _firstText(
@@ -139,6 +167,7 @@ class AppSession {
     username = _text(store.getString('username'));
     name = _text(store.getString('nama_lengkap'));
     role = _text(store.getString('role'));
+    isLeaveLeader = store.getBool(isLeaveLeaderPrefKey) ?? false;
     token = _text(store.getString(ApiConfig.authTokenPrefKey)) ??
         _text(store.getString(ApiConfig.tokenPrefKey));
   }
@@ -176,6 +205,42 @@ class AppSession {
     return stored;
   }
 
+  static Future<bool> resolveIsLeaveLeader() async {
+    if (isLeaveLeader) return true;
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    isLeaveLeader = prefs.getBool(isLeaveLeaderPrefKey) ?? false;
+    return isLeaveLeader;
+  }
+
+  static Future<void> refreshFromMe() async {
+    final String? token = await resolveToken();
+    if (token == null || token.isEmpty) return;
+    try {
+      final http.Response response = await http
+          .get(
+            ApiConfig.uri('me.php'),
+            headers: ApiConfig.authHeaders(token),
+          )
+          .timeout(ApiConfig.requestTimeout);
+      if (response.statusCode != 200) return;
+      final dynamic decoded = jsonDecode(response.body);
+      final dynamic data = decoded is Map<String, dynamic>
+          ? decoded['data']
+          : null;
+      if (data is! Map<String, dynamic>) return;
+      final bool value = _firstBool(
+        <Map<String, dynamic>>[data],
+        const <String>['is_leave_leader'],
+      );
+      if (value == isLeaveLeader) return;
+      isLeaveLeader = value;
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(isLeaveLeaderPrefKey, value);
+    } catch (_) {
+      // Status leader lama tetap dipakai bila me.php gagal.
+    }
+  }
+
   static bool isHrRole(String? value) =>
       (value ?? '').trim().toLowerCase() == 'hr';
 
@@ -199,6 +264,7 @@ class AppSession {
     await prefs.remove(ApiConfig.authTokenPrefKey);
     await prefs.remove(ApiConfig.tokenPrefKey);
     await prefs.remove(ApiConfig.employeeIdPrefKey);
+    await prefs.remove(isLeaveLeaderPrefKey);
 
     userId = null;
     employeeId = null;
@@ -206,6 +272,7 @@ class AppSession {
     name = null;
     role = null;
     token = null;
+    isLeaveLeader = false;
   }
 
   static Future<void> _persist(SharedPreferences prefs) async {
@@ -241,6 +308,7 @@ class AppSession {
     } else {
       await prefs.remove(ApiConfig.employeeIdPrefKey);
     }
+    await prefs.setBool(isLeaveLeaderPrefKey, isLeaveLeader);
   }
 
   static int? _asInt(dynamic value) {
@@ -270,4 +338,5 @@ class AppSession {
   static String? getName() => name;
   static String? getRole() => role;
   static String? getToken() => token;
+  static bool getLeaveLeaderFlag() => isLeaveLeader;
 }
