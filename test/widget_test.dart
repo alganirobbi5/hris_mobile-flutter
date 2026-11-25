@@ -71,7 +71,7 @@ void main() {
 
     final Finder navigationBar = find.byType(GlassBottomNav);
 
-    expect(find.text('Cuti & Izin Keluar'), findsOneWidget);
+    expect(find.text('Cuti & Izin'), findsOneWidget);
 
     await tester.tap(
       find.descendant(
@@ -98,7 +98,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(tester.widget<GlassBottomNav>(navigationBar).currentIndex, 3);
+    expect(tester.widget<GlassBottomNav>(navigationBar).currentIndex, 4);
   });
 
   testWidgets('Tab Persetujuan Cuti tampil untuk role HR', (
@@ -140,7 +140,7 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: MainScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Cuti & Izin Keluar'), findsWidgets);
+    expect(find.text('Cuti & Izin'), findsWidgets);
     expect(find.text('Ambil Selfie & Absen Masuk'), findsOneWidget);
 
     final Finder navigationBar = find.byType(GlassBottomNav);

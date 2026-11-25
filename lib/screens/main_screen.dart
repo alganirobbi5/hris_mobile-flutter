@@ -9,6 +9,7 @@ import '../widgets/glass_bottom_nav.dart';
 import 'absen_screen.dart';
 import 'approval_cuti_screen.dart';
 import 'laporan_screen.dart';
+import 'layanan_cuti_screen.dart';
 import 'pengumuman_screen.dart';
 import 'profil_screen.dart';
 
@@ -85,6 +86,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   List<Widget> _screens(bool isHr) => <Widget>[
     const AbsenScreen(),
+    const LayananCutiScreen(),
     const PengumumanScreen(),
     if (isHr) const LaporanScreen(),
     const ProfilScreen(),
@@ -96,6 +98,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       icon: Icons.camera_alt_outlined,
       activeIcon: Icons.camera_alt_rounded,
       label: 'Absen',
+    ),
+    const AppNavItem(
+      icon: Icons.event_available_outlined,
+      activeIcon: Icons.event_available_rounded,
+      label: 'Cuti & Izin',
     ),
     const AppNavItem(
       icon: Icons.campaign_outlined,

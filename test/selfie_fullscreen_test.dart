@@ -125,7 +125,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.text('Persetujuan Cuti'), findsNothing);
-    expect(find.text('Cuti & Izin Keluar'), findsOneWidget);
+    expect(find.text('Cuti & Izin Keluar'), findsNothing);
     expect(find.text('Kelola Kuota Cuti'), findsOneWidget);
   });
 }

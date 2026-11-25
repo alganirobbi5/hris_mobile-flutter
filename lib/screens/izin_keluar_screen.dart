@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/app_session.dart';
 import '../services/izin_keluar_service.dart';
+import '../services/leave_leader_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/primary_button.dart';
@@ -57,11 +58,24 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
   bool _kembaliKeKantor = true;
   String _kategori = kategoriList.first;
   String _filter = 'all';
+  List<LeaveLeader> _leaders = const <LeaveLeader>[];
+  int? _selectedLeaderId;
 
   @override
   void initState() {
     super.initState();
     _resolveRole();
+    _fetchLeaders();
+  }
+
+  Future<void> _fetchLeaders() async {
+    try {
+      final LeaveLeadersResult result = await LeaveLeaderService.fetch();
+      if (!mounted) return;
+      setState(() => _leaders = result.leaders);
+    } catch (_) {
+      // Leader tetap bisa dipilih ulang lewat pull-to-refresh.
+    }
   }
 
   @override
@@ -117,6 +131,10 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
       _showMessage('Alasan wajib diisi.');
       return;
     }
+    if (_selectedLeaderId == null) {
+      _showMessage('Pilih Leader pemberi persetujuan terlebih dahulu.');
+      return;
+    }
     if (!mounted) return;
     setState(() => _isSubmitting = true);
     try {
@@ -127,6 +145,7 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
         kembaliKeKantor: _kembaliKeKantor,
         kategori: _kategori,
         alasan: alasan,
+        leaderUserId: _selectedLeaderId!,
       );
       if (!mounted) return;
       _alasanController.clear();
@@ -295,6 +314,32 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
             ),
           ),
           const SizedBox(height: 16),
+          DropdownButtonFormField<int>(
+            initialValue: _selectedLeaderId,
+            isExpanded: true,
+            decoration: const InputDecoration(
+              labelText: 'Pilih Leader Pemberi Persetujuan',
+            ),
+            items: _leaders
+                .map(
+                  (LeaveLeader leader) => DropdownMenuItem<int>(
+                    value: leader.userId,
+                    child: Text(
+                      leader.keterangan.isEmpty
+                          ? leader.displayName
+                          : '${leader.displayName} • ${leader.keterangan}',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                )
+                .toList(),
+            validator: (int? value) =>
+                value == null ? 'Leader wajib dipilih' : null,
+            onChanged: (int? value) {
+              setState(() => _selectedLeaderId = value);
+            },
+          ),
+          const SizedBox(height: 12),
           _buildPicker(
             label: 'Tanggal',
             value: _tanggalString(),

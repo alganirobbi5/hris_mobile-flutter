@@ -25,7 +25,6 @@ import '../widgets/status_badge.dart';
 import 'absen_success_screen.dart';
 import 'atur_jam_screen.dart';
 import 'kelola_kuota_cuti_screen.dart';
-import 'layanan_cuti_screen.dart';
 import 'login_screen.dart';
 import 'tambah_lokasi_screen.dart';
 
@@ -302,7 +301,8 @@ class _AbsenScreenState extends State<AbsenScreen> {
                   data['keterangan_pulang'],
             );
 
-            final dynamic idAbsen = data['attendance_id'] ??
+            final dynamic idAbsen =
+                data['attendance_id'] ??
                 data['absen_id'] ??
                 data['id'] ??
                 data['id_masuk'];
@@ -320,12 +320,16 @@ class _AbsenScreenState extends State<AbsenScreen> {
                   data['selfie_out'] ??
                   data['selfie_pulang'] ??
                   data['selfie_path'],
-              data['attendance_id_pulang'] ?? data['absen_id_pulang'] ?? idAbsen,
+              data['attendance_id_pulang'] ??
+                  data['absen_id_pulang'] ??
+                  idAbsen,
               pulang: true,
             );
 
             final String lat = _teksDari(data['latitude'] ?? data['lat']);
-            final String lng = _teksDari(data['longitude'] ?? data['lng'] ?? data['lon']);
+            final String lng = _teksDari(
+              data['longitude'] ?? data['lng'] ?? data['lon'],
+            );
             if (lat.isNotEmpty && lng.isNotEmpty) {
               _koordinatAbsenTeks = '$lat, $lng';
             }
@@ -453,8 +457,8 @@ class _AbsenScreenState extends State<AbsenScreen> {
         int width = decoded.width;
         int height = decoded.height;
         if (width > _selfieDimensiMaksimal || height > _selfieDimensiMaksimal) {
-          final double skala = _selfieDimensiMaksimal /
-              (width > height ? width : height);
+          final double skala =
+              _selfieDimensiMaksimal / (width > height ? width : height);
           width = (width * skala).round();
           height = (height * skala).round();
           final img.Image resized = img.copyResize(
@@ -889,9 +893,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
     return Card(
       margin: EdgeInsets.zero,
       elevation: 1,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
@@ -1253,95 +1255,67 @@ class _AbsenScreenState extends State<AbsenScreen> {
                   ],
                 ),
 
-                const SizedBox(height: 28),
-                const Divider(color: AppColors.border),
-                const SizedBox(height: 20),
-                Text(
-                  hr ? 'MENU HR' : 'FITUR',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8,
-                    color: AppColors.textSecondary,
+                if (hr) ...[
+                  const SizedBox(height: 28),
+                  const Divider(color: AppColors.border),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'MENU HR',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.8,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 10),
-                GridView.count(
-                  crossAxisCount: 2,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 1.15,
-                  children: hr
-                      ? <Widget>[
-                          _actionCard(
-                            icon: Icons.event_available_outlined,
-                            label: 'Cuti & Izin Keluar',
-                            subtitle: 'Pengajuan cuti, izin keluar & riwayat',
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute<void>(
-                                  builder: (_) => const LayananCutiScreen(),
-                                ),
-                              );
-                            },
-                          ),
-                          _actionCard(
-                            icon: Icons.beach_access_outlined,
-                            label: 'Kelola Kuota Cuti',
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute<void>(
-                                  builder: (_) =>
-                                      const KelolaKuotaCutiScreen(),
-                                ),
-                              );
-                            },
-                          ),
-                          _actionCard(
-                            icon: Icons.schedule_rounded,
-                            label: 'Atur Jam Kerja',
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute<void>(
-                                  builder: (_) => const AturJamScreen(),
-                                ),
-                              );
-                            },
-                          ),
-                          _actionCard(
-                            icon: Icons.add_location_alt_rounded,
-                            label: 'Tambah Lokasi',
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute<void>(
-                                  builder: (_) => const TambahLokasiScreen(),
-                                ),
-                              );
-                            },
-                          ),
-                        ]
-                      : <Widget>[
-                          _actionCard(
-                            icon: Icons.event_available_outlined,
-                            label: 'Cuti & Izin Keluar',
-                            subtitle: 'Pengajuan cuti, izin keluar & riwayat',
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute<void>(
-                                  builder: (_) => const LayananCutiScreen(),
-                                ),
-                              );
-                            },
-                          ),
-                        ],
-                ),
+                  const SizedBox(height: 10),
+                  GridView.count(
+                    crossAxisCount: 2,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 1.15,
+                    children: <Widget>[
+                      _actionCard(
+                        icon: Icons.beach_access_outlined,
+                        label: 'Kelola Kuota Cuti',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (_) => const KelolaKuotaCutiScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      _actionCard(
+                        icon: Icons.schedule_rounded,
+                        label: 'Atur Jam Kerja',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (_) => const AturJamScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                      _actionCard(
+                        icon: Icons.add_location_alt_rounded,
+                        label: 'Tambah Lokasi',
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute<void>(
+                              builder: (_) => const TambahLokasiScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -1350,7 +1324,6 @@ class _AbsenScreenState extends State<AbsenScreen> {
     );
   }
 }
-
 
 class _IconBox extends StatelessWidget {
   const _IconBox({required this.icon});

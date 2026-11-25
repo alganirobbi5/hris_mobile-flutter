@@ -33,8 +33,15 @@ class GlassBottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     final double bottomInset = MediaQuery.of(context).padding.bottom;
 
+    final bool ringkas = items.length > 5;
+
     return Padding(
-      padding: EdgeInsets.fromLTRB(18, 0, 18, 12 + bottomInset),
+      padding: EdgeInsets.fromLTRB(
+        ringkas ? 6 : 18,
+        0,
+        ringkas ? 6 : 18,
+        12 + bottomInset,
+      ),
       child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(32),
@@ -106,6 +113,7 @@ class GlassBottomNav extends StatelessWidget {
                             Expanded(
                               child: _NavButton(
                                 item: items[i],
+                                ringkas: ringkas,
                                 selected: i == currentIndex,
                                 onTap: () {
                                   if (i == currentIndex) return;
@@ -131,11 +139,13 @@ class GlassBottomNav extends StatelessWidget {
 class _NavButton extends StatelessWidget {
   const _NavButton({
     required this.item,
+    required this.ringkas,
     required this.selected,
     required this.onTap,
   });
 
   final AppNavItem item;
+  final bool ringkas;
   final bool selected;
   final VoidCallback onTap;
 
@@ -162,13 +172,13 @@ class _NavButton extends StatelessWidget {
               Center(
                 child: Icon(
                   selected ? item.activeIcon : item.icon,
-                  size: 22 + 2 * t,
+                  size: (ringkas ? 19 : 22) + 2 * t,
                   color: color,
                 ),
               ),
               const SizedBox(height: 3),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2),
+                padding: EdgeInsets.symmetric(horizontal: ringkas ? 0 : 2),
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
                   child: Text(
@@ -176,9 +186,9 @@ class _NavButton extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: ringkas ? 8.5 : 10,
                       fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                      letterSpacing: -0.1,
+                      letterSpacing: ringkas ? -0.4 : -0.1,
                       color: color,
                     ),
                   ),

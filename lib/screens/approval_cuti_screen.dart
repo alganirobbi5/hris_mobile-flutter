@@ -8,6 +8,7 @@ import '../config/api_config.dart';
 import '../services/app_session.dart';
 import '../services/cuti_approval_access.dart';
 import '../services/cuti_refresh.dart';
+import '../services/izin_keluar_service.dart';
 import '../services/leave_balance.dart';
 import '../services/leave_leader_service.dart';
 import '../theme/app_theme.dart';
@@ -40,6 +41,8 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
   List<LeaveLeader> _leaders = const <LeaveLeader>[];
   List<EligibleLeaveUser> _eligibleUsers = const <EligibleLeaveUser>[];
   bool _isLoadingLeaders = true;
+  List<IzinKeluarItem> _izinItems = const <IzinKeluarItem>[];
+  bool _isLoadingIzin = true;
 
   _RingkasanCuti _ringkasan = const _RingkasanCuti();
   bool _isLoadingRingkasan = true;
@@ -65,6 +68,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
       _fetchPengajuan(),
       _fetchRingkasanCuti(),
       _fetchLeaders(),
+      _fetchIzinKeluar(),
     ]);
   }
 
@@ -307,6 +311,157 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
 
     if (data == null) return null;
     return _RingkasanCuti.fromJson(data);
+  }
+
+  Future<void> _fetchIzinKeluar() async {
+    if (!mounted) return;
+    setState(() => _isLoadingIzin = true);
+    try {
+      final List<IzinKeluarItem> items = await IzinKeluarService.fetch(
+        allScope: _isHr,
+      );
+      if (!mounted) return;
+      setState(() {
+        _izinItems = items;
+        _isLoadingIzin = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _izinItems = const <IzinKeluarItem>[];
+        _isLoadingIzin = false;
+      });
+    }
+  }
+
+  Future<void> _decideIzin(IzinKeluarItem item, String status) async {
+    final TextEditingController catatanController = TextEditingController();
+    final bool? yakin = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: Text(status == 'approved' ? 'Setujui izin keluar?' : 'Tolak izin keluar?'),
+        content: TextField(
+          controller: catatanController,
+          maxLines: 3,
+          decoration: const InputDecoration(labelText: 'Catatan (opsional)'),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Kirim'),
+          ),
+        ],
+      ),
+    );
+    if (yakin != true || !mounted) return;
+    try {
+      await IzinKeluarService.decide(
+        item.id,
+        status,
+        catatanHr: catatanController.text.trim(),
+      );
+      if (!mounted) return;
+      _showMessage(
+        status == 'approved' ? 'Izin keluar disetujui.' : 'Izin keluar ditolak.',
+      );
+      await _fetchIzinKeluar();
+    } on IzinKeluarException catch (e) {
+      if (mounted) _showMessage(e.message);
+    } finally {
+      catatanController.dispose();
+    }
+  }
+
+  Widget _buildIzinKeluarCard() {
+    final List<IzinKeluarItem> menunggu = _izinItems
+        .where((IzinKeluarItem item) => item.status.toLowerCase() == 'pending')
+        .toList();
+    return SectionCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Text(
+            'Persetujuan Izin Keluar',
+            style: TextStyle(
+              fontSize: 14.5,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 10),
+          if (_isLoadingIzin)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (menunggu.isEmpty)
+            const Text(
+              'Tidak ada izin keluar menunggu persetujuan.',
+              style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+            )
+          else
+            ...menunggu.map(
+              (IzinKeluarItem item) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      '${item.namaKaryawan} • ${item.tanggal}',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${item.jamKeluarPendek} - ${item.jamKembaliPendek} • ${item.kategori}',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      item.alasan,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    if (_isLeaveLeader) ...<Widget>[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: <Widget>[
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => _decideIzin(item, 'rejected'),
+                              child: const Text('Tolak'),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: () => _decideIzin(item, 'approved'),
+                              child: const Text('Setujui'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   Widget _buildLeaderCard() {
@@ -991,6 +1146,8 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
               ),
               const SizedBox(height: 20),
               _buildLeaderCard(),
+              const SizedBox(height: 16),
+              _buildIzinKeluarCard(),
               const SizedBox(height: 16),
               _buildRingkasanCard(),
               const SizedBox(height: 20),

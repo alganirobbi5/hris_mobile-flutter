@@ -29,9 +29,11 @@ void main() {
       kembaliKeKantor: true,
       kategori: 'Tugas Luar Kantor',
       alasan: 'Menemui klien',
+      leaderUserId: 9,
     );
     expect(body['kembali_ke_kantor'], 1);
     expect(body['jam_keluar'], '10:30');
+    expect(body['leader_user_id'], 9);
     expect(body.containsKey('employee_id'), isFalse);
 
     final Map<String, dynamic> decision =
@@ -70,7 +72,7 @@ void main() {
     expect(item.catatanHr, isEmpty);
   });
 
-  testWidgets('karyawan melihat tombol terpadu Cuti & Izin Keluar', (
+  testWidgets('karyawan tidak melihat tombol Cuti & Izin di halaman absen', (
     WidgetTester tester,
   ) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -80,12 +82,12 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: AbsenScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.text('FITUR'), findsOneWidget);
-    expect(find.text('Cuti & Izin Keluar'), findsOneWidget);
+    expect(find.text('Cuti & Izin Keluar'), findsNothing);
+    expect(find.text('MENU HR'), findsNothing);
     expect(find.text('Kelola Kuota Cuti'), findsNothing);
   });
 
-  testWidgets('HR melihat tombol aksi HR termasuk Cuti & Izin Keluar', (
+  testWidgets('HR melihat menu HR tanpa tombol Cuti & Izin Keluar', (
     WidgetTester tester,
   ) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -97,7 +99,7 @@ void main() {
 
     expect(find.text('MENU HR'), findsOneWidget);
     expect(find.text('Persetujuan Cuti'), findsNothing);
-    expect(find.text('Cuti & Izin Keluar'), findsOneWidget);
+    expect(find.text('Cuti & Izin Keluar'), findsNothing);
     expect(find.text('Kelola Kuota Cuti'), findsOneWidget);
     expect(find.text('Pengajuan Cuti'), findsNothing);
   });

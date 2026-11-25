@@ -191,6 +191,7 @@ class EmployeeRequest {
     required bool kembaliKeKantor,
     required String kategori,
     required String alasan,
+    required int leaderUserId,
   }) {
     return <String, dynamic>{
       'tanggal': tanggal,
@@ -199,6 +200,7 @@ class EmployeeRequest {
       'kembali_ke_kantor': kembaliKeKantor ? 1 : 0,
       'kategori': kategori,
       'alasan': alasan,
+      'leader_user_id': leaderUserId,
     };
   }
 

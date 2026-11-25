@@ -129,6 +129,7 @@ class IzinKeluarService {
     required bool kembaliKeKantor,
     required String kategori,
     required String alasan,
+    required int leaderUserId,
   }) async {
     final String? token = await AppSession.resolveToken();
     final http.Response response = await http
@@ -143,6 +144,7 @@ class IzinKeluarService {
               kembaliKeKantor: kembaliKeKantor,
               kategori: kategori,
               alasan: alasan,
+              leaderUserId: leaderUserId,
             ),
           ),
         )
