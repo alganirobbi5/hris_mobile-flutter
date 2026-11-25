@@ -40,6 +40,37 @@ class EmployeeRequest {
     return ApiConfig.uri('riwayat_cuti.php');
   }
 
+  static Uri leaveCreate() => ApiConfig.uri('cuti.php');
+
+  static Map<String, dynamic> leaveCreatePayload({
+    required int? employeeId,
+    required String title,
+    required String reason,
+    required String startDate,
+    required String endDate,
+    int? replacementEmployeeId,
+    int? days,
+    String? employeeName,
+    String? nik,
+    String? department,
+    String? position,
+  }) {
+    _require(employeeId);
+    return <String, dynamic>{
+      'employee_id': employeeId,
+      'title': title,
+      'start_date': startDate,
+      'end_date': endDate,
+      'reason': reason,
+      'replacement_employee_id': ?replacementEmployeeId,
+      'days': ?days,
+      'employee_name': ?employeeName,
+      'nik': ?nik,
+      'department': ?department,
+      'position': ?position,
+    };
+  }
+
   static Map<String, dynamic> _absenBody({
     required double latitude,
     required double longitude,

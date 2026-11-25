@@ -22,6 +22,58 @@ void main() {
     expect(hr.path, endsWith('/riwayat_cuti.php'));
   });
 
+  test('payload cuti memakai employee_id dan title yang diterima cuti.php', () {
+    final Uri endpoint = EmployeeRequest.leaveCreate();
+    final Map<String, dynamic> payload = EmployeeRequest.leaveCreatePayload(
+      employeeId: 42,
+      title: 'Cuti Tahunan',
+      reason: 'Keperluan keluarga',
+      startDate: '2026-11-25',
+      endDate: '2026-11-26',
+    );
+
+    expect(endpoint.path, endsWith('/cuti.php'));
+    expect(payload['employee_id'], 42);
+    expect(payload['title'], 'Cuti Tahunan');
+    expect(payload['start_date'], '2026-11-25');
+    expect(payload['reason'], 'Keperluan keluarga');
+    expect(payload.containsKey('replacement_employee_id'), isFalse);
+  });
+
+  test('payload cuti menyertakan detail karyawan untuk tampilan HR', () {
+    final Map<String, dynamic> payload = EmployeeRequest.leaveCreatePayload(
+      employeeId: 42,
+      title: 'Cuti Tahunan',
+      reason: 'Keperluan keluarga',
+      startDate: '2026-11-25',
+      endDate: '2026-11-26',
+      days: 2,
+      employeeName: 'Siti Aminah',
+      nik: 'EMP001',
+      department: 'HRD',
+      position: 'Staff',
+    );
+
+    expect(payload['days'], 2);
+    expect(payload['employee_name'], 'Siti Aminah');
+    expect(payload['nik'], 'EMP001');
+    expect(payload['department'], 'HRD');
+    expect(payload['position'], 'Staff');
+  });
+
+  test('payload cuti menyertakan pengganti bila dipilih', () {
+    final Map<String, dynamic> payload = EmployeeRequest.leaveCreatePayload(
+      employeeId: 42,
+      title: 'Cuti Sakit',
+      reason: 'Demos',
+      startDate: '2026-11-25',
+      endDate: '2026-11-25',
+      replacementEmployeeId: 7,
+    );
+
+    expect(payload['replacement_employee_id'], 7);
+  });
+
   test('employee_id kosong ditolak sebelum request dikirim', () {
     expect(() => EmployeeRequest.profile(null),
         throwsA(isA<EmployeeIdMissingException>()));
