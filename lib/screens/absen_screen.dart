@@ -1,10 +1,12 @@
 ﻿import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -39,6 +41,10 @@ class _AbsenScreenState extends State<AbsenScreen> {
   static const String _prefSelfieMasuk = 'absen_selfie_masuk_path';
   static const String _prefSelfiePulang = 'absen_selfie_pulang_path';
   static const String _prefSelfieEmployee = 'absen_selfie_employee_id';
+  static const int _selfieDimensiMaksimal = 720;
+  static const int _selfieKualitasJpeg = 70;
+  static const Duration _gpsUmurMaksimal = Duration(seconds: 45);
+  static const double _gpsAkurasiMaksimal = 50;
 
   final ImagePicker _imagePicker = ImagePicker();
 
@@ -61,6 +67,8 @@ class _AbsenScreenState extends State<AbsenScreen> {
   String _koordinatAbsenTeks = '';
   String? _statusPulangApi;
   String _role = '';
+  Position? _posisiTerakhir;
+  DateTime? _waktuPosisiTerakhir;
 
   @override
   void initState() {
@@ -355,6 +363,8 @@ class _AbsenScreenState extends State<AbsenScreen> {
         );
 
         if (mounted) {
+          _posisiTerakhir = position;
+          _waktuPosisiTerakhir = DateTime.now();
           setState(() {
             _koordinatTeks =
                 '${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}';
@@ -396,21 +406,69 @@ class _AbsenScreenState extends State<AbsenScreen> {
     }
   }
 
+  bool _posisiMasihSegar(Position position) {
+    final DateTime? waktu = _waktuPosisiTerakhir;
+    if (waktu == null) return false;
+    if (DateTime.now().difference(waktu) > _gpsUmurMaksimal) return false;
+    if (!position.latitude.isFinite ||
+        !position.longitude.isFinite ||
+        !position.accuracy.isFinite) {
+      return false;
+    }
+    return position.accuracy <= _gpsAkurasiMaksimal;
+  }
+
+  Future<Position?> _ambilPosisiAbsen() async {
+    final Position? tersimpan = _posisiTerakhir;
+    if (tersimpan != null && _posisiMasihSegar(tersimpan)) return tersimpan;
+
+    try {
+      final Position position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 5),
+        ),
+      );
+      _posisiTerakhir = position;
+      _waktuPosisiTerakhir = DateTime.now();
+      return position;
+    } on LocationServiceDisabledException {
+      rethrow;
+    } on PermissionDeniedException {
+      rethrow;
+    } catch (_) {
+      return Geolocator.getLastKnownPosition();
+    }
+  }
+
   Future<String?> _selfieDataUrl(String path) async {
     try {
       final File file = File(path);
       if (!await file.exists()) return null;
-      final List<int> bytes = await file.readAsBytes();
+      List<int> bytes = await file.readAsBytes();
       if (bytes.isEmpty || bytes.length > 2 * 1024 * 1024) return null;
-      final String ext = path.contains('.')
-          ? path.substring(path.lastIndexOf('.') + 1).toLowerCase()
-          : 'jpg';
-      final String mime = switch (ext) {
-        'png' => 'image/png',
-        'webp' => 'image/webp',
-        _ => 'image/jpeg',
-      };
-      return 'data:$mime;base64,${base64Encode(bytes)}';
+
+      final img.Image? decoded = img.decodeImage(Uint8List.fromList(bytes));
+      if (decoded != null) {
+        int width = decoded.width;
+        int height = decoded.height;
+        if (width > _selfieDimensiMaksimal || height > _selfieDimensiMaksimal) {
+          final double skala = _selfieDimensiMaksimal /
+              (width > height ? width : height);
+          width = (width * skala).round();
+          height = (height * skala).round();
+          final img.Image resized = img.copyResize(
+            decoded,
+            width: width,
+            height: height,
+          );
+          bytes = img.encodeJpg(resized, quality: _selfieKualitasJpeg);
+        } else {
+          bytes = img.encodeJpg(decoded, quality: _selfieKualitasJpeg);
+        }
+      }
+
+      return 'data:image/jpeg;base64,${base64Encode(bytes)}';
     } catch (_) {
       return null;
     }
@@ -434,14 +492,14 @@ class _AbsenScreenState extends State<AbsenScreen> {
       if (!mounted) return;
       if (!hasLocationPermission) return;
 
-      Position position;
+      late final Position position;
       try {
-        position = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            timeLimit: Duration(seconds: 20),
-          ),
-        );
+        final Position? kandidat = await _ambilPosisiAbsen();
+        if (kandidat == null) {
+          _showMessage('Koordinat GPS belum tersedia. Coba lagi sebentar.');
+          return;
+        }
+        position = kandidat;
       } on LocationServiceDisabledException {
         _showMessage(
           'Layanan lokasi tidak aktif. Aktifkan GPS terlebih dahulu.',
@@ -479,8 +537,9 @@ class _AbsenScreenState extends State<AbsenScreen> {
       final XFile? photo = await _imagePicker.pickImage(
         source: ImageSource.camera,
         preferredCameraDevice: CameraDevice.front,
-        imageQuality: 85,
-        maxWidth: 1600,
+        imageQuality: _selfieKualitasJpeg,
+        maxWidth: _selfieDimensiMaksimal.toDouble(),
+        maxHeight: _selfieDimensiMaksimal.toDouble(),
       );
       if (!mounted) return;
       if (photo == null) {
@@ -607,14 +666,14 @@ class _AbsenScreenState extends State<AbsenScreen> {
       if (!mounted) return;
       if (!hasLocationPermission) return;
 
-      Position position;
+      late final Position position;
       try {
-        position = await Geolocator.getCurrentPosition(
-          locationSettings: const LocationSettings(
-            accuracy: LocationAccuracy.high,
-            timeLimit: Duration(seconds: 20),
-          ),
-        );
+        final Position? kandidat = await _ambilPosisiAbsen();
+        if (kandidat == null) {
+          _showMessage('Koordinat GPS belum tersedia. Coba lagi sebentar.');
+          return;
+        }
+        position = kandidat;
       } on LocationServiceDisabledException {
         _showMessage(
           'Layanan lokasi tidak aktif. Aktifkan GPS terlebih dahulu.',
@@ -652,8 +711,9 @@ class _AbsenScreenState extends State<AbsenScreen> {
       final XFile? photo = await _imagePicker.pickImage(
         source: ImageSource.camera,
         preferredCameraDevice: CameraDevice.front,
-        imageQuality: 85,
-        maxWidth: 1600,
+        imageQuality: _selfieKualitasJpeg,
+        maxWidth: _selfieDimensiMaksimal.toDouble(),
+        maxHeight: _selfieDimensiMaksimal.toDouble(),
       );
       if (!mounted) return;
       if (photo == null) {
