@@ -11,6 +11,7 @@ import '../services/cuti_refresh.dart';
 import '../services/leave_balance.dart';
 import '../services/leave_leader_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_toast.dart';
 import '../widgets/section_card.dart';
 import '../widgets/status_badge.dart';
 
@@ -821,7 +822,12 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
               )
               .toList();
         });
-        CutiRefresh.notify();
+        CutiRefresh.notify(
+          update: LeaveUpdate(
+            status: status,
+            title: target.title.isEmpty ? target.reason : target.title,
+          ),
+        );
         _showMessage('Status berhasil diubah');
         await Future.wait<void>(<Future<void>>[
           _fetchPengajuan(),
@@ -866,9 +872,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+    AppToast.show(message, type: AppToast.typeFromMessage(message));
   }
 
   String _formatDate(String value) {

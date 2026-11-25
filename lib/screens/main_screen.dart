@@ -1,6 +1,10 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'dart:async';
+
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../services/absen_polling_service.dart';
+import '../services/notification_service.dart';
 import '../widgets/glass_bottom_nav.dart';
 import 'absen_screen.dart';
 import 'approval_cuti_screen.dart';
@@ -15,19 +19,46 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _currentIndex = 0;
   late final Future<bool> _isHrFuture;
   PageController? _pageController;
+  Timer? _pollingTimer;
+  bool _isHr = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _isHrFuture = _loadRole();
+    _startPolling();
+  }
+
+  Future<void> _startPolling() async {
+    await AppNotificationService.initialize();
+    await AbsenPollingService.loadSeen();
+    final bool isHr = await _isHrFuture;
+    if (!mounted || !isHr) return;
+    setState(() => _isHr = isHr);
+    _pollingTimer?.cancel();
+    _pollingTimer = Timer.periodic(
+      const Duration(seconds: 45),
+      (_) => AbsenPollingService.pollOnce(),
+    );
+    AbsenPollingService.pollOnce();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _isHr) {
+      AbsenPollingService.pollOnce();
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _pollingTimer?.cancel();
     _pageController?.dispose();
     super.dispose();
   }
