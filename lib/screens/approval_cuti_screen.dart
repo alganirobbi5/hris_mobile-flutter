@@ -6,6 +6,9 @@ import 'package:intl/intl.dart';
 
 import '../config/api_config.dart';
 import '../services/app_session.dart';
+import '../services/cuti_refresh.dart';
+import '../services/employee_request.dart';
+import '../services/leave_balance.dart';
 import '../theme/app_theme.dart';
 import '../widgets/section_card.dart';
 import '../widgets/status_badge.dart';
@@ -18,13 +21,15 @@ class ApprovalCutiScreen extends StatefulWidget {
 }
 
 class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
-  static const String _laporanUrl = '${ApiConfig.baseUrl}/laporan_cuti.php';
+  static String get _laporanUrl => EmployeeRequest.leaveHistory(null).toString();
   static const String _approveUrl = '${ApiConfig.baseUrl}/approve_cuti.php';
   static const String _ringkasanUrl = '${ApiConfig.baseUrl}/ringkasan_cuti.php';
 
   bool _isLoading = true;
   String? _error;
   List<_PengajuanCuti> _pengajuan = const [];
+  Map<int, Map<String, dynamic>> _karyawanById =
+      const <int, Map<String, dynamic>>{};
   final Set<int> _processingIds = <int>{};
   String _filterStatus = 'all';
 
@@ -49,13 +54,15 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
 
     try {
       final String? token = await AppSession.resolveToken();
+      final List<Map<String, dynamic>> karyawan =
+          await LeaveBalanceService.fetchEmployees();
+      if (!mounted) return;
+      _karyawanById = <int, Map<String, dynamic>>{
+        for (final Map<String, dynamic> item in karyawan)
+          if (item['id'] is int) item['id'] as int: item,
+      };
 
-      final Uri laporanUri = Uri.parse(_laporanUrl).replace(
-        queryParameters: <String, String>{
-          'bulan': '$_bulanRingkasan',
-          'tahun': '$_tahunRingkasan',
-        },
-      );
+      final Uri laporanUri = Uri.parse(_laporanUrl);
       final http.Response response = await http
           .get(laporanUri, headers: ApiConfig.authHeaders(token))
           .timeout(const Duration(seconds: 20));
@@ -110,7 +117,37 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
     return rawData
         .whereType<Map<String, dynamic>>()
         .map(_PengajuanCuti.fromJson)
+        .map(_lengkapiKaryawan)
         .toList();
+  }
+
+  _PengajuanCuti _lengkapiKaryawan(_PengajuanCuti item) {
+    final Map<String, dynamic>? karyawan = _karyawanById[item.employeeId];
+    if (karyawan == null) return item;
+
+    final String nama = (karyawan['name'] ?? '').toString().trim();
+    final String nik = (karyawan['nik'] ?? '').toString().trim();
+    return _PengajuanCuti(
+      id: item.id,
+      employeeName:
+          item.employeeName.isEmpty || item.employeeName == 'Karyawan'
+              ? (nama.isEmpty ? item.employeeName : nama)
+              : item.employeeName,
+      reason: item.reason,
+      leaveFrom: item.leaveFrom,
+      leaveTo: item.leaveTo,
+      status: item.status,
+      comment: item.comment,
+      createdAt: item.createdAt,
+      title: item.title,
+      keterangan: item.keterangan,
+      employeeId: item.employeeId,
+      nik: item.nik.isEmpty ? nik : item.nik,
+      department: item.department,
+      position: item.position,
+      replacementName: item.replacementName,
+      days: item.days,
+    );
   }
 
   Future<void> _fetchRingkasanCuti() async {
@@ -421,7 +458,15 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
     );
   }
 
+  bool _sesuaiPeriode(_PengajuanCuti item) {
+    final DateTime? tanggal = _parseDateValue(item.leaveFrom) ??
+        _parseDateValue(item.createdAt);
+    if (tanggal == null) return true;
+    return tanggal.year == _tahunRingkasan && tanggal.month == _bulanRingkasan;
+  }
+
   bool _sesuaiFilter(_PengajuanCuti item) {
+    if (!_sesuaiPeriode(item)) return false;
     if (_filterStatus == 'all') return true;
     final int? kode = _statusCode(item.status);
     switch (_filterStatus) {
@@ -479,13 +524,13 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
   }
 
   Future<void> _updateStatus(
-    _PengajuanCuti item,
+    _PengajuanCuti target,
     int status,
     String comment,
   ) async {
-    if (_processingIds.contains(item.id)) return;
+    if (_processingIds.contains(target.id)) return;
 
-    setState(() => _processingIds.add(item.id));
+    setState(() => _processingIds.add(target.id));
 
     try {
       final String? token = await AppSession.resolveToken();
@@ -495,7 +540,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
             Uri.parse(_approveUrl),
             headers: ApiConfig.authHeaders(token),
             body: jsonEncode(<String, dynamic>{
-              'leave_id': item.id,
+              'leave_id': target.id,
               'status': status,
               'comment': comment,
             }),
@@ -505,6 +550,33 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
       if (!mounted) return;
 
       if (response.statusCode == 200) {
+        setState(() {
+          _pengajuan = _pengajuan
+              .map(
+                (item) => item.id == target.id
+                    ? _PengajuanCuti(
+                        id: item.id,
+                        employeeName: item.employeeName,
+                        reason: item.reason,
+                        leaveFrom: item.leaveFrom,
+                        leaveTo: item.leaveTo,
+                        status: status.toString(),
+                        comment: comment.isEmpty ? item.comment : comment,
+                        createdAt: item.createdAt,
+                        title: item.title,
+                        keterangan: item.keterangan,
+                        employeeId: item.employeeId,
+                        nik: item.nik,
+                        department: item.department,
+                        position: item.position,
+                        replacementName: item.replacementName,
+                        days: item.days,
+                      )
+                    : item,
+              )
+              .toList();
+        });
+        CutiRefresh.notify();
         _showMessage('Status berhasil diubah');
         await Future.wait<void>(<Future<void>>[
           _fetchPengajuan(),
@@ -523,7 +595,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
       _showMessage('Gagal terhubung ke server');
     } finally {
       if (mounted) {
-        setState(() => _processingIds.remove(item.id));
+        setState(() => _processingIds.remove(target.id));
       }
     }
   }
@@ -567,6 +639,15 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
   DateTime? _parseDateValue(String value) {
     final DateTime? parsed = DateTime.tryParse(value);
     if (parsed != null) return parsed;
+
+    for (final String format in <String>['dd/MM/yy', 'd/M/yy', 'dd-MM-yyyy']) {
+      try {
+        final DateTime? formatted = DateFormat(format).tryParse(value);
+        if (formatted != null) return formatted;
+      } on FormatException {
+        continue;
+      }
+    }
 
     final int? timestamp = int.tryParse(value);
     if (timestamp == null) return null;
@@ -770,6 +851,107 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
     );
   }
 
+  Future<void> _tampilkanDetail(_PengajuanCuti item) async {
+    final String judul = item.title.isNotEmpty
+        ? item.title
+        : (item.reason == '-' ? 'Detail Pengajuan Cuti' : item.reason);
+
+    await showDialog<void>(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
+        title: Text(judul),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _detailRow('Nama Karyawan', item.employeeName),
+              if (item.nik.isNotEmpty) _detailRow('NIK', item.nik),
+              if (item.employeeId > 0)
+                _detailRow('ID Karyawan', '${item.employeeId}'),
+              if (item.department.isNotEmpty)
+                _detailRow('Departemen', item.department),
+              if (item.position.isNotEmpty) _detailRow('Jabatan', item.position),
+              _detailRow('Status', _statusLabel(item.status)),
+              const Divider(color: AppColors.border),
+              if (item.title.isNotEmpty) _detailRow('Judul Cuti', item.title),
+              _detailRow('Alasan', _detailKeterangan(item)),
+              _detailRow(
+                'Tanggal Mulai',
+                _formatDate(item.leaveFrom),
+              ),
+              _detailRow(
+                'Tanggal Selesai',
+                _formatDate(item.leaveTo),
+              ),
+              if (item.days > 0) _detailRow('Jumlah Hari', '${item.days} hari'),
+              if (item.replacementName.isNotEmpty)
+                _detailRow('Pengganti', item.replacementName),
+              if (item.createdAt.isNotEmpty)
+                _detailRow('Diajukan', _formatDate(item.createdAt)),
+              if (item.comment.isNotEmpty)
+                _detailRow('Komentar HR', item.comment),
+              const SizedBox(height: 4),
+              Text(
+                'ID Pengajuan: ${item.id}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Tutup'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _detailKeterangan(_PengajuanCuti item) {
+    if (item.keterangan.isNotEmpty && item.keterangan != item.reason) {
+      return item.keterangan;
+    }
+    if (item.reason.isEmpty || item.reason == '-') return '-';
+    if (item.title.isNotEmpty && item.reason.startsWith(item.title)) {
+      final String sisa = item.reason.substring(item.title.length).trim();
+      if (sisa.startsWith('-')) return sisa.substring(1).trim();
+      if (sisa.isNotEmpty) return sisa;
+    }
+    return item.reason;
+  }
+
+  Widget _detailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value.isEmpty ? '-' : value,
+            style: const TextStyle(
+              fontSize: 13.5,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildItem(_PengajuanCuti item) {
     final String statusLabel = _statusLabel(item.status);
     final Color statusColor = _statusColor(item.status);
@@ -814,7 +996,21 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
               StatusBadge(label: statusLabel, color: statusColor),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => _tampilkanDetail(item),
+              icon: const Icon(Icons.visibility_outlined, size: 16),
+              label: const Text('Lihat Detail'),
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(0, 28),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -938,6 +1134,15 @@ class _PengajuanCuti {
     required this.leaveTo,
     required this.status,
     this.comment = '',
+    this.createdAt = '',
+    this.title = '',
+    this.keterangan = '',
+    this.employeeId = 0,
+    this.nik = '',
+    this.department = '',
+    this.position = '',
+    this.replacementName = '',
+    this.days = 0,
   });
 
   factory _PengajuanCuti.fromJson(Map<String, dynamic> json) {
@@ -971,6 +1176,37 @@ class _PengajuanCuti {
       ),
       status: _stringValue(json['status'] ?? json['staus'], '-'),
       comment: _stringValue(json['comment'] ?? json['komentar'], ''),
+      createdAt: _stringValue(
+        json['created_at'] ?? json['tanggal_pengajuan'],
+        '',
+      ),
+      title: _stringValue(
+        json['title'] ?? json['judul'] ?? json['jenis_cuti'],
+        '',
+      ),
+      keterangan: _stringValue(
+        json['alasan'] ?? json['keterangan'] ?? json['reason'],
+        '',
+      ),
+      employeeId: _intValue(
+        json['employee_id'] ?? json['id_employee'],
+      ),
+      nik: _stringValue(json['nik'] ?? json['employee_nik'], ''),
+      department: _stringValue(
+        json['department'] ?? json['departemen'] ?? json['divisi'],
+        '',
+      ),
+      position: _stringValue(
+        json['position'] ?? json['jabatan'] ?? json['posisi'],
+        '',
+      ),
+      replacementName: _stringValue(
+        json['replacement_name'] ??
+            json['pengganti'] ??
+            json['replacement_employee_name'],
+        '',
+      ),
+      days: _intValue(json['days'] ?? json['jumlah_hari'] ?? json['total_hari']),
     );
   }
 
@@ -981,6 +1217,15 @@ class _PengajuanCuti {
   final String leaveTo;
   final String status;
   final String comment;
+  final String createdAt;
+  final String title;
+  final String keterangan;
+  final int employeeId;
+  final String nik;
+  final String department;
+  final String position;
+  final String replacementName;
+  final int days;
 
   static String _stringValue(dynamic value, String fallback) {
     if (value == null) return fallback;

@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../config/api_config.dart';
 import '../services/app_session.dart';
+import '../services/cuti_refresh.dart';
 import '../services/employee_request.dart';
 import '../services/leave_balance.dart';
 import '../theme/app_theme.dart';
@@ -24,8 +25,11 @@ class CutiScreen extends StatefulWidget {
   State<CutiScreen> createState() => _CutiScreenState();
 }
 
-class _CutiScreenState extends State<CutiScreen> {
-  static String get _cutiUrl => ApiConfig.uri('leave-requests.php').toString();
+class _CutiScreenState extends State<CutiScreen>
+    with WidgetsBindingObserver {
+  static String get _cutiUrl => EmployeeRequest.leaveCreate().toString();
+  static String get _cutiFallbackUrl =>
+      ApiConfig.uri('leave-requests.php').toString();
   static Future<String> _riwayatUrl() async {
     final int? employeeId = await AppSession.currentEmployeeId();
     final String? role = await AppSession.resolveRole();
@@ -55,7 +59,19 @@ class _CutiScreenState extends State<CutiScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    CutiRefresh.revision.addListener(_onCutiChanged);
     _loadRole();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _onCutiChanged();
+  }
+
+  void _onCutiChanged() {
+    if (!mounted) return;
+    _fetchRiwayatCuti();
   }
 
   Future<void> _loadRole() async {
@@ -115,6 +131,8 @@ class _CutiScreenState extends State<CutiScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    CutiRefresh.revision.removeListener(_onCutiChanged);
     _titleController.dispose();
     _reasonController.dispose();
     _startDateController.dispose();
@@ -216,10 +234,34 @@ class _CutiScreenState extends State<CutiScreen> {
 
     if (!_formKey.currentState!.validate()) return;
 
+    final int? employeeId = await AppSession.currentEmployeeId();
+    if (employeeId == null) {
+      final String? role = await AppSession.resolveRole();
+      _showMessage(
+        AppSession.isHrRole(role)
+            ? 'Akun HR tidak memiliki employee_id untuk mengajukan cuti'
+            : 'employee_id tidak ditemukan. Silakan login ulang.',
+      );
+      return;
+    }
+
     setState(() => _isSubmitting = true);
 
     try {
       final String? token = await AppSession.resolveToken();
+      final String body = jsonEncode(
+        EmployeeRequest.leaveCreatePayload(
+          employeeId: employeeId,
+          title: title,
+          reason: reason,
+          startDate: _formatApiDate(startDate),
+          endDate: _formatApiDate(endDate),
+          replacementEmployeeId: _replacementId,
+          days: int.tryParse(_daysController.text.trim()),
+          employeeName: AppSession.name?.trim(),
+          nik: AppSession.username?.trim(),
+        ),
+      );
 
       http.Response response;
       try {
@@ -227,15 +269,26 @@ class _CutiScreenState extends State<CutiScreen> {
             .post(
               Uri.parse(_cutiUrl),
               headers: ApiConfig.authHeaders(token),
-              body: jsonEncode(<String, dynamic>{
-                'action': 'create',
-                'reason': reason.isEmpty ? title : '$title - $reason',
-                'start_date': _formatApiDate(startDate),
-                'end_date': _formatApiDate(endDate),
-                'replacement_employee_id': _replacementId,
-              }),
+              body: body,
             )
             .timeout(const Duration(seconds: 30));
+
+        if (response.statusCode == 404 || response.statusCode == 405) {
+          response = await http
+              .post(
+                Uri.parse(_cutiFallbackUrl),
+                headers: ApiConfig.authHeaders(token),
+                body: jsonEncode(<String, dynamic>{
+                  'action': 'create',
+                  'employee_id': employeeId,
+                  'reason': reason.isEmpty ? title : '$title - $reason',
+                  'start_date': _formatApiDate(startDate),
+                  'end_date': _formatApiDate(endDate),
+                  'replacement_employee_id': _replacementId,
+                }),
+              )
+              .timeout(const Duration(seconds: 30));
+        }
       } catch (_) {
         if (!mounted) return;
         _showMessage('Gagal terhubung ke server');

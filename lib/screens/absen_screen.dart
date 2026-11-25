@@ -841,7 +841,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
           },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 116),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
