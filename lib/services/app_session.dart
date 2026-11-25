@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/api_config.dart';
 import 'notification_service.dart';
+import 'push_notification_service.dart';
 
 class AppSession {
   static const String userIdPrefKey = 'user_id';
@@ -276,6 +277,7 @@ class AppSession {
     token = null;
     isLeaveLeader = false;
     try {
+      await PushNotificationService.clearToken();
       await AppNotificationService.cancelReminders();
     } catch (_) {
       // Pembersihan notifikasi gagal tidak boleh menggagalkan logout.

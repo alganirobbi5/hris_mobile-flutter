@@ -6,6 +6,7 @@ import 'screens/login_screen.dart';
 import 'screens/main_screen.dart';
 import 'services/app_session.dart';
 import 'services/notification_service.dart';
+import 'services/push_notification_service.dart';
 import 'theme/app_theme.dart';
 import 'widgets/app_toast.dart';
 
@@ -13,6 +14,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('id_ID', null);
   await AppNotificationService.initialize();
+  await PushNotificationService.initialize();
 
   final SharedPreferences prefs = await SharedPreferences.getInstance();
   await AppSession.restore(prefs);
