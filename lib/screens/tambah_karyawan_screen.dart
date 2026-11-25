@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../services/app_session.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_toast.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/primary_button.dart';
 
@@ -30,12 +31,8 @@ class _TambahKaryawanScreenState extends State<TambahKaryawanScreen> {
         _emailController.text.isEmpty ||
         _usernameController.text.isEmpty ||
         _passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Nama Depan, Email, Username, dan Password wajib diisi!',
-          ),
-        ),
+      AppToast.warning(
+        'Nama Depan, Email, Username, dan Password wajib diisi!',
       );
       return;
     }
@@ -63,23 +60,17 @@ class _TambahKaryawanScreenState extends State<TambahKaryawanScreen> {
       if (response.statusCode == 201) {
         // Sukses
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Karyawan berhasil ditambahkan!')),
-        );
+        AppToast.success('Karyawan berhasil ditambahkan!');
         // Kembali ke halaman sebelumnya
         Navigator.pop(context);
       } else {
         // Gagal dari API (misal username sudah dipakai)
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(data['message'] ?? 'Gagal menambah karyawan')),
-        );
+        AppToast.error(data['message'] ?? 'Gagal menambah karyawan');
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Terjadi kesalahan koneksi ke server')),
-      );
+      AppToast.error('Terjadi kesalahan koneksi ke server');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

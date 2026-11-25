@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../services/app_session.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_toast.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/section_card.dart';
@@ -101,7 +102,6 @@ class _AturJamScreenState extends State<AturJamScreen> {
     if (!_formKey.currentState!.validate()) return;
     if (_isLoading) return;
 
-    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
     setState(() => _isLoading = true);
 
     try {
@@ -119,20 +119,14 @@ class _AturJamScreenState extends State<AturJamScreen> {
       if (!mounted) return;
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Jam kerja berhasil diubah')),
-        );
+        AppToast.success('Jam kerja berhasil diubah');
         Navigator.of(context).pop(true);
       } else {
-        messenger.showSnackBar(
-          SnackBar(content: Text(_apiErrorMessage(response))),
-        );
+        AppToast.error(_apiErrorMessage(response));
       }
     } catch (_) {
       if (!mounted) return;
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Terjadi kesalahan koneksi ke server')),
-      );
+      AppToast.error('Terjadi kesalahan koneksi ke server');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

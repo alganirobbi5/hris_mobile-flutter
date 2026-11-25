@@ -1,9 +1,10 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../services/company_profile.dart';
 import '../services/laporan_excel_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_toast.dart';
 import '../widgets/section_card.dart';
 import 'semua_absensi_screen.dart';
 
@@ -196,17 +197,13 @@ class _LaporanScreenState extends State<LaporanScreen>
       );
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Laporan Excel berhasil dibuat.')),
-      );
+      AppToast.success('Laporan Excel berhasil dibuat.');
     } on LaporanExcelException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e.message)));
+      AppToast.error(e.message);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Gagal membuat laporan: $e')));
+      AppToast.error('Gagal membuat laporan: $e');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -460,7 +457,7 @@ class _LaporanScreenState extends State<LaporanScreen>
                       icon: const Icon(Icons.calendar_month_outlined, size: 18),
                       label: Text(
                         _periode == LaporanPeriode.rentang
-                            ? 'Mulai: ${DateFormat('dd/MM/yyyy').format(_rentangMulai ?? _tanggalAcuan)}  •  Akhir: ${DateFormat('dd/MM/yyyy').format(_rentangAkhir ?? _rentangMulai ?? _tanggalAcuan)}'
+                            ? 'Mulai: ${DateFormat('dd/MM/yyyy').format(_rentangMulai ?? _tanggalAcuan)}  �  Akhir: ${DateFormat('dd/MM/yyyy').format(_rentangAkhir ?? _rentangMulai ?? _tanggalAcuan)}'
                             : 'Tanggal acuan: ${DateFormat('dd/MM/yyyy').format(_tanggalAcuan)}',
                       ),
                     ),

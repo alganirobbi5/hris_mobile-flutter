@@ -14,6 +14,7 @@ import '../services/company_profile.dart';
 import '../services/employee_request.dart';
 import '../services/profile_avatar_store.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_toast.dart';
 import '../widgets/avatar_picker_sheet.dart';
 import '../widgets/info_row.dart';
 import '../widgets/primary_button.dart';
@@ -613,24 +614,16 @@ class _ProfilScreenState extends State<ProfilScreen> {
     final bool saved = await CompanyProfile.update(name: name, code: code);
     if (!mounted) return saved;
     setState(() => _isSavingCompany = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          saved
-              ? 'Profil perusahaan berhasil disimpan.'
-              : (CompanyProfile.lastError ??
-                  'Gagal menyimpan profil perusahaan.'),
-        ),
-      ),
-    );
+    final String message = saved
+        ? 'Profil perusahaan berhasil disimpan.'
+        : (CompanyProfile.lastError ?? 'Gagal menyimpan profil perusahaan.');
+    AppToast.show(message, type: AppToast.typeFromMessage(message));
     if (saved) await _loadCompany(refreshFromApi: true);
     return saved;
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+    AppToast.show(message, type: AppToast.typeFromMessage(message));
   }
 
   void _showLogoutConfirmation() {

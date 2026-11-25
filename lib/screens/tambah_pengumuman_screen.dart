@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../services/app_session.dart';
 import '../models/lampiran_pengumuman.dart';
+import '../widgets/app_toast.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/primary_button.dart';
 
@@ -61,9 +62,7 @@ class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
       final PlatformFile file = result.files.single;
       final List<int>? bytes = file.bytes;
       if (bytes == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Gagal membaca file yang dipilih.')),
-        );
+        AppToast.error('Gagal membaca file yang dipilih.');
         return;
       }
 
@@ -78,9 +77,7 @@ class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Gagal membuka pemilih file: $e')));
+      AppToast.error('Gagal membuka pemilih file: $e');
     }
   }
 
@@ -114,9 +111,7 @@ class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
     final String title = _titleController.text.trim();
     final String message = _messageController.text.trim();
     if (title.isEmpty || message.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Judul dan isi pengumuman wajib diisi!')),
-      );
+      AppToast.warning('Judul dan isi pengumuman wajib diisi!');
       return;
     }
 
@@ -164,26 +159,18 @@ class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
     if (!mounted) return;
 
     if (serverBerhasil) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            widget.isEdit
-                ? 'Pengumuman berhasil diperbarui!'
-                : 'Pengumuman berhasil dibuat!',
-          ),
-        ),
+      AppToast.success(
+        widget.isEdit
+            ? 'Pengumuman berhasil diperbarui!'
+            : 'Pengumuman berhasil dibuat!',
       );
       Navigator.pop(context, true);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            pesanError ??
-                (widget.isEdit
-                    ? 'Gagal memperbarui pengumuman. Coba lagi.'
-                    : 'Gagal membuat pengumuman. Coba lagi.'),
-          ),
-        ),
+      AppToast.error(
+        pesanError ??
+            (widget.isEdit
+                ? 'Gagal memperbarui pengumuman. Coba lagi.'
+                : 'Gagal membuat pengumuman. Coba lagi.'),
       );
       if (mounted) setState(() => _isLoading = false);
       return;

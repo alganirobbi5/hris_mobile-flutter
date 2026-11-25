@@ -10,6 +10,7 @@ import '../models/lampiran_pengumuman.dart';
 import '../services/app_session.dart';
 import '../services/pengumuman_overlay.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_toast.dart';
 import '../widgets/section_card.dart';
 import 'detail_pengumuman_screen.dart';
 import 'tambah_pengumuman_screen.dart';
@@ -129,15 +130,10 @@ class _PengumumanScreenState extends State<PengumumanScreen> {
     }
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          serverBerhasil
-              ? 'Pengumuman berhasil dihapus.'
-              : 'Pengumuman dihapus di perangkat ini.',
-        ),
-      ),
-    );
+    final String message = serverBerhasil
+        ? 'Pengumuman berhasil dihapus.'
+        : 'Pengumuman dihapus di perangkat ini.';
+    AppToast.show(message, type: AppToast.typeFromMessage(message));
     await _fetchPengumuman();
   }
 

@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../config/api_config.dart';
 import '../services/app_session.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_toast.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/section_card.dart';
@@ -79,11 +80,7 @@ class _TambahLokasiScreenState extends State<TambahLokasiScreen> {
     String lng = _longitudeController.text.trim();
 
     if (lat.isEmpty || lng.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Isi Latitude dan Longitude terlebih dahulu'),
-        ),
-      );
+      AppToast.warning('Isi Latitude dan Longitude terlebih dahulu');
       return;
     }
 
@@ -96,9 +93,7 @@ class _TambahLokasiScreenState extends State<TambahLokasiScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Tidak dapat membuka Google Maps')),
-      );
+      AppToast.error('Tidak dapat membuka Google Maps');
     }
   }
 
@@ -107,7 +102,6 @@ class _TambahLokasiScreenState extends State<TambahLokasiScreen> {
     if (!_formKey.currentState!.validate()) return;
     if (_isLoading) return;
 
-    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
     setState(() => _isLoading = true);
 
     try {
@@ -129,11 +123,7 @@ class _TambahLokasiScreenState extends State<TambahLokasiScreen> {
 
       if (response.headers['content-type']?.contains('application/json') !=
           true) {
-        messenger.showSnackBar(
-          const SnackBar(
-            content: Text('Respons server tidak valid. Coba lagi nanti.'),
-          ),
-        );
+        AppToast.error('Respons server tidak valid. Coba lagi nanti.');
         return;
       }
 
@@ -148,30 +138,20 @@ class _TambahLokasiScreenState extends State<TambahLokasiScreen> {
       }
 
       if (response.statusCode == 201 || response.statusCode == 200) {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              body?['message']?.toString() ?? 'Lokasi berhasil ditambahkan!',
-            ),
-          ),
+        AppToast.success(
+          body?['message']?.toString() ?? 'Lokasi berhasil ditambahkan!',
         );
         Navigator.of(context).pop(true);
       } else {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              body?['message']?.toString() ??
-                  body?['error']?.toString() ??
-                  'Gagal menambah lokasi (${response.statusCode})',
-            ),
-          ),
+        AppToast.error(
+          body?['message']?.toString() ??
+              body?['error']?.toString() ??
+              'Gagal menambah lokasi (${response.statusCode})',
         );
       }
     } catch (_) {
       if (!mounted) return;
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Terjadi kesalahan koneksi ke server')),
-      );
+      AppToast.error('Terjadi kesalahan koneksi ke server');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

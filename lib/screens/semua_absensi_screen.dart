@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../config/api_config.dart';
 import '../services/app_session.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_toast.dart';
 import '../widgets/section_card.dart';
 import '../widgets/status_badge.dart';
 import 'detail_absensi_screen.dart';
@@ -393,9 +394,7 @@ class SemuaAbsensiViewState extends State<SemuaAbsensiView> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+    AppToast.show(message, type: AppToast.typeFromMessage(message));
   }
 
   Widget _buildItem(_AbsensiItem item) {

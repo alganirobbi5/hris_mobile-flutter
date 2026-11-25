@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../services/app_session.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_toast.dart';
 import '../widgets/section_card.dart';
 
 class KelolaKuotaCutiScreen extends StatefulWidget {
@@ -195,9 +196,7 @@ class _KelolaKuotaCutiScreenState extends State<KelolaKuotaCutiScreen> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+    AppToast.show(message, type: AppToast.typeFromMessage(message));
   }
 
   String _apiErrorMessage(http.Response response, String fallback) {

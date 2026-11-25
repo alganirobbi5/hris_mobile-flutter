@@ -10,6 +10,7 @@ import '../services/app_session.dart';
 import '../services/company_profile.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_text_field.dart';
+import '../widgets/app_toast.dart';
 import '../widgets/primary_button.dart';
 import 'main_screen.dart';
 
@@ -124,14 +125,9 @@ class _LoginScreenState extends State<LoginScreen> {
     FocusScope.of(context).unfocus();
     if (!_formKey.currentState!.validate()) return;
 
-    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
     if (_companyController.text.trim().toUpperCase() !=
         CompanyProfile.current.code.toUpperCase()) {
-      messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Kode perusahaan tidak sesuai dengan data HR.'),
-        ),
-      );
+      AppToast.error('Kode perusahaan tidak sesuai dengan data HR.');
       return;
     }
 
@@ -174,12 +170,8 @@ class _LoginScreenState extends State<LoginScreen> {
           'Login response error: status=${response.statusCode}, '
           'body=${response.body.isEmpty ? "kosong" : "bukan objek JSON"}',
         );
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              'Server balas: ${response.body} (Status: ${response.statusCode})',
-            ),
-          ),
+        AppToast.error(
+          'Server balas: ${response.body} (Status: ${response.statusCode})',
         );
       } else if (response.statusCode == 200 && _isSuccessResponse(body)) {
         await _saveSession(body);
@@ -188,9 +180,7 @@ class _LoginScreenState extends State<LoginScreen> {
         if (extractionError != null) {
           await AppSession.clear();
           if (!mounted) return;
-          messenger.showSnackBar(
-            SnackBar(content: Text('$extractionError Silakan coba lagi.')),
-          );
+          AppToast.error('$extractionError Silakan coba lagi.');
           return;
         }
 
@@ -202,12 +192,8 @@ class _LoginScreenState extends State<LoginScreen> {
           if (token == null || token.isEmpty) {
             await AppSession.clear();
             if (!mounted) return;
-            messenger.showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Token autentikasi tidak diterima dari server. Silakan coba lagi.',
-                ),
-              ),
+            AppToast.error(
+              'Token autentikasi tidak diterima dari server. Silakan coba lagi.',
             );
             return;
           }
@@ -215,7 +201,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
         if (!mounted) return;
 
-        messenger.showSnackBar(const SnackBar(content: Text('Login Berhasil')));
+        AppToast.success('Login Berhasil');
         Navigator.of(context).pushReplacement(
           MaterialPageRoute<void>(builder: (_) => const MainScreen()),
         );
@@ -227,54 +213,39 @@ class _LoginScreenState extends State<LoginScreen> {
         final String message =
             body['message'] as String? ??
             'Login gagal (${response.statusCode})';
-        messenger.showSnackBar(SnackBar(content: Text(message)));
+        AppToast.error(message);
       }
     } on TimeoutException catch (e, stackTrace) {
       debugPrint('Login timeout: $e');
       debugPrintStack(stackTrace: stackTrace);
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            'Koneksi ke server timeout (${ApiConfig.baseUrl}). '
-            'Pastikan HP dan server berada di jaringan yang sama.',
-          ),
-        ),
+      AppToast.error(
+        'Koneksi ke server timeout (${ApiConfig.baseUrl}). '
+        'Pastikan HP dan server berada di jaringan yang sama.',
       );
     } on SocketException catch (e, stackTrace) {
       debugPrint('Login SocketException: $e');
       debugPrintStack(stackTrace: stackTrace);
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            'Tidak dapat terhubung ke ${ApiConfig.baseUrl}. '
-            'Periksa koneksi Wi-Fi dan pastikan server aktif.',
-          ),
-        ),
+      AppToast.error(
+        'Tidak dapat terhubung ke ${ApiConfig.baseUrl}. '
+        'Periksa koneksi Wi-Fi dan pastikan server aktif.',
       );
     } on http.ClientException catch (e, stackTrace) {
       debugPrint('Login ClientException: $e');
       debugPrintStack(stackTrace: stackTrace);
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            'Tidak dapat terhubung ke ${ApiConfig.baseUrl}. '
-            'Periksa koneksi Wi-Fi dan pastikan server aktif.',
-          ),
-        ),
+      AppToast.error(
+        'Tidak dapat terhubung ke ${ApiConfig.baseUrl}. '
+        'Periksa koneksi Wi-Fi dan pastikan server aktif.',
       );
     } on FormatException catch (e, stackTrace) {
       debugPrint('Login FormatException: $e');
       debugPrintStack(stackTrace: stackTrace);
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Respons server tidak valid.')),
-      );
+      AppToast.error('Respons server tidak valid.');
     } catch (e, stackTrace) {
       debugPrint('Login error: $e');
       debugPrintStack(stackTrace: stackTrace);
 
       if (!mounted) return;
-      // UBAH BARIS INI UNTUK MENAMPILKAN ERROR ASLI
-      messenger.showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+      AppToast.error('Error: ${e.toString()}');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
