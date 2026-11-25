@@ -308,9 +308,9 @@ class _AbsenScreenState extends State<AbsenScreen> {
             _sudahAbsenPulang = data['sudah_pulang'] == true;
 
             final String? jamMasuk = _formatJamKerja(data['jam_masuk']);
-            if (jamMasuk != null) _jamAbsenTeks = '$jamMasuk WIB';
+            _jamAbsenTeks = jamMasuk == null ? '--:--' : '$jamMasuk WIB';
             final String? jamPulang = _formatJamKerja(data['jam_pulang']);
-            if (jamPulang != null) _jamPulangTeks = '$jamPulang WIB';
+            _jamPulangTeks = jamPulang == null ? '--:--' : '$jamPulang WIB';
             _statusPulangApi = _teksDari(
               data['status_pulang'] ??
                   data['status_pulang_label'] ??
@@ -350,10 +350,42 @@ class _AbsenScreenState extends State<AbsenScreen> {
               _koordinatAbsenTeks = '$lat, $lng';
             }
           });
+          await _bersihkanSelfieLokalSesuaiServer();
         }
       }
     } catch (e) {
       debugPrint('Gagal cek status absen: $e');
+    }
+  }
+
+  Future<void> _bersihkanSelfieLokalSesuaiServer() async {
+    if (_sudahAbsenMasuk && _sudahAbsenPulang) return;
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    bool berubah = false;
+    if (!_sudahAbsenMasuk && prefs.containsKey(_prefSelfieMasuk)) {
+      final String? path = prefs.getString(_prefSelfieMasuk);
+      if (path != null) await _hapusFileSelfie(path);
+      await prefs.remove(_prefSelfieMasuk);
+      berubah = true;
+    }
+    if (!_sudahAbsenPulang && prefs.containsKey(_prefSelfiePulang)) {
+      final String? path = prefs.getString(_prefSelfiePulang);
+      if (path != null) await _hapusFileSelfie(path);
+      await prefs.remove(_prefSelfiePulang);
+      berubah = true;
+    }
+    if (!mounted || !berubah) return;
+    setState(() {
+      if (!_sudahAbsenMasuk) _selfieMasukPath = null;
+      if (!_sudahAbsenPulang) _selfiePulangPath = null;
+    });
+  }
+
+  Future<void> _hapusFileSelfie(String path) async {
+    try {
+      final File file = File(path);
+      if (await file.exists()) await file.delete();
+    } catch (_) {
     }
   }
 
@@ -999,6 +1031,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
               _fetchJamKerja(),
               _cekStatusAbsen(),
             ]);
+            await _muatPathSelfieLokal();
           },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),

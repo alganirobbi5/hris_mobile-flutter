@@ -65,10 +65,8 @@ class _SelfiePreviewCardState extends State<SelfiePreviewCard> {
 
   @override
   Widget build(BuildContext context) {
-    final bool masukAda =
-        _adaFoto(widget.lokalMasuk, widget.urlMasuk) || widget.sudahMasuk;
-    final bool pulangAda =
-        _adaFoto(widget.lokalPulang, widget.urlPulang) || widget.sudahPulang;
+    final bool masukAda = widget.sudahMasuk;
+    final bool pulangAda = widget.sudahPulang;
 
     if (!masukAda && !pulangAda) return _buildKosong();
 
@@ -147,18 +145,6 @@ class _SelfiePreviewCardState extends State<SelfiePreviewCard> {
   }
 
   Widget _buildGambar(String? lokal, String? url) {
-    if (lokal != null && lokal.isNotEmpty) {
-      final File file = File(lokal);
-      if (file.existsSync()) {
-        return Image.file(
-          file,
-          fit: BoxFit.cover,
-          width: double.infinity,
-          height: double.infinity,
-        );
-      }
-    }
-
     final String? alamat = url?.trim();
     if (alamat != null && alamat.isNotEmpty) {
       return Image.network(
@@ -174,11 +160,26 @@ class _SelfiePreviewCardState extends State<SelfiePreviewCard> {
           );
         },
         errorBuilder: (BuildContext context, Object error, StackTrace? stack) {
-          return _buildTercatat();
+          return _buildFotoLokal(lokal);
         },
       );
     }
 
+    return _buildFotoLokal(lokal);
+  }
+
+  Widget _buildFotoLokal(String? lokal) {
+    if (lokal != null && lokal.isNotEmpty) {
+      final File file = File(lokal);
+      if (file.existsSync()) {
+        return Image.file(
+          file,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
+        );
+      }
+    }
     return _buildTercatat();
   }
 
