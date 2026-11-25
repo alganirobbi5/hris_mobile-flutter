@@ -42,7 +42,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     setState(() => _isHr = isHr);
     _pollingTimer?.cancel();
     _pollingTimer = Timer.periodic(
-      const Duration(seconds: 45),
+      const Duration(seconds: 8),
       (_) => AbsenPollingService.pollOnce(),
     );
     AbsenPollingService.pollOnce();

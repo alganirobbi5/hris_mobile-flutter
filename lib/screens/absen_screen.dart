@@ -78,13 +78,18 @@ class _AbsenScreenState extends State<AbsenScreen> {
     _dapatkanLokasi();
     _cekStatusAbsen();
     _fetchJamKerja();
-    _jadwalkanPengingatAbsen();
   }
 
-  Future<void> _jadwalkanPengingatAbsen() async {
+  Future<void> _jadwalkanPengingatAbsen({
+    String? jamMasuk,
+    String? jamKeluar,
+  }) async {
     final String? role = await AppSession.resolveRole();
     if (AppSession.isHrRole(role)) return;
-    await AppNotificationService.scheduleDefaultReminders();
+    await AppNotificationService.scheduleAttendanceReminders(
+      checkIn: jamMasuk ?? AppNotificationService.defaultCheckIn,
+      checkOut: jamKeluar ?? AppNotificationService.defaultCheckOut,
+    );
   }
 
   String _kunciTanggalHariIni() {
@@ -214,6 +219,10 @@ class _AbsenScreenState extends State<AbsenScreen> {
         if (jamMasuk != null) _jamMasukKerja = jamMasuk;
         if (jamKeluar != null) _jamKeluarKerja = jamKeluar;
       });
+      await _jadwalkanPengingatAbsen(
+        jamMasuk: jamMasuk,
+        jamKeluar: jamKeluar,
+      );
     } catch (e) {
       debugPrint('Gagal memuat jam kerja: $e');
     }
