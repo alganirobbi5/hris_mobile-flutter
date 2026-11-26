@@ -32,6 +32,9 @@ class EmployeeRequest {
   static Uri profile(int? employeeId) =>
       _withEmployeeQuery('profil.php', employeeId);
 
+  /// Profil akun yang sedang login tanpa employee_id (mis. Admin HR).
+  static Uri profileSelf() => ApiConfig.uri('profil.php');
+
   /// Simpan email profil. Backend menentukan tabel tujuan dari sesi:
   /// karyawan -> employees.email, HR tanpa employee -> users.email.
   static Uri profileUpdate() => ApiConfig.uri('update_email.php');

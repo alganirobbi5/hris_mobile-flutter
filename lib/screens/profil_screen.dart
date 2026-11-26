@@ -13,6 +13,7 @@ import '../services/app_session.dart';
 import '../services/company_profile.dart';
 import '../services/employee_request.dart';
 import '../services/profile_avatar_store.dart';
+import '../services/profile_email_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/avatar_picker_sheet.dart';
@@ -111,13 +112,11 @@ class _ProfilScreenState extends State<ProfilScreen> {
       final String? token = await AppSession.resolveToken();
 
       final int? employeeId = await AppSession.currentEmployeeId();
-      if (employeeId == null) {
-        // Admin HR dapat belum memiliki data karyawan. Profil dan logout
-        // tetap tersedia menggunakan identitas dari response login.
-        await _applySessionProfile();
-        return;
-      }
-      final Uri url = EmployeeRequest.profile(employeeId);
+      // Admin HR tanpa employee tetap bisa mengambil profil (termasuk email)
+      // dari endpoint profil.php tanpa query employee_id.
+      final Uri url = employeeId == null
+          ? EmployeeRequest.profileSelf()
+          : EmployeeRequest.profile(employeeId);
 
       final http.Response response = await http
           .get(url, headers: ApiConfig.authHeaders(token))
@@ -127,6 +126,11 @@ class _ProfilScreenState extends State<ProfilScreen> {
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> profil = _parseProfil(response.body);
+        final String? cachedEmail = await ProfileEmailStore.load(_userId);
+        final String serverEmail = profil['email']?.toString().trim() ?? '';
+        if (serverEmail.isEmpty && cachedEmail != null) {
+          profil['email'] = cachedEmail;
+        }
         final dynamic serverAvatar = profil['avatar'];
         final String serverAvatarText = serverAvatar is String
             ? serverAvatar.trim()
@@ -166,6 +170,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
   }
 
   Future<void> _applySessionProfile() async {
+    final String? cachedEmail = await ProfileEmailStore.load(_userId);
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final String rawName = (AppSession.name ??
             AppSession.username ??
@@ -186,7 +191,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
         'nama_lengkap': rawName.isEmpty ? 'Pengguna' : rawName,
         'role': rawRole,
         'username': rawUsername.isEmpty ? 'Belum tersedia' : rawUsername,
-        'email': 'Belum tersedia',
+        'email': cachedEmail ?? 'Belum tersedia',
       };
       _isLoading = false;
       _error = null;
@@ -281,7 +286,9 @@ class _ProfilScreenState extends State<ProfilScreen> {
               color: AppColors.surface,
               borderRadius: BorderRadius.circular(24),
             ),
-            child: Column(
+            child: Material(
+              color: Colors.transparent,
+              child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 const SizedBox(height: 10),
@@ -331,6 +338,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
                 ),
                 const SizedBox(height: 8),
               ],
+              ),
             ),
           ),
         );
@@ -338,7 +346,10 @@ class _ProfilScreenState extends State<ProfilScreen> {
     );
     if (pilihan == null) return;
     if (pilihan == 'catalog') {
-      await _openAvatarPicker();
+      // Tunggu route sheet pertama selesai ditutup agar sheet katalog tidak
+      // ikut ter-pop oleh animasi navigasi sebelumnya.
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      if (mounted) await _openAvatarPicker();
       return;
     }
     final ImageSource source = pilihan == 'camera'
@@ -762,6 +773,10 @@ class _ProfilScreenState extends State<ProfilScreen> {
               statusTeks.toLowerCase() != 'ok');
       saved = httpSukses && !serverTolak;
       if (saved) {
+        await ProfileEmailStore.save(_userId, email.trim());
+        if (_profil != null) {
+          _profil!['email'] = email.trim();
+        }
         message = serverMessage?.trim().isNotEmpty == true
             ? serverMessage!.trim()
             : 'Email profil berhasil disimpan.';
