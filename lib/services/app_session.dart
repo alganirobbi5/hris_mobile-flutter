@@ -199,6 +199,42 @@ class AppSession {
     return stored;
   }
 
+  static Future<bool> verifikasiSesiAwal({
+    SharedPreferences? prefs,
+    http.Client? client,
+  }) async {
+    final SharedPreferences store = prefs ?? await SharedPreferences.getInstance();
+    await restore(store);
+
+    final String? tokenAwal = _text(store.getString(ApiConfig.authTokenPrefKey)) ??
+        _text(store.getString(ApiConfig.tokenPrefKey));
+    if (tokenAwal == null || tokenAwal.isEmpty) {
+      token = null;
+      return false;
+    }
+    token = tokenAwal;
+
+    final bool ownsClient = client == null;
+    final http.Client httpClient = client ?? http.Client();
+    try {
+      final http.Response response = await httpClient
+          .get(
+            ApiConfig.uri('me.php'),
+            headers: ApiConfig.authHeaders(tokenAwal),
+          )
+          .timeout(ApiConfig.requestTimeout);
+      if (response.statusCode == 401 || response.statusCode == 403) {
+        await logout();
+        return false;
+      }
+      return true;
+    } catch (_) {
+      return true;
+    } finally {
+      if (ownsClient) httpClient.close();
+    }
+  }
+
   static Future<int?> resolveUserId([SharedPreferences? prefs]) async {
     final int? current = userId;
     if (current != null) return current;
@@ -300,6 +336,8 @@ class AppSession {
     return stored;
   }
 
+  static Future<void> logout() => clear();
+
   static Future<void> clear() async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.remove(userIdPrefKey);
@@ -380,7 +418,7 @@ class AppSession {
   }
 
   static int? get storedEmployeeId => employeeId;
-  static bool get isLoggedIn => userId != null || token != null;
+  static bool get isLoggedIn => token != null && token!.trim().isNotEmpty;
 
   static int? getUserId() => userId;
   static int? getEmployeeId() => employeeId;

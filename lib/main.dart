@@ -15,8 +15,7 @@ void main() async {
   await AppNotificationService.initialize();
 
   final SharedPreferences prefs = await SharedPreferences.getInstance();
-  await AppSession.restore(prefs);
-  final bool isLoggedIn = prefs.containsKey(AppSession.userIdPrefKey);
+  final bool isLoggedIn = await AppSession.verifikasiSesiAwal(prefs: prefs);
 
   runApp(HrisApp(isLoggedIn: isLoggedIn));
 }
