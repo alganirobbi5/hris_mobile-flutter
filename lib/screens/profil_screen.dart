@@ -19,6 +19,7 @@ import '../widgets/app_toast.dart';
 import '../widgets/avatar_picker_sheet.dart';
 import '../widgets/glass_app_bar.dart';
 import '../widgets/info_row.dart';
+import '../widgets/lanyard_card.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/section_card.dart';
 import 'login_screen.dart';
@@ -38,6 +39,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
   bool _isLoading = true;
   bool _isUploadingAvatar = false;
   bool _isSavingEmail = false;
+  bool _isLanyard = false;
   String? _error;
   Map<String, dynamic>? _profil;
   int? _userId;
@@ -506,7 +508,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
     );
   }
 
-  Widget _buildAvatar() {
+  Widget _buildAvatar({bool readOnly = false}) {
     final ProfileAvatarEntry? avatar = ProfileAvatarCatalog.byId(
       _selectedAvatarId,
     );
@@ -522,13 +524,13 @@ class _ProfilScreenState extends State<ProfilScreen> {
     );
 
     return Semantics(
-      button: true,
-      label: 'Ubah foto profil',
+      button: !readOnly,
+      label: readOnly ? 'Foto profil' : 'Ubah foto profil',
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           GestureDetector(
-            onTap: _pickAndUploadAvatar,
+            onTap: readOnly ? null : _pickAndUploadAvatar,
             child: Container(
               width: 96,
               height: 96,
@@ -565,6 +567,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
                   : initials,
             ),
           ),
+          if (!readOnly)
           Positioned(
             right: -2,
             bottom: -2,
@@ -837,8 +840,50 @@ class _ProfilScreenState extends State<ProfilScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: const GlassAppBar(
-        title: Text('Profil'),
+      appBar: GlassAppBar(
+        title: const Text('Profil'),
+        actions: <Widget>[
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Material(
+              color: AppColors.primary.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(999),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(999),
+                onTap: () {
+                  setState(() => _isLanyard = !_isLanyard);
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      Icon(
+                        _isLanyard
+                            ? Icons.visibility_off_outlined
+                            : Icons.badge_outlined,
+                        size: 17,
+                        color: AppColors.primary,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        _isLanyard ? 'Hide' : 'Show',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       body: SafeArea(top: false, child: _buildBody()),
     );
@@ -912,6 +957,39 @@ class _ProfilScreenState extends State<ProfilScreen> {
       );
     }
 
+    if (_isLanyard) {
+      return RefreshIndicator(
+        onRefresh: _fetchProfil,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
+          child: Column(
+            children: <Widget>[
+              LanyardCard(
+                avatar: _buildAvatar(readOnly: true),
+                nama: _name,
+                role: _role,
+                companyName: _companyName,
+                companyCode: _companyCode,
+                email: _email,
+                username: _username,
+                kuota: _leaveQuota,
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'Mode tampilan — untuk mengubah data, tekan Hide.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return RefreshIndicator(
       onRefresh: _fetchProfil,
       child: SingleChildScrollView(
@@ -920,7 +998,32 @@ class _ProfilScreenState extends State<ProfilScreen> {
         child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Center(
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 26, horizontal: 16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(28),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: <Color>[
+                  AppColors.primary.withValues(alpha: 0.10),
+                  AppColors.blue.withValues(alpha: 0.05),
+                  Colors.white.withValues(alpha: 0.75),
+                ],
+              ),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.14),
+                width: 1.2,
+              ),
+              boxShadow: <BoxShadow>[
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.10),
+                  blurRadius: 22,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
             child: Column(
               children: [
                 _buildAvatar(),
@@ -944,6 +1047,9 @@ class _ProfilScreenState extends State<ProfilScreen> {
                   decoration: BoxDecoration(
                     color: AppColors.primary.withValues(alpha: 0.09),
                     borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: AppColors.primary.withValues(alpha: 0.16),
+                    ),
                   ),
                   child: Text(
                     _role,
