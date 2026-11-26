@@ -14,7 +14,7 @@ class LanyardCard extends StatefulWidget {
     required this.companyCode,
     required this.email,
     required this.username,
-    required this.kuota,
+    this.kuota,
   });
 
   final Widget avatar;
@@ -24,7 +24,7 @@ class LanyardCard extends StatefulWidget {
   final String companyCode;
   final String email;
   final String username;
-  final String kuota;
+  final String? kuota;
 
   @override
   State<LanyardCard> createState() => _LanyardCardState();
@@ -366,9 +366,12 @@ class _LanyardCardState extends State<LanyardCard>
                         const SizedBox(height: 10),
                         _row(Icons.person_outline_rounded, 'Username',
                             widget.username),
-                        const SizedBox(height: 10),
-                        _row(Icons.beach_access_outlined, 'Sisa Kuota',
-                            widget.kuota),
+                        if (widget.kuota != null &&
+                            widget.kuota!.trim().isNotEmpty) ...<Widget>[
+                          const SizedBox(height: 10),
+                          _row(Icons.beach_access_outlined, 'Sisa Kuota',
+                              widget.kuota!),
+                        ],
                       ],
                     ),
                   ),
