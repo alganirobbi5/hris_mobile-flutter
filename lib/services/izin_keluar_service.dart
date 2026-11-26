@@ -28,6 +28,8 @@ class IzinKeluarItem {
     required this.status,
     required this.catatanHr,
     required this.namaKaryawan,
+    this.leaderUserId = 0,
+    this.approvedByName = '',
   });
 
   final int id;
@@ -41,6 +43,8 @@ class IzinKeluarItem {
   final String status;
   final String catatanHr;
   final String namaKaryawan;
+  final int leaderUserId;
+  final String approvedByName;
 
   String get jamKeluarPendek => _jamPendek(jamKeluar);
   String get jamKembaliPendek => _jamPendek(jamKembali);
@@ -66,10 +70,15 @@ class IzinKeluarItem {
       kategori: _text(json['kategori']),
       alasan: _text(json['alasan']),
       status: _text(json['status']).isEmpty ? 'pending' : _text(json['status']),
-      catatanHr: _text(json['catatan_hr']),
+      catatanHr: _text(json['catatan_hr'] ?? json['catatan_leader']),
       namaKaryawan: _text(json['nama_lengkap']).isEmpty
           ? (namaLengkap.isEmpty ? _text(json['user_name']) : namaLengkap)
           : _text(json['nama_lengkap']),
+      leaderUserId:
+          _int(json['leader_user_id']) ?? _int(json['leader_id']) ?? 0,
+      approvedByName: _text(
+        json['approved_by_name'] ?? json['approved_by_nama'],
+      ),
     );
   }
 
@@ -98,14 +107,27 @@ class IzinKeluarService {
   static Future<List<IzinKeluarItem>> fetch({
     bool allScope = false,
     String? status,
+    String? scope,
+    http.Client? client,
   }) async {
     final String? token = await AppSession.resolveToken();
-    final http.Response response = await http
-        .get(
-          EmployeeRequest.izinKeluarUri(allScope: allScope, status: status),
-          headers: ApiConfig.authHeaders(token),
-        )
-        .timeout(ApiConfig.requestTimeout);
+    final bool ownsClient = client == null;
+    final http.Client httpClient = client ?? http.Client();
+    final http.Response response;
+    try {
+      response = await httpClient
+          .get(
+            EmployeeRequest.izinKeluarUri(
+              allScope: allScope,
+              status: status,
+              scope: scope,
+            ),
+            headers: ApiConfig.authHeaders(token),
+          )
+          .timeout(ApiConfig.requestTimeout);
+    } finally {
+      if (ownsClient) httpClient.close();
+    }
 
     final Map<String, dynamic> envelope = _decode(response.body);
     if (response.statusCode != 200 || envelope['success'] != true) {
@@ -164,21 +186,29 @@ class IzinKeluarService {
     int id,
     String status, {
     String? catatanHr,
+    http.Client? client,
   }) async {
     final String? token = await AppSession.resolveToken();
-    final http.Response response = await http
-        .post(
-          ApiConfig.uri('approve_izin_keluar.php'),
-          headers: ApiConfig.authHeaders(token),
-          body: jsonEncode(
-            EmployeeRequest.approveIzinKeluarBody(
-              id,
-              status,
-              catatanHr: catatanHr,
+    final bool ownsClient = client == null;
+    final http.Client httpClient = client ?? http.Client();
+    final http.Response response;
+    try {
+      response = await httpClient
+          .post(
+            ApiConfig.uri('approve_izin_keluar.php'),
+            headers: ApiConfig.authHeaders(token),
+            body: jsonEncode(
+              EmployeeRequest.approveIzinKeluarBody(
+                id,
+                status,
+                catatanHr: catatanHr,
+              ),
             ),
-          ),
-        )
-        .timeout(ApiConfig.requestTimeout);
+          )
+          .timeout(ApiConfig.requestTimeout);
+    } finally {
+      if (ownsClient) httpClient.close();
+    }
 
     final Map<String, dynamic> envelope = _decode(response.body);
     if (response.statusCode != 200 || envelope['success'] != true) {

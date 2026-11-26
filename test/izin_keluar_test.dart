@@ -100,6 +100,7 @@ void main() {
     expect(find.text('MENU HR'), findsOneWidget);
     expect(find.text('Persetujuan Cuti'), findsNothing);
     expect(find.text('Cuti & Izin Keluar'), findsNothing);
+    expect(find.text('Izin Keluar'), findsNothing);
     expect(find.text('Kelola Kuota Cuti'), findsOneWidget);
     expect(find.text('Pengajuan Cuti'), findsNothing);
   });

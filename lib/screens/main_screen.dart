@@ -1,9 +1,9 @@
 ﻿import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/absen_polling_service.dart';
+import '../services/app_session.dart';
 import '../services/notification_service.dart';
 import '../widgets/glass_bottom_nav.dart';
 import 'absen_screen.dart';
@@ -20,9 +20,11 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
+typedef _AksesNavigasi = ({bool isHr, bool tampilPersetujuan});
+
 class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _currentIndex = 0;
-  late final Future<bool> _isHrFuture;
+  late final Future<_AksesNavigasi> _aksesFuture;
   PageController? _pageController;
   Timer? _pollingTimer;
   bool _isHr = false;
@@ -31,16 +33,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _isHrFuture = _loadRole();
+    _aksesFuture = _loadAkses();
     _startPolling();
   }
 
   Future<void> _startPolling() async {
     await AppNotificationService.initialize();
     await AbsenPollingService.loadSeen();
-    final bool isHr = await _isHrFuture;
-    if (!mounted || !isHr) return;
-    setState(() => _isHr = isHr);
+    final _AksesNavigasi akses = await _aksesFuture;
+    if (!mounted || !akses.isHr) return;
+    setState(() => _isHr = akses.isHr);
     _pollingTimer?.cancel();
     _pollingTimer = Timer.periodic(
       const Duration(seconds: 8),
@@ -64,13 +66,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  Future<bool> _loadRole() async {
+  Future<_AksesNavigasi> _loadAkses() async {
     try {
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-      final String role = (prefs.getString('role') ?? '').trim().toLowerCase();
-      return role == 'hr';
+      final String? role = await AppSession.resolveRole();
+      await AppSession.refreshLeaderStatus();
+      final bool isHr = AppSession.isHrRole(role);
+      return (
+        isHr: isHr,
+        tampilPersetujuan: isHr || AppSession.isLeaveLeader,
+      );
     } catch (_) {
-      return false;
+      return (isHr: false, tampilPersetujuan: false);
     }
   }
 
@@ -84,16 +90,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     );
   }
 
-  List<Widget> _screens(bool isHr) => <Widget>[
+  List<Widget> _screens(_AksesNavigasi akses) => <Widget>[
     const AbsenScreen(),
     const LayananCutiScreen(),
     const PengumumanScreen(),
-    if (isHr) const LaporanScreen(),
+    if (akses.isHr) const LaporanScreen(),
     const ProfilScreen(),
-    if (isHr) const ApprovalCutiScreen(),
+    if (akses.tampilPersetujuan) const ApprovalCutiScreen(),
   ];
 
-  List<AppNavItem> _navItems(bool isHr) => <AppNavItem>[
+  List<AppNavItem> _navItems(_AksesNavigasi akses) => <AppNavItem>[
     const AppNavItem(
       icon: Icons.camera_alt_outlined,
       activeIcon: Icons.camera_alt_rounded,
@@ -109,7 +115,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       activeIcon: Icons.campaign_rounded,
       label: 'Pengumuman',
     ),
-    if (isHr)
+    if (akses.isHr)
       const AppNavItem(
         icon: Icons.description_outlined,
         activeIcon: Icons.description_rounded,
@@ -120,7 +126,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       activeIcon: Icons.person_rounded,
       label: 'Profil',
     ),
-    if (isHr)
+    if (akses.tampilPersetujuan)
       const AppNavItem(
         icon: Icons.fact_check_outlined,
         activeIcon: Icons.fact_check_rounded,
@@ -130,12 +136,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<bool>(
-      future: _isHrFuture,
-      builder: (BuildContext context, AsyncSnapshot<bool> snapshot) {
-        final bool isHr = snapshot.data ?? false;
-        final List<Widget> screens = _screens(isHr);
-        final List<AppNavItem> navItems = _navItems(isHr);
+    return FutureBuilder<_AksesNavigasi>(
+      future: _aksesFuture,
+      builder: (
+        BuildContext context,
+        AsyncSnapshot<_AksesNavigasi> snapshot,
+      ) {
+        final _AksesNavigasi akses = snapshot.data ??
+            const (isHr: false, tampilPersetujuan: false);
+        final List<Widget> screens = _screens(akses);
+        final List<AppNavItem> navItems = _navItems(akses);
         final int index = _currentIndex < screens.length ? _currentIndex : 0;
         _pageController ??= PageController(initialPage: index);
 

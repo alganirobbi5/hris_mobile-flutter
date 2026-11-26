@@ -42,6 +42,17 @@ class EmployeeRequest {
 
   static Uri leaveCreate() => ApiConfig.uri('cuti.php');
 
+  /// `scope=leader` mengembalikan cuti yang ditujukan ke Leader bersangkutan;
+  /// `scope=all` dipakai HR untuk memantau seluruh pengajuan.
+  static Uri leaveReportUri({String? scope}) {
+    final String? selected = scope?.trim();
+    final Map<String, String> params = <String, String>{};
+    if (selected != null && selected.isNotEmpty) {
+      params['scope'] = selected;
+    }
+    return ApiConfig.uri('laporan_cuti.php').replace(queryParameters: params);
+  }
+
   static Map<String, dynamic> leaveCreatePayload({
     required int? employeeId,
     required String title,
@@ -174,9 +185,18 @@ class EmployeeRequest {
     );
   }
 
-  static Uri izinKeluarUri({bool allScope = false, String? status}) {
+  static Uri izinKeluarUri({
+    bool allScope = false,
+    String? status,
+    String? scope,
+  }) {
     final Map<String, String> params = <String, String>{};
-    if (allScope) params['scope'] = 'all';
+    final String? selected = scope?.trim();
+    if (selected != null && selected.isNotEmpty) {
+      params['scope'] = selected;
+    } else if (allScope) {
+      params['scope'] = 'all';
+    }
     final String? filter = status?.trim();
     if (filter != null && filter.isNotEmpty && filter != 'all') {
       params['status'] = filter;

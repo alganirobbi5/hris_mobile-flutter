@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/api_config.dart';
+import 'leave_leader_service.dart';
 import 'notification_service.dart';
 
 class AppSession {
@@ -110,6 +111,17 @@ class AppSession {
     return false;
   }
 
+  static bool? _optionalBool(dynamic value) {
+    if (value is bool) return value;
+    if (value is num) return value == 1;
+    if (value is String) {
+      final String text = value.trim().toLowerCase();
+      if (text == 'true' || text == '1') return true;
+      if (text == 'false' || text == '0') return false;
+    }
+    return null;
+  }
+
   static String? _firstText(
     List<Map<String, dynamic>> sources,
     List<String> keys,
@@ -214,32 +226,63 @@ class AppSession {
     return isLeaveLeader;
   }
 
-  static Future<void> refreshFromMe() async {
+  static Future<void> setLeaveLeader(bool value) async {
+    if (isLeaveLeader == value) return;
+    isLeaveLeader = value;
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(isLeaveLeaderPrefKey, value);
+  }
+
+  /// Mengembalikan true bila `me.php` memuat field `is_leave_leader`.
+  static Future<bool> refreshFromMe({http.Client? client}) async {
     final String? token = await resolveToken();
-    if (token == null || token.isEmpty) return;
+    if (token == null || token.isEmpty) return false;
+    final bool ownsClient = client == null;
+    final http.Client httpClient = client ?? http.Client();
     try {
-      final http.Response response = await http
+      final http.Response response = await httpClient
           .get(
             ApiConfig.uri('me.php'),
             headers: ApiConfig.authHeaders(token),
           )
           .timeout(ApiConfig.requestTimeout);
-      if (response.statusCode != 200) return;
+      if (response.statusCode != 200) return false;
       final dynamic decoded = jsonDecode(response.body);
       final dynamic data = decoded is Map<String, dynamic>
           ? decoded['data']
           : null;
-      if (data is! Map<String, dynamic>) return;
-      final bool value = _firstBool(
-        <Map<String, dynamic>>[data],
-        const <String>['is_leave_leader'],
-      );
-      if (value == isLeaveLeader) return;
-      isLeaveLeader = value;
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(isLeaveLeaderPrefKey, value);
+      if (data is! Map<String, dynamic>) return false;
+      final bool? value = _optionalBool(data['is_leave_leader']);
+      if (value == null) return false;
+      await setLeaveLeader(value);
+      return true;
     } catch (_) {
       // Status leader lama tetap dipakai bila me.php gagal.
+      return false;
+    } finally {
+      if (ownsClient) httpClient.close();
+    }
+  }
+
+  /// Sinkronkan status Leader setelah login/auto-login. `me.php` adalah sumber
+  /// utama; bila field tidak tersedia, daftar `leave_leaders.php` dipakai agar
+  /// penunjukan Leader baru langsung terlihat tanpa logout-login ulang.
+  static Future<void> refreshLeaderStatus({http.Client? client}) async {
+    await resolveIsLeaveLeader();
+    final bool meMemilikiFlag = await refreshFromMe(client: client);
+    if (isLeaveLeader || meMemilikiFlag) return;
+    final int? uid = await resolveUserId();
+    if (uid == null) return;
+    try {
+      final LeaveLeadersResult result = await LeaveLeaderService.fetch(
+        client: client,
+      );
+      final bool found = result.leaders.any(
+        (LeaveLeader leader) => leader.userId == uid,
+      );
+      if (found) await setLeaveLeader(true);
+    } catch (_) {
+      // Status leader lama tetap dipakai bila daftar leader gagal dimuat.
     }
   }
 

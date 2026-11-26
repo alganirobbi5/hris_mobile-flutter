@@ -96,16 +96,26 @@ class LeaveLeaderException implements Exception {
 class LeaveLeaderService {
   const LeaveLeaderService._();
 
-  static Future<LeaveLeadersResult> fetch({bool includeEligible = false}) async {
+  static Future<LeaveLeadersResult> fetch({
+    bool includeEligible = false,
+    http.Client? client,
+  }) async {
     final String? token = await AppSession.resolveToken();
     final Uri uri = ApiConfig.uri('leave_leaders.php').replace(
       queryParameters: includeEligible
           ? <String, String>{'eligible': '1'}
           : <String, String>{},
     );
-    final http.Response response = await http
-        .get(uri, headers: ApiConfig.authHeaders(token))
-        .timeout(ApiConfig.requestTimeout);
+    final bool ownsClient = client == null;
+    final http.Client httpClient = client ?? http.Client();
+    final http.Response response;
+    try {
+      response = await httpClient
+          .get(uri, headers: ApiConfig.authHeaders(token))
+          .timeout(ApiConfig.requestTimeout);
+    } finally {
+      if (ownsClient) httpClient.close();
+    }
     final Map<String, dynamic> envelope = _decode(response.body);
     if (response.statusCode != 200 || envelope['success'] != true) {
       throw LeaveLeaderException(_message(envelope, 'Gagal memuat daftar Leader.'));
