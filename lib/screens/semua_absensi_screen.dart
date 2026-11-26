@@ -37,10 +37,12 @@ class SemuaAbsensiView extends StatefulWidget {
     super.key,
     this.autoFetch = true,
     this.showHeader = true,
+    this.onDataChanged,
   });
 
   final bool autoFetch;
   final bool showHeader;
+  final VoidCallback? onDataChanged;
 
   @override
   State<SemuaAbsensiView> createState() => SemuaAbsensiViewState();
@@ -427,6 +429,7 @@ class SemuaAbsensiViewState extends State<SemuaAbsensiView> {
       if (response.statusCode == 200) {
         _showMessage('Data absensi berhasil dihapus');
         await _fetchSemuaAbsensi();
+        widget.onDataChanged?.call();
       } else {
         _showMessage('Gagal menghapus data absensi (HTTP ${response.statusCode})');
       }

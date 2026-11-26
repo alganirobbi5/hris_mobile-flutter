@@ -587,6 +587,7 @@ class _LaporanScreenState extends State<LaporanScreen>
                 key: _absensiKey,
                 autoFetch: false,
                 showHeader: false,
+                onDataChanged: _muatRows,
               ),
 
               const SizedBox(height: 16),

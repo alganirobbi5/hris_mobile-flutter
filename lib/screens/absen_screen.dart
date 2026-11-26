@@ -62,18 +62,22 @@ class _AbsenScreenState extends State<AbsenScreen> {
   String? _token;
   String _koordinatAbsenTeks = '';
   String? _statusPulangApi;
-  String _role = '';
   Position? _posisiTerakhir;
   DateTime? _waktuPosisiTerakhir;
 
   @override
   void initState() {
     super.initState();
-    _muatRole();
-    _muatPathSelfieLokal();
+    _muatDataAwal();
     _dapatkanLokasi();
-    _cekStatusAbsen();
-    _fetchJamKerja();
+  }
+
+  Future<void> _muatDataAwal() async {
+    await _muatPathSelfieLokal();
+    await Future.wait<void>(<Future<void>>[
+      _cekStatusAbsen(),
+      _fetchJamKerja(),
+    ]);
   }
 
   Future<void> _jadwalkanPengingatAbsen({
@@ -313,25 +317,29 @@ class _AbsenScreenState extends State<AbsenScreen> {
                 data['absen_id'] ??
                 data['id'] ??
                 data['id_masuk'];
-            _selfieMasukUrl = _urlSelfieServer(
-              data['selfie_in_url'] ??
-                  data['selfie_masuk_url'] ??
-                  data['selfie_in'] ??
-                  data['selfie_masuk'] ??
-                  data['selfie_path'],
-              idAbsen,
-            );
-            _selfiePulangUrl = _urlSelfieServer(
-              data['selfie_out_url'] ??
-                  data['selfie_pulang_url'] ??
-                  data['selfie_out'] ??
-                  data['selfie_pulang'] ??
-                  data['selfie_path'],
-              data['attendance_id_pulang'] ??
-                  data['absen_id_pulang'] ??
-                  idAbsen,
-              pulang: true,
-            );
+            _selfieMasukUrl = _sudahAbsenMasuk
+                ? _urlSelfieServer(
+                    data['selfie_in_url'] ??
+                        data['selfie_masuk_url'] ??
+                        data['selfie_in'] ??
+                        data['selfie_masuk'] ??
+                        data['selfie_path'],
+                    idAbsen,
+                  )
+                : null;
+            _selfiePulangUrl = _sudahAbsenPulang
+                ? _urlSelfieServer(
+                    data['selfie_out_url'] ??
+                        data['selfie_pulang_url'] ??
+                        data['selfie_out'] ??
+                        data['selfie_pulang'] ??
+                        data['selfie_path'],
+                    data['attendance_id_pulang'] ??
+                        data['absen_id_pulang'] ??
+                        idAbsen,
+                    pulang: true,
+                  )
+                : null;
 
             final String lat = _teksDari(data['latitude'] ?? data['lat']);
             final String lng = _teksDari(
@@ -353,22 +361,32 @@ class _AbsenScreenState extends State<AbsenScreen> {
     if (_sudahAbsenMasuk && _sudahAbsenPulang) return;
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     bool berubah = false;
-    if (!_sudahAbsenMasuk && prefs.containsKey(_prefSelfieMasuk)) {
+    if (!_sudahAbsenMasuk) {
       final String? path = prefs.getString(_prefSelfieMasuk);
       if (path != null) await _hapusFileSelfie(path);
-      await prefs.remove(_prefSelfieMasuk);
+      if (prefs.containsKey(_prefSelfieMasuk)) {
+        await prefs.remove(_prefSelfieMasuk);
+      }
       berubah = true;
     }
-    if (!_sudahAbsenPulang && prefs.containsKey(_prefSelfiePulang)) {
+    if (!_sudahAbsenPulang) {
       final String? path = prefs.getString(_prefSelfiePulang);
       if (path != null) await _hapusFileSelfie(path);
-      await prefs.remove(_prefSelfiePulang);
+      if (prefs.containsKey(_prefSelfiePulang)) {
+        await prefs.remove(_prefSelfiePulang);
+      }
       berubah = true;
     }
     if (!mounted || !berubah) return;
     setState(() {
-      if (!_sudahAbsenMasuk) _selfieMasukPath = null;
-      if (!_sudahAbsenPulang) _selfiePulangPath = null;
+      if (!_sudahAbsenMasuk) {
+        _selfieMasukPath = null;
+        _selfieMasukUrl = null;
+      }
+      if (!_sudahAbsenPulang) {
+        _selfiePulangPath = null;
+        _selfiePulangUrl = null;
+      }
     });
   }
 
@@ -961,11 +979,11 @@ class _AbsenScreenState extends State<AbsenScreen> {
         top: false,
         child: RefreshIndicator(
           onRefresh: () async {
+            await _muatPathSelfieLokal();
             await Future.wait(<Future<void>>[
               _fetchJamKerja(),
               _cekStatusAbsen(),
             ]);
-            await _muatPathSelfieLokal();
           },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
