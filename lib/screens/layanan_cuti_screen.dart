@@ -1,14 +1,24 @@
 import 'package:flutter/material.dart';
 
 import '../services/cuti_refresh.dart';
+import '../services/izin_keluar_service.dart';
 import '../services/leave_leader_service.dart';
+import '../services/riwayat_cuti_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/riwayat_cuti_izin_keluar.dart';
 import '../widgets/section_card.dart';
 import 'cuti_screen.dart';
 import 'izin_keluar_screen.dart';
 
 class LayananCutiScreen extends StatefulWidget {
-  const LayananCutiScreen({super.key});
+  const LayananCutiScreen({
+    super.key,
+    this.cutiLoader,
+    this.izinLoader,
+  });
+
+  final Future<List<RiwayatCutiItem>> Function()? cutiLoader;
+  final Future<List<IzinKeluarItem>> Function()? izinLoader;
 
   @override
   State<LayananCutiScreen> createState() => _LayananCutiScreenState();
@@ -221,7 +231,19 @@ class _LayananCutiScreenState extends State<LayananCutiScreen> {
                 ],
               ),
               const SizedBox(height: 20),
-              const CutiScreen(embedded: true, onlyHistory: true),
+              const Text(
+                'Riwayat Cuti & Izin Keluar',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              RiwayatCutiIzinKeluar(
+                cutiLoader: widget.cutiLoader,
+                izinLoader: widget.izinLoader,
+              ),
             ],
           ),
         ),

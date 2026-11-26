@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../services/app_session.dart';
 import '../services/izin_keluar_service.dart';
 import '../services/leave_leader_service.dart';
 import '../theme/app_theme.dart';
@@ -10,13 +9,8 @@ import '../widgets/section_card.dart';
 import '../widgets/status_badge.dart';
 
 class IzinKeluarScreen extends StatefulWidget {
-  const IzinKeluarScreen({
-    super.key,
-    this.hrMode = false,
-    this.embedded = false,
-  });
+  const IzinKeluarScreen({super.key, this.embedded = false});
 
-  final bool hrMode;
   final bool embedded;
 
   @override
@@ -31,21 +25,10 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
     'Lainnya',
   ];
 
-  static const List<MapEntry<String, String>> filterList =
-      <MapEntry<String, String>>[
-    MapEntry<String, String>('all', 'Semua'),
-    MapEntry<String, String>('pending', 'Menunggu'),
-    MapEntry<String, String>('approved', 'Disetujui'),
-    MapEntry<String, String>('rejected', 'Ditolak'),
-  ];
-
   final TextEditingController _alasanController = TextEditingController();
-  final TextEditingController _catatanController = TextEditingController();
 
-  bool _isHr = false;
   bool _isLoading = true;
   bool _isSubmitting = false;
-  bool _isDeciding = false;
   String? _error;
   List<IzinKeluarItem> _items = const <IzinKeluarItem>[];
 
@@ -57,15 +40,14 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
   );
   bool _kembaliKeKantor = true;
   String _kategori = kategoriList.first;
-  String _filter = 'all';
   List<LeaveLeader> _leaders = const <LeaveLeader>[];
   int? _selectedLeaderId;
 
   @override
   void initState() {
     super.initState();
-    _resolveRole();
     _fetchLeaders();
+    _fetchData();
   }
 
   Future<void> _fetchLeaders() async {
@@ -74,24 +56,14 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
       if (!mounted) return;
       setState(() => _leaders = result.leaders);
     } catch (_) {
-      // Leader tetap bisa dipilih ulang lewat pull-to-refresh.
+      if (!mounted) return;
     }
   }
 
   @override
   void dispose() {
     _alasanController.dispose();
-    _catatanController.dispose();
     super.dispose();
-  }
-
-  Future<void> _resolveRole() async {
-    final String? role = await AppSession.resolveRole();
-    if (!mounted) return;
-    setState(() {
-      _isHr = widget.hrMode || AppSession.isHrRole(role);
-    });
-    await _fetchData();
   }
 
   Future<void> _fetchData() async {
@@ -101,10 +73,7 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
       _error = null;
     });
     try {
-      final List<IzinKeluarItem> items = await IzinKeluarService.fetch(
-        allScope: _isHr,
-        status: _isHr ? _filter : null,
-      );
+      final List<IzinKeluarItem> items = await IzinKeluarService.fetch();
       if (!mounted) return;
       setState(() {
         _items = items;
@@ -157,54 +126,6 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
       if (mounted) _showMessage('Gagal terhubung ke server.');
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
-    }
-  }
-
-  Future<void> _decide(IzinKeluarItem item, String status) async {
-    _catatanController.clear();
-    final String? catatan = await showDialog<String>(
-      context: context,
-      builder: (BuildContext dialogContext) => AlertDialog(
-        title: Text(status == 'approved' ? 'Setujui izin keluar?' : 'Tolak izin keluar?'),
-        content: TextField(
-          controller: _catatanController,
-          maxLines: 3,
-          decoration: const InputDecoration(
-            labelText: 'Catatan HR (opsional)',
-            hintText: 'Tulis catatan untuk karyawan',
-          ),
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Batal'),
-          ),
-          FilledButton(
-            onPressed: () =>
-                Navigator.of(dialogContext).pop(_catatanController.text.trim()),
-            child: const Text('Kirim'),
-          ),
-        ],
-      ),
-    );
-    if (catatan == null || !mounted) return;
-
-    setState(() => _isDeciding = true);
-    try {
-      await IzinKeluarService.decide(item.id, status, catatanHr: catatan);
-      if (!mounted) return;
-      _showMessage(
-        status == 'approved'
-            ? 'Pengajuan disetujui.'
-            : 'Pengajuan ditolak.',
-      );
-      await _fetchData();
-    } on IzinKeluarException catch (e) {
-      if (mounted) _showMessage(e.message);
-    } catch (_) {
-      if (mounted) _showMessage('Gagal terhubung ke server.');
-    } finally {
-      if (mounted) setState(() => _isDeciding = false);
     }
   }
 
@@ -280,10 +201,17 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 110),
         children: <Widget>[
-          if (!_isHr) _buildForm(),
-          if (!_isHr) const SizedBox(height: 16),
-          if (_isHr) _buildFilter(),
-          if (_isHr) const SizedBox(height: 12),
+          _buildForm(),
+          const SizedBox(height: 20),
+          const Text(
+            'Riwayat Izin Keluar',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 12),
           _buildList(),
         ],
       ),
@@ -292,9 +220,7 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
     if (widget.embedded) return content;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_isHr ? 'Persetujuan Izin Keluar' : 'Izin Keluar'),
-      ),
+      appBar: AppBar(title: const Text('Izin Keluar')),
       body: SafeArea(top: false, child: content),
     );
   }
@@ -354,15 +280,19 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
             onTap: () => _pilihJam(true),
           ),
           const SizedBox(height: 12),
-          SwitchListTile.adaptive(
-            contentPadding: EdgeInsets.zero,
-            title: const Text(
-              'Kembali ke kantor setelah selesai',
-              style: TextStyle(fontSize: 13.5, color: AppColors.textPrimary),
+          Material(
+            color: Colors.transparent,
+            child: SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: const Text(
+                'Kembali ke kantor setelah selesai',
+                style: TextStyle(fontSize: 13.5, color: AppColors.textPrimary),
+              ),
+              value: _kembaliKeKantor,
+              activeThumbColor: AppColors.primary,
+              onChanged: (bool value) =>
+                  setState(() => _kembaliKeKantor = value),
             ),
-            value: _kembaliKeKantor,
-            activeThumbColor: AppColors.primary,
-            onChanged: (bool value) => setState(() => _kembaliKeKantor = value),
           ),
           if (_kembaliKeKantor) ...<Widget>[
             const SizedBox(height: 4),
@@ -439,28 +369,6 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
     );
   }
 
-  Widget _buildFilter() {
-    return Row(
-      children: filterList.map((MapEntry<String, String> entry) {
-        final bool active = _filter == entry.key;
-        return Padding(
-          padding: const EdgeInsets.only(right: 8),
-          child: ChoiceChip(
-            label: Text(entry.value),
-            selected: active,
-            onSelected: _isLoading
-                ? null
-                : (bool selected) {
-                    if (!selected) return;
-                    setState(() => _filter = entry.key);
-                    _fetchData();
-                  },
-          ),
-        );
-      }).toList(),
-    );
-  }
-
   Widget _buildList() {
     if (_isLoading) {
       return const SectionCard(
@@ -531,26 +439,12 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
           Row(
             children: <Widget>[
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    if (_isHr && item.namaKaryawan.isNotEmpty)
-                      Text(
-                        item.namaKaryawan,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                    Text(
-                      '${item.tanggal} • $jam',
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  '${item.tanggal} • $jam',
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ),
               StatusBadge(label: statusLabel, color: statusColor),
@@ -570,6 +464,27 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
             item.alasan,
             style: const TextStyle(fontSize: 12.5, color: AppColors.textPrimary),
           ),
+          if (item.targetLeaderName.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 8),
+            Text(
+              'Ditujukan ke: ${item.targetLeaderName}',
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+          if (item.approvedByName.isNotEmpty) ...<Widget>[
+            const SizedBox(height: 6),
+            Text(
+              '$statusLabel oleh ${item.approvedByName}',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: statusColor,
+              ),
+            ),
+          ],
           if (item.catatanHr.isNotEmpty) ...<Widget>[
             const SizedBox(height: 8),
             Text(
@@ -578,30 +493,6 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
                 fontSize: 12,
                 color: AppColors.textSecondary,
               ),
-            ),
-          ],
-          if (_isHr && item.status.toLowerCase() == 'pending') ...<Widget>[
-            const SizedBox(height: 12),
-            Row(
-              children: <Widget>[
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _isDeciding
-                        ? null
-                        : () => _decide(item, 'rejected'),
-                    child: const Text('Tolak'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: _isDeciding
-                        ? null
-                        : () => _decide(item, 'approved'),
-                    child: const Text('Setujui'),
-                  ),
-                ),
-              ],
             ),
           ],
         ],

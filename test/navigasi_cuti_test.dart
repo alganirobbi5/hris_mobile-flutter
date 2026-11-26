@@ -40,13 +40,13 @@ void main() {
 
     expect(find.text('Leader Pemberi Izin Cuti'), findsOneWidget);
     expect(find.text('Pengajuan Cuti'), findsOneWidget);
-    expect(find.text('Izin Keluar'), findsOneWidget);
-    expect(find.text('Riwayat Cuti'), findsOneWidget);
+    expect(find.text('Izin Keluar'), findsWidgets);
+    expect(find.text('Riwayat Cuti & Izin Keluar'), findsOneWidget);
 
     final double tabelY = _y(tester, 'Leader Pemberi Izin Cuti');
     final double pengajuanY = _y(tester, 'Pengajuan Cuti');
     final double izinY = _y(tester, 'Izin Keluar');
-    final double riwayatY = _y(tester, 'Riwayat Cuti');
+    final double riwayatY = _y(tester, 'Riwayat Cuti & Izin Keluar');
 
     expect(tabelY, lessThan(pengajuanY));
     expect(pengajuanY, closeTo(izinY, 4));
@@ -55,5 +55,5 @@ void main() {
 }
 
 double _y(WidgetTester tester, String teks) {
-  return tester.getCenter(find.text(teks)).dy;
+  return tester.getCenter(find.text(teks).first).dy;
 }
