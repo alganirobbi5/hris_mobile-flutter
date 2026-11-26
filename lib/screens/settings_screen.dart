@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/glass_app_bar.dart';
+
 import '../config/company_config.dart';
 import '../services/company_profile.dart';
 import '../theme/app_theme.dart';
@@ -132,7 +134,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: GlassAppBar(title: const Text('Settings')),
       body: SafeArea(
         top: false,
         child: ListView(

@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+
+import '../widgets/glass_app_bar.dart';
 import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
@@ -258,7 +260,7 @@ class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: GlassAppBar(
         title: Text(widget.isEdit ? 'Edit Pengumuman' : 'Buat Pengumuman'),
       ),
       body: SingleChildScrollView(

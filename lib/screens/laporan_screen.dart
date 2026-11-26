@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../widgets/glass_app_bar.dart';
 import 'package:intl/intl.dart';
 
 import '../services/company_profile.dart';
@@ -341,7 +343,7 @@ class _LaporanScreenState extends State<LaporanScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Laporan')),
+      appBar: GlassAppBar(title: const Text('Laporan')),
       body: SafeArea(
         top: false,
         child: RefreshIndicator(

@@ -181,7 +181,7 @@ void main() {
     expect(find.text('hr'), findsWidgets);
     expect(find.text('PT Dignity'), findsWidgets);
     expect(find.text('DGN-2026'), findsWidgets);
-    expect(find.text('Ubah Email'), findsOneWidget);
+    expect(find.text('Email'), findsOneWidget);
     expect(find.byType(DangerButton), findsOneWidget);
   });
 

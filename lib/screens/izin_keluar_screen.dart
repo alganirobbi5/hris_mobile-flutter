@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/glass_app_bar.dart';
+
 import '../services/app_session.dart';
 import '../services/izin_keluar_service.dart';
 import '../services/leave_leader_service.dart';
@@ -301,7 +303,7 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
     if (widget.embedded) return content;
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: GlassAppBar(
         title: Text(
           _isHr || _isLeader ? 'Persetujuan Izin Keluar' : 'Izin Keluar',
         ),

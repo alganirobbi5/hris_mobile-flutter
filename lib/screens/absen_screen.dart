@@ -18,6 +18,7 @@ import '../services/notification_service.dart';
 import '../services/selfie_storage.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_toast.dart';
+import '../widgets/glass_app_bar.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/section_card.dart';
 import '../widgets/selfie_preview_card.dart';
@@ -954,7 +955,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
     );
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: GlassAppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,

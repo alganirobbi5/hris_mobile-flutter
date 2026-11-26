@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+
+import '../widgets/glass_app_bar.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
@@ -234,7 +236,7 @@ class _KelolaKuotaCutiScreenState extends State<KelolaKuotaCutiScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Kelola Kuota Cuti')),
+      appBar: GlassAppBar(title: const Text('Kelola Kuota Cuti')),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),

@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+
+import '../widgets/glass_app_bar.dart';
 import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
@@ -79,11 +81,8 @@ class _TambahKaryawanScreenState extends State<TambahKaryawanScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Tambah Karyawan'),
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.textPrimary,
-        elevation: 1,
+      appBar: const GlassAppBar(
+        title: Text('Tambah Karyawan'),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),

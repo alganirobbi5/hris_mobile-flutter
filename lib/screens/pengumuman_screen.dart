@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+
+import '../widgets/glass_app_bar.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
@@ -256,7 +258,7 @@ class _PengumumanScreenState extends State<PengumumanScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Pengumuman')),
+      appBar: GlassAppBar(title: const Text('Pengumuman')),
       body: SafeArea(
         top: false,
         child: RefreshIndicator(

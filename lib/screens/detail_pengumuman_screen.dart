@@ -1,6 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+
+import '../widgets/glass_app_bar.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -31,7 +33,7 @@ class DetailPengumumanScreen extends StatelessWidget {
     final lampiranBytes = lampiranData?.decodeBytes();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Detail Pengumuman')),
+      appBar: GlassAppBar(title: const Text('Detail Pengumuman')),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),

@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+
+import '../widgets/glass_app_bar.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
@@ -1293,7 +1295,7 @@ class _CutiScreenState extends State<CutiScreen>
     if (widget.embedded) return content;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Cuti')),
+      appBar: GlassAppBar(title: const Text('Cuti')),
       body: SafeArea(
         top: false,
         child: RefreshIndicator(

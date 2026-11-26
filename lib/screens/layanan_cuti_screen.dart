@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../widgets/glass_app_bar.dart';
+
 import '../services/cuti_refresh.dart';
 import '../services/leave_leader_service.dart';
 import '../theme/app_theme.dart';
@@ -175,7 +177,7 @@ class _LayananCutiScreenState extends State<LayananCutiScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Cuti & Izin Keluar')),
+      appBar: GlassAppBar(title: const Text('Cuti & Izin Keluar')),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _onRefresh,

@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+
+import '../widgets/glass_app_bar.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
@@ -160,11 +162,8 @@ class _TambahLokasiScreenState extends State<TambahLokasiScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Tambah Lokasi Absensi'),
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.textPrimary,
-        elevation: 1,
+      appBar: const GlassAppBar(
+        title: Text('Tambah Lokasi Absensi'),
       ),
       body: SafeArea(
         top: false,

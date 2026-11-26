@@ -16,6 +16,7 @@ import '../services/profile_avatar_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/avatar_picker_sheet.dart';
+import '../widgets/glass_app_bar.dart';
 import '../widgets/info_row.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/section_card.dart';
@@ -511,16 +512,100 @@ class _ProfilScreenState extends State<ProfilScreen> {
               elevation: 3,
               child: InkWell(
                 customBorder: const CircleBorder(),
-                onTap: _openAvatarPicker,
-                child: const SizedBox(
+                onTap: _isUploadingAvatar ? null : _pickAndUploadAvatar,
+                child: SizedBox(
                   width: 30,
                   height: 30,
-                  child: Icon(
-                    Icons.edit_rounded,
-                    size: 15,
-                    color: Colors.white,
+                  child: _isUploadingAvatar
+                      ? const Center(
+                          child: SizedBox(
+                            width: 15,
+                            height: 15,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          ),
+                        )
+                      : const Icon(
+                          Icons.edit_rounded,
+                          size: 15,
+                          color: Colors.white,
+                        ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmailRow() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: <Widget>[
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: const Icon(
+              Icons.mail_outline_rounded,
+              size: 19,
+              color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const Text(
+                  'Email',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
                   ),
                 ),
+                const SizedBox(height: 3),
+                Text(
+                  _email,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    height: 1.3,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Material(
+            color: AppColors.primary.withValues(alpha: 0.08),
+            shape: const CircleBorder(),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: _isSavingEmail ? null : _showEditEmailDialog,
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: _isSavingEmail
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(
+                        Icons.edit_outlined,
+                        size: 18,
+                        color: AppColors.primary,
+                      ),
               ),
             ),
           ),
@@ -603,18 +688,37 @@ class _ProfilScreenState extends State<ProfilScreen> {
             body: jsonEncode(EmployeeRequest.profileUpdateBody(email)),
           )
           .timeout(const Duration(seconds: 20));
-      final dynamic decoded = response.statusCode == 200
-          ? jsonDecode(response.body)
-          : null;
-      saved = decoded is Map<String, dynamic> && decoded['success'] == true;
-      if (saved) {
-        message = 'Email profil berhasil disimpan.';
-        await _fetchProfil();
-      } else if (decoded is Map<String, dynamic>) {
-        message = (decoded['message'] ?? message).toString();
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(response.body);
+      } on FormatException {
+        decoded = null;
       }
-    } catch (_) {
+      final Map<String, dynamic>? body = decoded is Map<String, dynamic>
+          ? decoded
+          : null;
+      final String? serverMessage = body?['message'] is String
+          ? body!['message'] as String
+          : null;
+      saved = response.statusCode >= 200 &&
+          response.statusCode < 300 &&
+          (body?['success'] == true || body?['status'] == 'success');
+      if (saved) {
+        message = serverMessage?.trim().isNotEmpty == true
+            ? serverMessage!.trim()
+            : 'Email profil berhasil disimpan.';
+        if (_profil != null) {
+          _profil!['email'] = email.trim();
+        }
+        await _fetchProfil();
+      } else {
+        message = (serverMessage != null && serverMessage.trim().isNotEmpty)
+            ? serverMessage.trim()
+            : 'Gagal menyimpan email (HTTP ${response.statusCode}).';
+      }
+    } catch (e) {
       saved = false;
+      message = 'Gagal terhubung ke server: $e';
     }
     if (!mounted) return saved;
     setState(() => _isSavingEmail = false);
@@ -664,8 +768,8 @@ class _ProfilScreenState extends State<ProfilScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profil'),
+      appBar: const GlassAppBar(
+        title: Text('Profil'),
       ),
       body: SafeArea(top: false, child: _buildBody()),
     );
@@ -751,20 +855,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
             child: Column(
               children: [
                 _buildAvatar(),
-                const SizedBox(height: 8),
-                TextButton.icon(
-                  onPressed: _isUploadingAvatar ? null : _pickAndUploadAvatar,
-                  icon: Icon(
-                    _isUploadingAvatar
-                        ? Icons.hourglass_top_rounded
-                        : Icons.add_a_photo_outlined,
-                    size: 16,
-                  ),
-                  label: Text(
-                    _isUploadingAvatar ? 'Mengunggah...' : 'Ganti Avatar',
-                  ),
-                ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 12),
                 Text(
                   _name,
                   textAlign: TextAlign.center,
@@ -791,17 +882,6 @@ class _ProfilScreenState extends State<ProfilScreen> {
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                       color: AppColors.primary,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                GestureDetector(
-                  onTap: _openAvatarPicker,
-                  child: const Text(
-                    'Ketuk foto untuk mengubah',
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      color: AppColors.textSecondary,
                     ),
                   ),
                 ),
@@ -833,11 +913,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
                   label: 'Kode Perusahaan',
                   value: _companyCode,
                 ),
-                InfoRow(
-                  icon: Icons.mail_outline_rounded,
-                  label: 'Email',
-                  value: _email,
-                ),
+                _buildEmailRow(),
                 InfoRow(
                   icon: Icons.person_outline_rounded,
                   label: 'Username',
@@ -851,15 +927,6 @@ class _ProfilScreenState extends State<ProfilScreen> {
                   isLast: true,
                 ),
               ],
-            ),
-          ),
-          const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: _isSavingEmail ? null : _showEditEmailDialog,
-              icon: const Icon(Icons.edit_outlined, size: 16),
-              label: const Text('Ubah Email'),
             ),
           ),
           const SizedBox(height: 14),
