@@ -19,7 +19,11 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-typedef _AksesNavigasi = ({bool isHr, bool tampilPersetujuan});
+typedef _AksesNavigasi = ({
+  bool isHr,
+  bool tampilPersetujuan,
+  bool isSuperAdmin,
+});
 
 class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _currentIndex = 0;
@@ -73,9 +77,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       return (
         isHr: isHr,
         tampilPersetujuan: isHr || AppSession.isLeaveLeader,
+        isSuperAdmin: AppSession.isSuperAdmin,
       );
     } catch (_) {
-      return (isHr: false, tampilPersetujuan: false);
+      return (
+        isHr: false,
+        tampilPersetujuan: false,
+        isSuperAdmin: false,
+      );
     }
   }
 
@@ -89,40 +98,64 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     );
   }
 
-  List<Widget> _screens(_AksesNavigasi akses) => <Widget>[
-    const AbsenScreen(),
-    const LayananCutiScreen(),
-    const PengumumanScreen(),
-    if (akses.tampilPersetujuan)
-      SettingsScreen(
-        isHr: akses.isHr,
-        canApprove: akses.tampilPersetujuan,
-      ),
-  ];
+  List<Widget> _screens(_AksesNavigasi akses) {
+    if (akses.isSuperAdmin) {
+      return <Widget>[
+        const PengumumanScreen(),
+        const SettingsScreen(isHr: false, canApprove: false, isSuperAdmin: true),
+      ];
+    }
+    return <Widget>[
+      const AbsenScreen(),
+      const LayananCutiScreen(),
+      const PengumumanScreen(),
+      if (akses.tampilPersetujuan)
+        SettingsScreen(
+          isHr: akses.isHr,
+          canApprove: akses.tampilPersetujuan,
+        ),
+    ];
+  }
 
-  List<AppNavItem> _navItems(_AksesNavigasi akses) => <AppNavItem>[
-    const AppNavItem(
-      icon: Icons.camera_alt_outlined,
-      activeIcon: Icons.camera_alt_rounded,
-      label: 'Absen',
-    ),
-    const AppNavItem(
-      icon: Icons.event_available_outlined,
-      activeIcon: Icons.event_available_rounded,
-      label: 'Cuti & Izin',
-    ),
-    const AppNavItem(
-      icon: Icons.campaign_outlined,
-      activeIcon: Icons.campaign_rounded,
-      label: 'Pengumuman',
-    ),
-    if (akses.tampilPersetujuan)
+  List<AppNavItem> _navItems(_AksesNavigasi akses) {
+    if (akses.isSuperAdmin) {
+      return const <AppNavItem>[
+        AppNavItem(
+          icon: Icons.campaign_outlined,
+          activeIcon: Icons.campaign_rounded,
+          label: 'Pengumuman',
+        ),
+        AppNavItem(
+          icon: Icons.settings_outlined,
+          activeIcon: Icons.settings_rounded,
+          label: 'Settings',
+        ),
+      ];
+    }
+    return <AppNavItem>[
       const AppNavItem(
-        icon: Icons.settings_outlined,
-        activeIcon: Icons.settings_rounded,
-        label: 'Settings',
+        icon: Icons.camera_alt_outlined,
+        activeIcon: Icons.camera_alt_rounded,
+        label: 'Absen',
       ),
-  ];
+      const AppNavItem(
+        icon: Icons.event_available_outlined,
+        activeIcon: Icons.event_available_rounded,
+        label: 'Cuti & Izin',
+      ),
+      const AppNavItem(
+        icon: Icons.campaign_outlined,
+        activeIcon: Icons.campaign_rounded,
+        label: 'Pengumuman',
+      ),
+      if (akses.tampilPersetujuan)
+        const AppNavItem(
+          icon: Icons.settings_outlined,
+          activeIcon: Icons.settings_rounded,
+          label: 'Settings',
+        ),
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -133,7 +166,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
         AsyncSnapshot<_AksesNavigasi> snapshot,
       ) {
         final _AksesNavigasi akses = snapshot.data ??
-            const (isHr: false, tampilPersetujuan: false);
+            const (
+              isHr: false,
+              tampilPersetujuan: false,
+              isSuperAdmin: false,
+            );
         final List<Widget> screens = _screens(akses);
         final List<AppNavItem> navItems = _navItems(akses);
         final int index = _currentIndex < screens.length ? _currentIndex : 0;

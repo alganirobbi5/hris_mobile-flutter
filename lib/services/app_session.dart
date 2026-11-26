@@ -10,6 +10,9 @@ import 'notification_service.dart';
 class AppSession {
   static const String userIdPrefKey = 'user_id';
   static const String isLeaveLeaderPrefKey = 'is_leave_leader';
+  static const String companyIdPrefKey = 'company_id';
+  static const String companyCodePrefKey = 'company_code';
+  static const String companyNamePrefKey = 'company_name';
 
   static int? userId;
   static int? employeeId;
@@ -18,6 +21,9 @@ class AppSession {
   static String? role;
   static String? token;
   static bool isLeaveLeader = false;
+  static int? companyId;
+  static String? companyCode;
+  static String? companyName;
 
   /// Populate from the login JSON response.
   /// Deployed login.php (pre-token): { status, message, data: { user_id,
@@ -30,8 +36,9 @@ class AppSession {
     final Map<String, dynamic> user = _asMap(data['user']);
 
     final List<Map<String, dynamic>> sources = _sessionSources(response);
+    final Map<String, dynamic> company = _asMap(data['company']);
     final List<Map<String, dynamic>> identitySources =
-        <Map<String, dynamic>>[user, ...sources];
+        <Map<String, dynamic>>[user, company, ...sources];
 
     token = _text(data['token']) ?? extractToken(response);
     userId = _asInt(user['user_id']) ??
@@ -47,6 +54,18 @@ class AppSession {
     isLeaveLeader = _firstBool(
       identitySources,
       const <String>['is_leave_leader'],
+    );
+    companyId = _firstInt(
+      identitySources,
+      const <String>['company_id', 'companyId'],
+    );
+    companyCode = _firstText(
+      identitySources,
+      const <String>['company_code', 'companyCode', 'kode_perusahaan'],
+    );
+    companyName = _firstText(
+      identitySources,
+      const <String>['company_name', 'companyName', 'nama_perusahaan'],
     );
 
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -184,6 +203,9 @@ class AppSession {
     isLeaveLeader = store.getBool(isLeaveLeaderPrefKey) ?? false;
     token = _text(store.getString(ApiConfig.authTokenPrefKey)) ??
         _text(store.getString(ApiConfig.tokenPrefKey));
+    companyId = _readIntPref(store, companyIdPrefKey);
+    companyCode = _text(store.getString(companyCodePrefKey));
+    companyName = _text(store.getString(companyNamePrefKey));
   }
 
   /// Single source of truth for the Bearer token. Falls back to the same
@@ -348,6 +370,9 @@ class AppSession {
     await prefs.remove(ApiConfig.tokenPrefKey);
     await prefs.remove(ApiConfig.employeeIdPrefKey);
     await prefs.remove(isLeaveLeaderPrefKey);
+    await prefs.remove(companyIdPrefKey);
+    await prefs.remove(companyCodePrefKey);
+    await prefs.remove(companyNamePrefKey);
 
     userId = null;
     employeeId = null;
@@ -356,6 +381,9 @@ class AppSession {
     role = null;
     token = null;
     isLeaveLeader = false;
+    companyId = null;
+    companyCode = null;
+    companyName = null;
     try {
       await AppNotificationService.cancelReminders();
     } catch (_) {
@@ -397,6 +425,21 @@ class AppSession {
       await prefs.remove(ApiConfig.employeeIdPrefKey);
     }
     await prefs.setBool(isLeaveLeaderPrefKey, isLeaveLeader);
+    if (companyId != null) {
+      await prefs.setInt(companyIdPrefKey, companyId!);
+    } else {
+      await prefs.remove(companyIdPrefKey);
+    }
+    if (companyCode != null) {
+      await prefs.setString(companyCodePrefKey, companyCode!);
+    } else {
+      await prefs.remove(companyCodePrefKey);
+    }
+    if (companyName != null) {
+      await prefs.setString(companyNamePrefKey, companyName!);
+    } else {
+      await prefs.remove(companyNamePrefKey);
+    }
   }
 
   static int? _asInt(dynamic value) {
@@ -419,6 +462,8 @@ class AppSession {
 
   static int? get storedEmployeeId => employeeId;
   static bool get isLoggedIn => token != null && token!.trim().isNotEmpty;
+  static bool get isSuperAdmin =>
+      (role ?? '').trim().toLowerCase() == 'super_admin';
 
   static int? getUserId() => userId;
   static int? getEmployeeId() => employeeId;
@@ -427,4 +472,7 @@ class AppSession {
   static String? getRole() => role;
   static String? getToken() => token;
   static bool getLeaveLeaderFlag() => isLeaveLeader;
+  static int? getCompanyId() => companyId;
+  static String? getCompanyCode() => companyCode;
+  static String? getCompanyName() => companyName;
 }

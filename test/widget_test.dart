@@ -26,7 +26,7 @@ void main() {
     await tester.pumpWidget(const HrisApp(isLoggedIn: false));
 
     expect(find.text('Selamat datang'), findsOneWidget);
-    expect(find.text('KODE PERUSAHAAN'), findsOneWidget);
+    expect(find.textContaining('KODE PERUSAHAAN'), findsOneWidget);
     expect(find.text('Masuk'), findsOneWidget);
   });
 

@@ -53,11 +53,10 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   String? _validateCompany(String? value) {
-    final String? requiredError = _required(value);
-    if (requiredError != null) return requiredError;
+    final String kode = value?.trim() ?? '';
+    if (kode.isEmpty) return null;
 
-    if (value!.trim().toUpperCase() !=
-        CompanyProfile.current.code.toUpperCase()) {
+    if (kode.toUpperCase() != CompanyProfile.current.code.toUpperCase()) {
       return 'Kode perusahaan tidak sesuai dengan data HR';
     }
     return null;
@@ -125,8 +124,10 @@ class _LoginScreenState extends State<LoginScreen> {
     FocusScope.of(context).unfocus();
     if (!_formKey.currentState!.validate()) return;
 
-    if (_companyController.text.trim().toUpperCase() !=
-        CompanyProfile.current.code.toUpperCase()) {
+    final String kodePerusahaan = _companyController.text.trim();
+    if (kodePerusahaan.isNotEmpty &&
+        kodePerusahaan.toUpperCase() !=
+            CompanyProfile.current.code.toUpperCase()) {
       AppToast.error('Kode perusahaan tidak sesuai dengan data HR.');
       return;
     }
@@ -141,7 +142,7 @@ class _LoginScreenState extends State<LoginScreen> {
             _loginUrl,
             headers: <String, String>{'Content-Type': 'application/json'},
             body: jsonEncode(<String, String>{
-              'company_code': CompanyProfile.current.code,
+              'company_code': kodePerusahaan,
               'username': _usernameController.text.trim(),
               'password': _passwordController.text,
             }),
@@ -311,7 +312,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 32),
                     AppTextField(
-                      label: 'Kode Perusahaan',
+                      label: 'Kode Perusahaan (Kosongkan jika Super Admin)',
                       hint: 'Contoh: CMJ-2026',
                       controller: _companyController,
                       prefixIcon: Icons.business_outlined,

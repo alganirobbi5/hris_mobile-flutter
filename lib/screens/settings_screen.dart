@@ -8,7 +8,9 @@ import '../theme/app_theme.dart';
 import '../widgets/app_toast.dart';
 import 'approval_cuti_screen.dart';
 import 'atur_jam_screen.dart';
+import 'kelola_hr_admin_screen.dart';
 import 'kelola_kuota_cuti_screen.dart';
+import 'kelola_perusahaan_screen.dart';
 import 'laporan_screen.dart';
 import 'tambah_karyawan_screen.dart';
 import 'tambah_lokasi_screen.dart';
@@ -18,10 +20,12 @@ class SettingsScreen extends StatefulWidget {
     super.key,
     required this.isHr,
     required this.canApprove,
+    this.isSuperAdmin = false,
   });
 
   final bool isHr;
   final bool canApprove;
+  final bool isSuperAdmin;
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -131,7 +135,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 110),
           children: <Widget>[
-            const Text(
+            if (widget.isSuperAdmin) ...<Widget>[
+              const Text(
+                'MENU SUPER ADMIN',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 10),
+              _buildMenuCard(
+                context: context,
+                icon: Icons.business_outlined,
+                label: 'Kelola Perusahaan',
+                subtitle: 'Daftar dan tambah perusahaan',
+                onTap: () => Navigator.of(context).push<void>(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const KelolaPerusahaanScreen(),
+                  ),
+                ),
+              ),
+              _buildMenuCard(
+                context: context,
+                icon: Icons.admin_panel_settings_outlined,
+                label: 'Kelola HR / Admin',
+                subtitle: 'Daftar dan tambah akun HR/Admin',
+                onTap: () => Navigator.of(context).push<void>(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const KelolaHrAdminScreen(),
+                  ),
+                ),
+              ),
+            ],
+            if (!widget.isSuperAdmin)
+              const Text(
               'MENU',
               style: TextStyle(
                 fontSize: 11,
@@ -141,7 +180,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             const SizedBox(height: 10),
-            if (widget.isHr)
+            if (widget.isHr && !widget.isSuperAdmin)
               _buildMenuCard(
                 context: context,
                 icon: Icons.description_outlined,
@@ -153,7 +192,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
               ),
-            if (widget.canApprove)
+            if (widget.canApprove && !widget.isSuperAdmin)
               _buildMenuCard(
                 context: context,
                 icon: Icons.fact_check_outlined,
@@ -165,7 +204,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
               ),
-            if (widget.isHr) ...<Widget>[
+            if (widget.isHr && !widget.isSuperAdmin) ...<Widget>[
               const SizedBox(height: 18),
               const Text(
                 'MENU HR',
