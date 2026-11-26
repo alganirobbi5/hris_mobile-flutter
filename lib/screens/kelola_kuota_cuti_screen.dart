@@ -25,6 +25,7 @@ class _KelolaKuotaCutiScreenState extends State<KelolaKuotaCutiScreen> {
 
   bool _isLoading = true;
   bool _isSaving = false;
+  String _mode = 'tambah';
   String? _error;
   List<_KaryawanKuota> _karyawan = const [];
 
@@ -135,14 +136,14 @@ class _KelolaKuotaCutiScreenState extends State<KelolaKuotaCutiScreen> {
         .toList();
   }
 
-  Future<void> _tambahkanKuota() async {
+  Future<void> _simpanKuota() async {
     final int? tambahan = int.tryParse(_hariController.text.trim());
     if (_selectedIds.isEmpty) {
       _showMessage('Pilih minimal satu karyawan terlebih dahulu.');
       return;
     }
     if (tambahan == null || tambahan <= 0) {
-      _showMessage('Masukkan jumlah hari tambahan yang valid.');
+      _showMessage('Masukkan jumlah hari yang valid.');
       return;
     }
     if (!mounted) return;
@@ -157,6 +158,7 @@ class _KelolaKuotaCutiScreenState extends State<KelolaKuotaCutiScreen> {
             body: jsonEncode(<String, dynamic>{
               'employee_ids': _selectedIds.toList(),
               'tambahan_hari': tambahan,
+              'mode': _mode,
             }),
           )
           .timeout(const Duration(seconds: 20));
@@ -174,13 +176,14 @@ class _KelolaKuotaCutiScreenState extends State<KelolaKuotaCutiScreen> {
       final bool success = response.statusCode == 200 &&
           (decoded?['status'] == 'success' || decoded?['success'] == true);
       final Object? serverMessage = decoded?['message'];
+      final String aksi = _mode == 'kurang' ? 'dikurangi' : 'ditambahkan';
       final String message = success
           ? (serverMessage != null && serverMessage.toString().isNotEmpty
               ? serverMessage.toString()
-              : 'Kuota cuti berhasil ditambahkan.')
+              : 'Kuota cuti berhasil $aksi.')
           : _apiErrorMessage(
               response,
-              'Gagal menambahkan kuota cuti (HTTP ${response.statusCode}).',
+              'Gagal mengubah kuota cuti (HTTP ${response.statusCode}).',
             );
 
       _showMessage(message);
@@ -191,7 +194,7 @@ class _KelolaKuotaCutiScreenState extends State<KelolaKuotaCutiScreen> {
       }
     } catch (_) {
       if (!mounted) return;
-      _showMessage('Gagal terhubung ke server saat menambahkan kuota cuti.');
+      _showMessage('Gagal terhubung ke server saat mengubah kuota cuti.');
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -268,28 +271,52 @@ class _KelolaKuotaCutiScreenState extends State<KelolaKuotaCutiScreen> {
                         FilteringTextInputFormatter.digitsOnly,
                       ],
                       decoration: const InputDecoration(
-                        labelText: 'Jumlah Hari Tambahan',
+                        labelText: 'Jumlah Hari',
                         hintText: '0',
                         prefixIcon: Icon(Icons.calendar_month_outlined),
                       ),
                     ),
                     const SizedBox(height: 14),
-                    FilledButton.icon(
-                      onPressed: _isSaving ? null : _tambahkanKuota,
-                      icon: _isSaving
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.add_rounded, size: 18),
-                      label: Text(
-                        _isSaving ? 'Menyimpan...' : 'Tambahkan Kuota',
-                      ),
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: _isSaving
+                                ? null
+                                : () {
+                                    setState(() => _mode = 'tambah');
+                                    _simpanKuota();
+                                  },
+                            icon: const Icon(Icons.add_rounded, size: 18),
+                            label: const Text('Tambah'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _isSaving
+                                ? null
+                                : () {
+                                    setState(() => _mode = 'kurang');
+                                    _simpanKuota();
+                                  },
+                            icon: const Icon(Icons.remove_rounded, size: 18),
+                            label: const Text('Kurangi'),
+                          ),
+                        ),
+                      ],
                     ),
+                    if (_isSaving)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 10),
+                        child: Center(
+                          child: SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),

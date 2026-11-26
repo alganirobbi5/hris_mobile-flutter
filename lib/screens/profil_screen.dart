@@ -749,12 +749,15 @@ class _ProfilScreenState extends State<ProfilScreen> {
       final Map<String, dynamic>? body = decoded is Map<String, dynamic>
           ? decoded
           : null;
-      final String? serverMessage = body?['message'] is String
-          ? body!['message'] as String
-          : null;
-      saved = response.statusCode >= 200 &&
-          response.statusCode < 300 &&
-          (body?['success'] == true || body?['status'] == 'success');
+      final String? serverMessage = body?['message']?.toString();
+      final bool httpSukses =
+          response.statusCode >= 200 && response.statusCode < 300;
+      final String? statusTeks = body?['status']?.toString();
+      final bool serverTolak = body?['success'] == false ||
+          (statusTeks != null &&
+              statusTeks.toLowerCase() != 'success' &&
+              statusTeks.toLowerCase() != 'ok');
+      saved = httpSukses && !serverTolak;
       if (saved) {
         message = serverMessage?.trim().isNotEmpty == true
             ? serverMessage!.trim()

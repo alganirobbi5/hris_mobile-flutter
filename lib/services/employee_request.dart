@@ -34,7 +34,7 @@ class EmployeeRequest {
 
   /// Simpan email profil. Backend menentukan tabel tujuan dari sesi:
   /// karyawan -> employees.email, HR tanpa employee -> users.email.
-  static Uri profileUpdate() => ApiConfig.uri('profil.php');
+  static Uri profileUpdate() => ApiConfig.uri('update_email.php');
 
   static Map<String, dynamic> profileUpdateBody(String email) =>
       <String, dynamic>{'email': email.trim()};

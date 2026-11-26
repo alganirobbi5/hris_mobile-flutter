@@ -110,25 +110,35 @@ class CompanyProfile {
             }),
           )
           .timeout(const Duration(seconds: 15));
-      final dynamic decoded = jsonDecode(response.body);
-      final Map<String, dynamic>? body = decoded is Map<String, dynamic>
-          ? decoded
-          : null;
-      if (response.statusCode != 200 && response.statusCode != 201) {
-        lastError = body == null
-            ? 'Server balas HTTP ${response.statusCode}'
-            : body['message']?.toString();
+      Map<String, dynamic>? body;
+      try {
+        final dynamic decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) body = decoded;
+      } on FormatException {
+        body = null;
+      }
+
+      final bool httpSukses =
+          response.statusCode >= 200 && response.statusCode < 300;
+      final String? statusTeks = body?['status']?.toString();
+      final bool serverTolak =
+          body?['success'] == false ||
+          (statusTeks != null && !_isSuccessStatus(statusTeks));
+      final String? serverMessage = body?['message']?.toString();
+      if (!httpSukses || serverTolak) {
+        lastError = (serverMessage != null && serverMessage.isNotEmpty)
+            ? serverMessage
+            : 'Server balas HTTP ${response.statusCode}';
         return false;
       }
-      if (body == null || !_isSuccess(body)) {
-        lastError = body == null
-            ? 'Balasan server tidak valid'
-            : body['message']?.toString();
-        return false;
-      }
+
+      // HTTP 2xx berarti server menerima perubahan. Format balasan boleh
+      // berbeda antar versi backend, jadi jangan menggagalkan hanya karena
+      // body tidak bisa diparse.
       await save(
         CompanyProfileData(name: cleanedName, code: cleanedCode),
       );
+      lastError = null;
       return true;
     } catch (e) {
       lastError = 'Gagal terhubung ke server: $e';
