@@ -4,6 +4,7 @@ import 'package:hris_mobile/screens/layanan_cuti_screen.dart';
 import 'package:hris_mobile/screens/main_screen.dart';
 import 'package:hris_mobile/services/app_session.dart';
 import 'package:hris_mobile/widgets/glass_bottom_nav.dart';
+import 'package:hris_mobile/widgets/profile_avatar_button.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -29,7 +30,7 @@ void main() {
     expect(labels.first, 'Absen');
     expect(labels[1], 'Cuti & Izin');
     expect(labels, contains('Pengumuman'));
-    expect(labels, contains('Profil'));
+    expect(find.byType(ProfileAvatarButton), findsOneWidget);
   });
 
   testWidgets('halaman Cuti & Izin menyusun tabel, tombol, lalu riwayat', (

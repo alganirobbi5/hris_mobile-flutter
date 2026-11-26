@@ -7,12 +7,11 @@ import '../services/absen_polling_service.dart';
 import '../services/app_session.dart';
 import '../services/notification_service.dart';
 import '../widgets/glass_bottom_nav.dart';
+import '../widgets/profile_avatar_button.dart';
 import 'absen_screen.dart';
-import 'approval_cuti_screen.dart';
-import 'laporan_screen.dart';
 import 'layanan_cuti_screen.dart';
 import 'pengumuman_screen.dart';
-import 'profil_screen.dart';
+import 'settings_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -98,12 +97,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     const AbsenScreen(),
     const LayananCutiScreen(),
     const PengumumanScreen(),
-    if (isHr) const LaporanScreen(),
-    const ProfilScreen(),
-    if (canApprove) const ApprovalCutiScreen(),
+    if (canApprove)
+      SettingsScreen(isHr: isHr, canApprove: canApprove),
   ];
 
-  List<AppNavItem> _navItems({required bool isHr, required bool canApprove}) => <AppNavItem>[
+  List<AppNavItem> _navItems({required bool canApprove}) => <AppNavItem>[
     const AppNavItem(
       icon: Icons.camera_alt_outlined,
       activeIcon: Icons.camera_alt_rounded,
@@ -119,22 +117,11 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       activeIcon: Icons.campaign_rounded,
       label: 'Pengumuman',
     ),
-    if (isHr)
-      const AppNavItem(
-        icon: Icons.description_outlined,
-        activeIcon: Icons.description_rounded,
-        label: 'Laporan',
-      ),
-    const AppNavItem(
-      icon: Icons.person_outline_rounded,
-      activeIcon: Icons.person_rounded,
-      label: 'Profil',
-    ),
     if (canApprove)
       const AppNavItem(
-        icon: Icons.fact_check_outlined,
-        activeIcon: Icons.fact_check_rounded,
-        label: 'Persetujuan',
+        icon: Icons.settings_outlined,
+        activeIcon: Icons.settings_rounded,
+        label: 'Settings',
       ),
   ];
 
@@ -151,7 +138,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
             final List<Widget> screens =
                 _screens(isHr: isHr, canApprove: canApprove);
             final List<AppNavItem> navItems =
-                _navItems(isHr: isHr, canApprove: canApprove);
+                _navItems(canApprove: canApprove);
             final int index =
                 _currentIndex < screens.length ? _currentIndex : 0;
             _pageController ??= PageController(initialPage: index);
@@ -173,6 +160,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         _KeepAlivePage(child: screen),
                     ],
                   ),
+                  const ProfileAvatarButton(),
                   Positioned(
                     left: 0,
                     right: 0,

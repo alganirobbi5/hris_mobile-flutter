@@ -7,6 +7,7 @@ import 'package:hris_mobile/services/app_session.dart';
 import 'package:hris_mobile/services/company_profile.dart';
 import 'package:hris_mobile/widgets/glass_bottom_nav.dart';
 import 'package:hris_mobile/widgets/primary_button.dart';
+import 'package:hris_mobile/widgets/profile_avatar_button.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -82,26 +83,24 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Daftar Pengumuman'), findsOneWidget);
 
+    expect(find.byType(ProfileAvatarButton), findsOneWidget);
+
     await tester.tap(
       find.descendant(
         of: navigationBar,
-        matching: find.byIcon(Icons.description_outlined),
+        matching: find.byIcon(Icons.settings_outlined),
       ),
     );
+    await tester.pumpAndSettle();
+    expect(find.text('Settings'), findsWidgets);
+    expect(tester.widget<GlassBottomNav>(navigationBar).currentIndex, 3);
+
+    await tester.tap(find.text('Laporan'));
     await tester.pumpAndSettle();
     expect(find.text('Laporan Absensi'), findsOneWidget);
-
-    await tester.tap(
-      find.descendant(
-        of: navigationBar,
-        matching: find.byIcon(Icons.person_outline_rounded),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(tester.widget<GlassBottomNav>(navigationBar).currentIndex, 4);
   });
 
-  testWidgets('Tab Persetujuan Cuti tampil untuk role HR', (
+  testWidgets('Menu Persetujuan Cuti tersedia di Settings untuk role HR', (
     WidgetTester tester,
   ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{
@@ -112,6 +111,9 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: MainScreen()));
     await tester.pumpAndSettle();
 
+    expect(find.text('Settings'), findsOneWidget);
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
     expect(find.text('Persetujuan'), findsOneWidget);
   });
 
@@ -123,8 +125,8 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: MainScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Laporan'), findsNothing);
-    expect(find.byIcon(Icons.description_outlined), findsNothing);
+    expect(find.text('Settings'), findsNothing);
+    expect(find.byIcon(Icons.settings_outlined), findsNothing);
     expect(find.text('Persetujuan'), findsNothing);
   });
 
@@ -143,13 +145,7 @@ void main() {
     expect(find.text('Cuti & Izin'), findsWidgets);
     expect(find.text('Ambil Selfie & Absen Masuk'), findsOneWidget);
 
-    final Finder navigationBar = find.byType(GlassBottomNav);
-    await tester.tap(
-      find.descendant(
-        of: navigationBar,
-        matching: find.byIcon(Icons.person_outline_rounded),
-      ),
-    );
+    await tester.tap(find.byType(ProfileAvatarButton));
     await tester.pumpAndSettle();
 
     expect(find.text('Profil'), findsWidgets);
@@ -174,10 +170,9 @@ void main() {
 
     expect(find.text('Ambil Selfie & Absen Masuk'), findsOneWidget);
     expect(find.text('Pengumuman'), findsWidgets);
-    expect(find.text('Laporan'), findsWidgets);
-    expect(find.text('Persetujuan'), findsWidgets);
+    expect(find.text('Settings'), findsWidgets);
 
-    await tester.tap(find.text('Profil').last);
+    await tester.tap(find.byType(ProfileAvatarButton));
     await tester.pumpAndSettle();
 
     expect(find.text('Memuat profil...'), findsNothing);
@@ -202,7 +197,7 @@ void main() {
 
     await tester.pumpWidget(const MaterialApp(home: MainScreen()));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Profil').last);
+    await tester.tap(find.byType(ProfileAvatarButton));
     await tester.pumpAndSettle();
 
     await tester.ensureVisible(find.text('Edit Perusahaan'));
@@ -228,7 +223,7 @@ void main() {
 
     await tester.pumpWidget(const MaterialApp(home: MainScreen()));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Profil').last);
+    await tester.tap(find.byType(ProfileAvatarButton));
     await tester.pumpAndSettle();
 
     await tester.tap(
