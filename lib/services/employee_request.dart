@@ -36,6 +36,10 @@ class EmployeeRequest {
   /// karyawan -> employees.email, HR tanpa employee -> users.email.
   static Uri profileUpdate() => ApiConfig.uri('update_email.php');
 
+  /// Endpoint lama yang juga menerima POST email bila endpoint baru belum
+  /// terpasang di server.
+  static Uri profileUpdateFallback() => ApiConfig.uri('profil.php');
+
   static Map<String, dynamic> profileUpdateBody(String email) =>
       <String, dynamic>{'email': email.trim()};
 

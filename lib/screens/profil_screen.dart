@@ -671,7 +671,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
     );
     final GlobalKey<FormState> formKey = GlobalKey<FormState>();
 
-    await showDialog<void>(
+    final String? emailBaru = await showDialog<String>(
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
@@ -704,26 +704,19 @@ class _ProfilScreenState extends State<ProfilScreen> {
               child: const Text('Batal'),
             ),
             FilledButton(
-              onPressed: _isSavingEmail
-                  ? null
-                  : () async {
-                      if (!formKey.currentState!.validate()) return;
-                      final bool saved = await _saveEmail(
-                        emailController.text,
-                      );
-                      if (!mounted) return;
-                      if (saved && dialogContext.mounted) {
-                        Navigator.of(dialogContext).pop();
-                      }
-                    },
-              child: Text(_isSavingEmail ? 'Menyimpan...' : 'Simpan'),
+              onPressed: () {
+                if (!formKey.currentState!.validate()) return;
+                Navigator.of(dialogContext).pop(emailController.text.trim());
+              },
+              child: const Text('Simpan'),
             ),
           ],
         );
       },
     );
 
-    emailController.dispose();
+    if (emailBaru == null || emailBaru.isEmpty || !mounted) return;
+    await _saveEmail(emailBaru);
     if (mounted) await _fetchProfil();
   }
 
@@ -733,13 +726,23 @@ class _ProfilScreenState extends State<ProfilScreen> {
     String message = 'Gagal menyimpan email.';
     try {
       final String? token = await AppSession.resolveToken();
-      final http.Response response = await http
+      final String bodyJson = jsonEncode(EmployeeRequest.profileUpdateBody(email));
+      http.Response response = await http
           .post(
             EmployeeRequest.profileUpdate(),
             headers: ApiConfig.authHeaders(token),
-            body: jsonEncode(EmployeeRequest.profileUpdateBody(email)),
+            body: bodyJson,
           )
           .timeout(const Duration(seconds: 20));
+      if (response.statusCode == 404 || response.statusCode == 405) {
+        response = await http
+            .post(
+              EmployeeRequest.profileUpdateFallback(),
+              headers: ApiConfig.authHeaders(token),
+              body: bodyJson,
+            )
+            .timeout(const Duration(seconds: 20));
+      }
       dynamic decoded;
       try {
         decoded = jsonDecode(response.body);

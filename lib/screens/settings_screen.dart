@@ -30,7 +30,6 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   String _companyName = CompanyConfig.namaPerusahaan;
   String _companyCode = CompanyConfig.kodePerusahaan;
-  bool _isSavingCompany = false;
 
   @override
   void initState() {
@@ -54,7 +53,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         TextEditingController(text: _companyCode);
     final GlobalKey<FormState> formKey = GlobalKey<FormState>();
 
-    await showDialog<void>(
+    final List<String>? hasil = await showDialog<List<String>>(
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
@@ -94,35 +93,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: const Text('Batal'),
             ),
             FilledButton(
-              onPressed: _isSavingCompany
-                  ? null
-                  : () async {
-                      if (!formKey.currentState!.validate()) return;
-                      final bool saved = await _saveCompany(
-                        nameController.text,
-                        codeController.text,
-                      );
-                      if (!mounted) return;
-                      if (saved && dialogContext.mounted) {
-                        Navigator.of(dialogContext).pop();
-                      }
-                    },
-              child: Text(_isSavingCompany ? 'Menyimpan...' : 'Simpan'),
+              onPressed: () {
+                if (!formKey.currentState!.validate()) return;
+                Navigator.of(dialogContext).pop(<String>[
+                  nameController.text.trim(),
+                  codeController.text.trim(),
+                ]);
+              },
+              child: const Text('Simpan'),
             ),
           ],
         );
       },
     );
 
-    nameController.dispose();
-    codeController.dispose();
+    if (hasil == null || hasil.length < 2 || !mounted) return;
+    await _saveCompany(hasil[0], hasil[1]);
   }
 
   Future<bool> _saveCompany(String name, String code) async {
-    setState(() => _isSavingCompany = true);
     final bool saved = await CompanyProfile.update(name: name, code: code);
     if (!mounted) return saved;
-    setState(() => _isSavingCompany = false);
     final String message = saved
         ? 'Profil perusahaan berhasil disimpan.'
         : (CompanyProfile.lastError ?? 'Gagal menyimpan profil perusahaan.');
