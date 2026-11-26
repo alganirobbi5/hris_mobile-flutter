@@ -270,29 +270,80 @@ class _ProfilScreenState extends State<ProfilScreen> {
   Future<void> _pickAndUploadAvatar() async {
     if (_isUploadingAvatar) return;
 
-    final ImageSource? source = await showModalBottomSheet<ImageSource>(
+    final String? pilihan = await showModalBottomSheet<String>(
       context: context,
-      builder: (BuildContext context) {
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext sheetContext) {
         return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.photo_camera_outlined),
-                title: const Text('Kamera'),
-                onTap: () => Navigator.pop(context, ImageSource.camera),
-              ),
-              ListTile(
-                leading: const Icon(Icons.photo_library_outlined),
-                title: const Text('Galeri'),
-                onTap: () => Navigator.pop(context, ImageSource.gallery),
-              ),
-            ],
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 10),
+                Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.border,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const ListTile(
+                  title: Text(
+                    'Ubah Foto Profil',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+                ListTile(
+                  leading: const Icon(
+                    Icons.face_retouching_natural_outlined,
+                    color: AppColors.primary,
+                  ),
+                  title: const Text('Pilih Avatar'),
+                  subtitle: const Text('Koleksi avatar bawaan aplikasi'),
+                  onTap: () => Navigator.pop(sheetContext, 'catalog'),
+                ),
+                ListTile(
+                  leading: const Icon(
+                    Icons.photo_camera_outlined,
+                    color: AppColors.primary,
+                  ),
+                  title: const Text('Kamera'),
+                  onTap: () => Navigator.pop(sheetContext, 'camera'),
+                ),
+                ListTile(
+                  leading: const Icon(
+                    Icons.photo_library_outlined,
+                    color: AppColors.primary,
+                  ),
+                  title: const Text('Galeri'),
+                  onTap: () => Navigator.pop(sheetContext, 'gallery'),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
           ),
         );
       },
     );
-    if (source == null) return;
+    if (pilihan == null) return;
+    if (pilihan == 'catalog') {
+      await _openAvatarPicker();
+      return;
+    }
+    final ImageSource source = pilihan == 'camera'
+        ? ImageSource.camera
+        : ImageSource.gallery;
 
     XFile? photo;
     try {
@@ -466,7 +517,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
         clipBehavior: Clip.none,
         children: [
           GestureDetector(
-            onTap: _openAvatarPicker,
+            onTap: _pickAndUploadAvatar,
             child: Container(
               width: 96,
               height: 96,
@@ -673,10 +724,11 @@ class _ProfilScreenState extends State<ProfilScreen> {
     );
 
     emailController.dispose();
+    if (mounted) await _fetchProfil();
   }
 
   Future<bool> _saveEmail(String email) async {
-    setState(() => _isSavingEmail = true);
+    if (mounted) setState(() => _isSavingEmail = true);
     bool saved = false;
     String message = 'Gagal menyimpan email.';
     try {
@@ -707,10 +759,6 @@ class _ProfilScreenState extends State<ProfilScreen> {
         message = serverMessage?.trim().isNotEmpty == true
             ? serverMessage!.trim()
             : 'Email profil berhasil disimpan.';
-        if (_profil != null) {
-          _profil!['email'] = email.trim();
-        }
-        await _fetchProfil();
       } else {
         message = (serverMessage != null && serverMessage.trim().isNotEmpty)
             ? serverMessage.trim()
