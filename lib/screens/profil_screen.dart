@@ -1172,7 +1172,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
           const SizedBox(height: 18),
           const Center(
             child: Text(
-              'HRIS Dignity V2.2',
+              'HRIS Dignity V2.7',
               style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
             ),
           ),
