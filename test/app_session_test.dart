@@ -1,6 +1,11 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hris_mobile/config/api_config.dart';
 import 'package:hris_mobile/services/app_session.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -258,5 +263,106 @@ void main() {
 
     expect(await AppSession.resolveUserId(), 21);
     expect(AppSession.getUserId(), 21);
+  });
+
+  test('startup tanpa token menuju login tanpa memanggil me.php', () async {
+    AppSession.token = 'token-statis-usang';
+    int jumlahPanggil = 0;
+    final http.Client client = MockClient((http.Request request) async {
+      jumlahPanggil++;
+      return http.Response('{}', 200);
+    });
+
+    final bool masuk = await AppSession.verifikasiSesiAwal(client: client);
+
+    expect(masuk, isFalse);
+    expect(jumlahPanggil, 0);
+    expect(AppSession.getToken(), isNull);
+  });
+
+  test('startup dengan token valid tetap auto-login', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      ApiConfig.authTokenPrefKey: 'token-aktif',
+      AppSession.userIdPrefKey: 7,
+    });
+    final List<http.Request> requests = <http.Request>[];
+    final http.Client client = MockClient((http.Request request) async {
+      requests.add(request);
+      return http.Response(
+        jsonEncode(<String, dynamic>{
+          'success': true,
+          'data': <String, dynamic>{'user_id': 7},
+        }),
+        200,
+      );
+    });
+
+    final bool masuk = await AppSession.verifikasiSesiAwal(client: client);
+
+    expect(masuk, isTrue);
+    expect(requests, hasLength(1));
+    expect(requests.single.url.path, endsWith('/me.php'));
+    expect(
+      requests.single.headers['Authorization'],
+      'Bearer token-aktif',
+    );
+    expect(AppSession.getToken(), 'token-aktif');
+  });
+
+  test('startup dengan token 401 logout dan menuju login', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      ApiConfig.authTokenPrefKey: 'token-kedaluwarsa',
+      ApiConfig.tokenPrefKey: 'token-kedaluwarsa',
+      AppSession.userIdPrefKey: 7,
+      ApiConfig.employeeIdPrefKey: 42,
+      'role': 'hr',
+    });
+    final http.Client client = MockClient((http.Request request) async {
+      return http.Response(
+        jsonEncode(<String, dynamic>{'message': 'Unauthorized'}),
+        401,
+      );
+    });
+
+    final bool masuk = await AppSession.verifikasiSesiAwal(client: client);
+
+    expect(masuk, isFalse);
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    expect(prefs.containsKey(ApiConfig.authTokenPrefKey), isFalse);
+    expect(prefs.containsKey(ApiConfig.tokenPrefKey), isFalse);
+    expect(prefs.containsKey(AppSession.userIdPrefKey), isFalse);
+    expect(AppSession.getToken(), isNull);
+    expect(AppSession.getUserId(), isNull);
+  });
+
+  test('startup dengan token 403 logout dan menuju login', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      ApiConfig.authTokenPrefKey: 'token-ditolak',
+      AppSession.userIdPrefKey: 9,
+    });
+    final http.Client client = MockClient((http.Request request) async {
+      return http.Response('{}', 403);
+    });
+
+    final bool masuk = await AppSession.verifikasiSesiAwal(client: client);
+
+    expect(masuk, isFalse);
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    expect(prefs.containsKey(ApiConfig.authTokenPrefKey), isFalse);
+    expect(AppSession.getToken(), isNull);
+  });
+
+  test('startup offline dengan token tersimpan tetap auto-login', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      ApiConfig.authTokenPrefKey: 'token-offline',
+    });
+    final http.Client client = MockClient((http.Request request) async {
+      throw const SocketException('offline');
+    });
+
+    final bool masuk = await AppSession.verifikasiSesiAwal(client: client);
+
+    expect(masuk, isTrue);
+    expect(AppSession.getToken(), 'token-offline');
   });
 }
