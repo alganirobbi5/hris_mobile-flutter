@@ -99,6 +99,16 @@ class LeaveLeaderException implements Exception {
 class LeaveLeaderService {
   const LeaveLeaderService._();
 
+  static List<LeaveLeader> tanpaDiriSendiri(
+    List<LeaveLeader> leaders,
+    int? currentUserId,
+  ) {
+    if (currentUserId == null) return List<LeaveLeader>.of(leaders);
+    return leaders
+        .where((LeaveLeader leader) => leader.userId != currentUserId)
+        .toList();
+  }
+
   static Future<LeaveLeadersResult> fetch({
     bool includeEligible = false,
     http.Client? client,
@@ -170,7 +180,7 @@ class LeaveLeaderService {
     }
   }
 
-  static Future<void> remove(int leaderId) async {
+  static Future<void> remove(int leaderId, {http.Client? client}) async {
     final String? token = await AppSession.resolveToken();
     final http.Request request = http.Request(
       'DELETE',
@@ -178,9 +188,17 @@ class LeaveLeaderService {
     );
     request.headers.addAll(ApiConfig.authHeaders(token));
     request.body = jsonEncode(<String, dynamic>{'action': 'delete', 'id': leaderId});
-    final http.StreamedResponse streamed =
-        await request.send().timeout(ApiConfig.requestTimeout);
-    final http.Response response = await http.Response.fromStream(streamed);
+    final bool ownsClient = client == null;
+    final http.Client httpClient = client ?? http.Client();
+    final http.Response response;
+    try {
+      final http.StreamedResponse streamed = await httpClient
+          .send(request)
+          .timeout(ApiConfig.requestTimeout);
+      response = await http.Response.fromStream(streamed);
+    } finally {
+      if (ownsClient) httpClient.close();
+    }
     final Map<String, dynamic> envelope = _decode(response.body);
     if (response.statusCode != 200 || envelope['success'] != true) {
       throw LeaveLeaderException(

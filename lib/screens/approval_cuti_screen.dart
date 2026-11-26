@@ -1165,12 +1165,25 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
     );
     if (yakin != true || !mounted) return;
     try {
-      await LeaveLeaderService.remove(leader.id);
+      await LeaveLeaderService.remove(leader.id, client: _client);
       if (!mounted) return;
       _showMessage('Leader berhasil dihapus');
       await _fetchLeaders();
     } on LeaveLeaderException catch (e) {
-      if (mounted) _showMessage(e.message);
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (BuildContext dialogContext) => AlertDialog(
+          title: const Text('Gagal menghapus Leader'),
+          content: Text(e.message),
+          actions: <Widget>[
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Tutup'),
+            ),
+          ],
+        ),
+      );
     }
   }
 

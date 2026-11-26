@@ -341,6 +341,35 @@ void main() {
     expect(addBodies.first['jabatan'], 'Kepala Bagian');
     client.close();
   });
+
+  testWidgets('HR melihat pesan server saat hapus leader gagal', (
+    WidgetTester tester,
+  ) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('role', 'hr');
+    await prefs.setInt(AppSession.userIdPrefKey, 2);
+    await prefs.setString('auth_token', 'hr-token');
+    AppSession.token = 'hr-token';
+
+    final http.Client client = _approvalClient(
+      isLeaveLeader: false,
+      scopes: <String>[],
+      deleteError: 'Leader masih memiliki pengajuan pending',
+    );
+    await tester.pumpWidget(
+      MaterialApp(home: ApprovalCutiScreen(httpClient: client)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Hapus leader'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Hapus'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Gagal menghapus Leader'), findsOneWidget);
+    expect(find.text('Leader masih memiliki pengajuan pending'), findsOneWidget);
+    client.close();
+  });
 }
 
 Finder _statLabel(String label) => find.descendant(
@@ -361,6 +390,7 @@ http.Client _approvalClient({
   required List<String> scopes,
   List<Map<String, String>>? izinParams,
   List<Map<String, dynamic>>? addBodies,
+  String? deleteError,
   int leaderUserId = 9,
   String leaderName = 'Leader Satu',
   String cutiStatus = 'pending',
@@ -379,6 +409,15 @@ http.Client _approvalClient({
       );
     }
     if (path.endsWith('/leave_leaders.php')) {
+      if (request.method == 'DELETE') {
+        return http.Response(
+          jsonEncode(<String, dynamic>{
+            'success': false,
+            'message': deleteError ?? 'Gagal menghapus Leader.',
+          }),
+          422,
+        );
+      }
       if (request.method == 'POST') {
         addBodies?.add(jsonDecode(request.body) as Map<String, dynamic>);
         return http.Response(

@@ -84,11 +84,15 @@ class _CutiScreenState extends State<CutiScreen>
     if (!mounted) return;
     setState(() => _isLoadingLeaders = true);
     try {
+      final int? currentUserId = await AppSession.resolveUserId();
       final LeaveLeadersResult result =
           await LeaveLeaderService.fetch(includeEligible: false);
       if (!mounted) return;
       setState(() {
-        _leaders = result.leaders;
+        _leaders = LeaveLeaderService.tanpaDiriSendiri(
+          result.leaders,
+          currentUserId,
+        );
         _isLoadingLeaders = false;
       });
     } on LeaveLeaderException catch (e) {

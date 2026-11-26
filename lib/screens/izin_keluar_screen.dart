@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../services/app_session.dart';
 import '../services/izin_keluar_service.dart';
 import '../widgets/glass_app_bar.dart';
 import '../services/leave_leader_service.dart';
@@ -53,9 +54,15 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
 
   Future<void> _fetchLeaders() async {
     try {
+      final int? currentUserId = await AppSession.resolveUserId();
       final LeaveLeadersResult result = await LeaveLeaderService.fetch();
       if (!mounted) return;
-      setState(() => _leaders = result.leaders);
+      setState(() {
+        _leaders = LeaveLeaderService.tanpaDiriSendiri(
+          result.leaders,
+          currentUserId,
+        );
+      });
     } catch (_) {
       if (!mounted) return;
     }

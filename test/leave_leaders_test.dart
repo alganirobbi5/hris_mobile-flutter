@@ -31,6 +31,27 @@ void main() {
     expect(leader.jabatan, 'Kepala Bagian');
   });
 
+  test('dropdown leader tidak memuat user yang sedang login', () {
+    final List<LeaveLeader> leaders = <LeaveLeader>[
+      LeaveLeader.fromJson(<String, dynamic>{
+        'id': 1,
+        'user_id': 9,
+        'nama_lengkap': 'Diri Sendiri',
+      }),
+      LeaveLeader.fromJson(<String, dynamic>{
+        'id': 2,
+        'user_id': 10,
+        'nama_lengkap': 'Leader Satu',
+      }),
+    ];
+
+    final List<LeaveLeader> tersedia =
+        LeaveLeaderService.tanpaDiriSendiri(leaders, 9);
+    expect(tersedia, hasLength(1));
+    expect(tersedia.single.displayName, 'Leader Satu');
+    expect(tersedia.single.userId, 10);
+  });
+
   test('jabatan leader memakai keterangan bila field jabatan belum ada', () {
     final LeaveLeader leader = LeaveLeader.fromJson(<String, dynamic>{
       'id': 3,
