@@ -46,6 +46,24 @@ class EmployeeRequest {
   static Map<String, dynamic> profileUpdateBody(String email) =>
       <String, dynamic>{'email': email.trim()};
 
+  static Uri credentialUpdate() =>
+      ApiConfig.uri('update_username_password.php');
+
+  static Uri credentialUpdateFallback() => ApiConfig.uri('profil.php');
+
+  static Map<String, dynamic> credentialUpdateBody({
+    required String username,
+    required String oldPassword,
+    required String newPassword,
+    required String confirmPassword,
+  }) =>
+      <String, dynamic>{
+        'username': username.trim(),
+        'old_password': oldPassword,
+        'new_password': newPassword,
+        'confirm_password': confirmPassword,
+      };
+
   /// Riwayat cuti memakai satu endpoint untuk semua role.
   /// Backend `riwayat_cuti.php` sudah mengembalikan semua pengajuan untuk HR
   /// (employee_id null) dan hanya cuti sendiri untuk karyawan, dengan bentuk
