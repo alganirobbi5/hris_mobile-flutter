@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../services/app_session.dart';
+import '../services/company_profile.dart';
 import '../theme/app_theme.dart';
 import '../widgets/glass_app_bar.dart';
 import 'main_screen.dart';
@@ -19,6 +21,12 @@ class _SplashAfterLoginScreenState extends State<SplashAfterLoginScreen>
   late final AnimationController _controller;
   Timer? _navigateTimer;
 
+  String get _companyName {
+    final String name = AppSession.getCompanyName()?.trim() ??
+        CompanyProfile.current.name.trim();
+    return name.isEmpty ? 'HRIS Dignity' : name;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -27,7 +35,7 @@ class _SplashAfterLoginScreenState extends State<SplashAfterLoginScreen>
       duration: const Duration(milliseconds: 1800),
     )..forward();
 
-    _navigateTimer = Timer(const Duration(milliseconds: 1650), () {
+    _navigateTimer = Timer(const Duration(milliseconds: 3000), () {
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(builder: (_) => const MainScreen()),
@@ -72,13 +80,24 @@ class _SplashAfterLoginScreenState extends State<SplashAfterLoginScreen>
                     children: <Widget>[
                       _buildOrbit(t),
                       const SizedBox(height: 34),
+                      Text(
+                        'Welcome to $_companyName',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.3,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                       const Text(
                         'HRIS DIGNITY',
                         style: TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 3.2,
-                          color: AppColors.textPrimary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 3.0,
+                          color: AppColors.textSecondary,
                         ),
                       ),
                       const SizedBox(height: 10),
