@@ -27,6 +27,8 @@ class PengumumanScreen extends StatefulWidget {
 class _PengumumanScreenState extends State<PengumumanScreen> {
   static const String _pengumumanUrl = '${ApiConfig.baseUrl}/pengumuman.php';
 
+  final http.Client _httpClient = http.Client();
+
   bool _isLoading = true;
   String? _error;
   String _roleUser = '';
@@ -36,6 +38,12 @@ class _PengumumanScreenState extends State<PengumumanScreen> {
   void initState() {
     super.initState();
     _muatAwal();
+  }
+
+  @override
+  void dispose() {
+    _httpClient.close();
+    super.dispose();
   }
 
   Future<void> _muatAwal() async {
@@ -144,49 +152,54 @@ class _PengumumanScreenState extends State<PengumumanScreen> {
   }
 
   Future<void> _fetchPengumuman() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
+    final bool punyaDataLama = _daftarPengumuman.isNotEmpty;
+    if (!punyaDataLama) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+    }
 
     try {
       final String? token = await AppSession.resolveToken();
-      final http.Response response = await http
+      final http.Response response = await _httpClient
           .get(Uri.parse(_pengumumanUrl), headers: ApiConfig.authHeaders(token))
-          .timeout(const Duration(seconds: 20));
+          .timeout(const Duration(seconds: 12));
 
       if (!mounted) return;
 
       if (response.statusCode == 200) {
         final List<_Pengumuman> dariServer = _parsePengumuman(response.body);
-        // Server adalah sumber kebenaran. Bersihkan overlay optimistik lama
-        // supaya refresh tidak menampilkan data basi.
         await PengumumanOverlay.clear();
         if (!mounted) return;
         setState(() {
           _daftarPengumuman = dariServer;
           _isLoading = false;
+          _error = null;
         });
       } else {
+        if (!mounted) return;
         setState(() {
-          _error = _apiErrorMessage(
-            response,
-            'Gagal memuat pengumuman (HTTP ${response.statusCode}).',
-          );
           _isLoading = false;
+          if (!punyaDataLama) {
+            _error = _apiErrorMessage(
+              response,
+              'Gagal memuat pengumuman (HTTP ${response.statusCode}).',
+            );
+          }
         });
       }
     } on FormatException {
       if (!mounted) return;
       setState(() {
-        _error = 'Format data pengumuman tidak valid.';
         _isLoading = false;
+        if (!punyaDataLama) _error = 'Format data pengumuman tidak valid.';
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'Gagal terhubung ke server';
         _isLoading = false;
+        if (!punyaDataLama) _error = 'Gagal terhubung ke server';
       });
     }
   }
