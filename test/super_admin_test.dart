@@ -115,19 +115,37 @@ void main() {
 
     await tester.tap(find.text('Tambah Perusahaan'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextFormField).at(0), 'BARU');
+    await tester.enterText(find.byType(TextFormField).at(0), 'BAR-2026');
     await tester.enterText(find.byType(TextFormField).at(1), 'Perusahaan Baru');
-    await tester.enterText(find.byType(TextFormField).at(2), 'Jl. Baru No. 1');
     await tester.tap(find.text('Simpan'));
     await tester.pump();
     await tester.pump();
 
     expect(terkirim, hasLength(1));
     expect(terkirim.single, <String, dynamic>{
-      'company_code': 'BARU',
+      'company_code': 'BAR-2026',
       'company_name': 'Perusahaan Baru',
-      'address': 'Jl. Baru No. 1',
     });
+  });
+
+  testWidgets('kode perusahaan invalid ditolak', (WidgetTester tester) async {
+    final http.Client client = _client(terkirim: <Map<String, dynamic>>[]);
+    await tester.pumpWidget(
+      MaterialApp(home: KelolaPerusahaanScreen(httpClient: client)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Tambah Perusahaan'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField).at(0), 'BARU');
+    await tester.enterText(find.byType(TextFormField).at(1), 'Perusahaan Baru');
+    await tester.tap(find.text('Simpan'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Kode harus 8 karakter dengan format CMJ-2026 (3 huruf, "-", 4 angka)'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('Kelola HR / Admin menampilkan daftar dan menyimpan data', (

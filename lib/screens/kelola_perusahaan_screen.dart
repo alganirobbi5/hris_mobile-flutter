@@ -74,7 +74,6 @@ class _KelolaPerusahaanScreenState extends State<KelolaPerusahaanScreen> {
       await SuperAdminService.tambahPerusahaan(
         code: hasil.code,
         name: hasil.name,
-        address: hasil.address,
         client: _httpClient,
       );
       if (!mounted) return;
@@ -150,9 +149,6 @@ class _KelolaPerusahaanScreenState extends State<KelolaPerusahaanScreen> {
                             fontWeight: FontWeight.w800,
                           ),
                         ),
-                        subtitle: item.address.isEmpty
-                            ? null
-                            : Text(item.address),
                         trailing: StatusBadge(
                           label: item.statusLabel,
                           color: item.statusAktif
@@ -172,11 +168,10 @@ class _KelolaPerusahaanScreenState extends State<KelolaPerusahaanScreen> {
 }
 
 class _PerusahaanResult {
-  const _PerusahaanResult(this.code, this.name, this.address);
+  const _PerusahaanResult(this.code, this.name);
 
   final String code;
   final String name;
-  final String address;
 }
 
 class _PerusahaanDialog extends StatefulWidget {
@@ -190,18 +185,27 @@ class _PerusahaanDialogState extends State<_PerusahaanDialog> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _codeController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
-  final TextEditingController _addressController = TextEditingController();
 
   @override
   void dispose() {
     _codeController.dispose();
     _nameController.dispose();
-    _addressController.dispose();
     super.dispose();
   }
 
   String? _wajib(String? value, String label) =>
       (value == null || value.trim().isEmpty) ? '$label wajib diisi' : null;
+
+  String? _validasiKode(String? value) {
+    final String? wajib = _wajib(value, 'Kode perusahaan');
+    if (wajib != null) return wajib;
+    final String kode = value!.trim();
+    if (kode.length != 8 ||
+        !RegExp(r'^[A-Z]{3}-\d{4}$').hasMatch(kode)) {
+      return 'Kode harus 8 karakter dengan format CMJ-2026 (3 huruf, "-", 4 angka)';
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -217,8 +221,9 @@ class _PerusahaanDialogState extends State<_PerusahaanDialog> {
                 controller: _codeController,
                 decoration: const InputDecoration(
                   labelText: 'Kode Perusahaan',
+                  hintText: 'CMJ-2026',
                 ),
-                validator: (String? value) => _wajib(value, 'Kode perusahaan'),
+                validator: _validasiKode,
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -227,12 +232,6 @@ class _PerusahaanDialogState extends State<_PerusahaanDialog> {
                   labelText: 'Nama Perusahaan',
                 ),
                 validator: (String? value) => _wajib(value, 'Nama perusahaan'),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _addressController,
-                decoration: const InputDecoration(labelText: 'Alamat'),
-                validator: (String? value) => _wajib(value, 'Alamat'),
               ),
             ],
           ),
@@ -250,7 +249,6 @@ class _PerusahaanDialogState extends State<_PerusahaanDialog> {
               _PerusahaanResult(
                 _codeController.text.trim(),
                 _nameController.text.trim(),
-                _addressController.text.trim(),
               ),
             );
           },

@@ -113,7 +113,6 @@ class SuperAdminService {
   static Future<void> tambahPerusahaan({
     required String code,
     required String name,
-    required String address,
     http.Client? client,
   }) async {
     await _post(
@@ -121,7 +120,6 @@ class SuperAdminService {
       <String, dynamic>{
         'company_code': code.trim(),
         'company_name': name.trim(),
-        'address': address.trim(),
       },
       'Gagal menambahkan perusahaan.',
       client: client,
