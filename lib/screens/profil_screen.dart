@@ -961,7 +961,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
       return RefreshIndicator(
         onRefresh: _fetchProfil,
         child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
+          physics: const NeverScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(20, 12, 20, 40),
           child: Column(
             children: <Widget>[
