@@ -43,6 +43,7 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
   final TextEditingController _catatanController = TextEditingController();
 
   bool _isHr = false;
+  bool _isLeader = false;
   bool _isLoading = true;
   bool _isSubmitting = false;
   bool _isDeciding = false;
@@ -87,9 +88,11 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
 
   Future<void> _resolveRole() async {
     final String? role = await AppSession.resolveRole();
+    await AppSession.refreshFromMe();
     if (!mounted) return;
     setState(() {
       _isHr = widget.hrMode || AppSession.isHrRole(role);
+      _isLeader = !_isHr && AppSession.getLeaveLeaderFlag();
     });
     await _fetchData();
   }
@@ -101,9 +104,10 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
       _error = null;
     });
     try {
+      final bool lihatSemua = _isHr || _isLeader;
       final List<IzinKeluarItem> items = await IzinKeluarService.fetch(
-        allScope: _isHr,
-        status: _isHr ? _filter : null,
+        allScope: lihatSemua,
+        status: lihatSemua ? _filter : null,
       );
       if (!mounted) return;
       setState(() {
@@ -170,7 +174,7 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
           controller: _catatanController,
           maxLines: 3,
           decoration: const InputDecoration(
-            labelText: 'Catatan HR (opsional)',
+            labelText: 'Catatan (opsional)',
             hintText: 'Tulis catatan untuk karyawan',
           ),
         ),
@@ -275,15 +279,18 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
   @override
   Widget build(BuildContext context) {
     final Widget content = RefreshIndicator(
-      onRefresh: _fetchData,
+      onRefresh: () async {
+        await _fetchLeaders();
+        await _fetchData();
+      },
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 110),
         children: <Widget>[
-          if (!_isHr) _buildForm(),
-          if (!_isHr) const SizedBox(height: 16),
-          if (_isHr) _buildFilter(),
-          if (_isHr) const SizedBox(height: 12),
+          if (!_isHr && !_isLeader) _buildForm(),
+          if (!_isHr && !_isLeader) const SizedBox(height: 16),
+          if (_isHr || _isLeader) _buildFilter(),
+          if (_isHr || _isLeader) const SizedBox(height: 12),
           _buildList(),
         ],
       ),
@@ -293,7 +300,9 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(_isHr ? 'Persetujuan Izin Keluar' : 'Izin Keluar'),
+        title: Text(
+          _isHr || _isLeader ? 'Persetujuan Izin Keluar' : 'Izin Keluar',
+        ),
       ),
       body: SafeArea(top: false, child: content),
     );
@@ -532,7 +541,7 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
-                    if (_isHr && item.namaKaryawan.isNotEmpty)
+                    if ((_isHr || _isLeader) && item.namaKaryawan.isNotEmpty)
                       Text(
                         item.namaKaryawan,
                         style: const TextStyle(
@@ -578,7 +587,7 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
               ),
             ),
           ],
-          if (_isHr && item.status.toLowerCase() == 'pending') ...<Widget>[
+          if ((_isHr || _isLeader) && item.status.toLowerCase() == 'pending') ...<Widget>[
             const SizedBox(height: 12),
             Row(
               children: <Widget>[

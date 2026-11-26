@@ -318,7 +318,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
     setState(() => _isLoadingIzin = true);
     try {
       final List<IzinKeluarItem> items = await IzinKeluarService.fetch(
-        allScope: _isHr,
+        allScope: _isHr || _isLeaveLeader,
       );
       if (!mounted) return;
       setState(() {

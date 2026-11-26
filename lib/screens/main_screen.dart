@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/absen_polling_service.dart';
+import '../services/app_session.dart';
 import '../services/notification_service.dart';
 import '../widgets/glass_bottom_nav.dart';
 import 'absen_screen.dart';
@@ -23,6 +24,7 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _currentIndex = 0;
   late final Future<bool> _isHrFuture;
+  late final Future<bool> _isLeaderFuture;
   PageController? _pageController;
   Timer? _pollingTimer;
   bool _isHr = false;
@@ -32,6 +34,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _isHrFuture = _loadRole();
+    _isLeaderFuture = _loadLeader();
     _startPolling();
   }
 
@@ -74,6 +77,13 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     }
   }
 
+  Future<bool> _loadLeader() async {
+    await AppSession.refreshFromMe();
+    if (!mounted) return AppSession.getLeaveLeaderFlag();
+    final bool isLeader = await AppSession.resolveIsLeaveLeader();
+    return isLeader;
+  }
+
   void _goToPage(int index) {
     if (index == _currentIndex) return;
     setState(() => _currentIndex = index);
@@ -84,16 +94,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     );
   }
 
-  List<Widget> _screens(bool isHr) => <Widget>[
+  List<Widget> _screens({required bool isHr, required bool canApprove}) => <Widget>[
     const AbsenScreen(),
     const LayananCutiScreen(),
     const PengumumanScreen(),
     if (isHr) const LaporanScreen(),
     const ProfilScreen(),
-    if (isHr) const ApprovalCutiScreen(),
+    if (canApprove) const ApprovalCutiScreen(),
   ];
 
-  List<AppNavItem> _navItems(bool isHr) => <AppNavItem>[
+  List<AppNavItem> _navItems({required bool isHr, required bool canApprove}) => <AppNavItem>[
     const AppNavItem(
       icon: Icons.camera_alt_outlined,
       activeIcon: Icons.camera_alt_rounded,
@@ -120,7 +130,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       activeIcon: Icons.person_rounded,
       label: 'Profil',
     ),
-    if (isHr)
+    if (canApprove)
       const AppNavItem(
         icon: Icons.fact_check_outlined,
         activeIcon: Icons.fact_check_rounded,
@@ -134,40 +144,49 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       future: _isHrFuture,
       builder: (BuildContext context, AsyncSnapshot<bool> snapshot) {
         final bool isHr = snapshot.data ?? false;
-        final List<Widget> screens = _screens(isHr);
-        final List<AppNavItem> navItems = _navItems(isHr);
-        final int index = _currentIndex < screens.length ? _currentIndex : 0;
-        _pageController ??= PageController(initialPage: index);
+        return FutureBuilder<bool>(
+          future: _isLeaderFuture,
+          builder: (BuildContext context, AsyncSnapshot<bool> leaderSnapshot) {
+            final bool canApprove = isHr || (leaderSnapshot.data ?? false);
+            final List<Widget> screens =
+                _screens(isHr: isHr, canApprove: canApprove);
+            final List<AppNavItem> navItems =
+                _navItems(isHr: isHr, canApprove: canApprove);
+            final int index =
+                _currentIndex < screens.length ? _currentIndex : 0;
+            _pageController ??= PageController(initialPage: index);
 
-        return Scaffold(
-          extendBody: true,
-          body: Stack(
-            children: [
-              PageView(
-                controller: _pageController,
-                physics: const NeverScrollableScrollPhysics(),
-                onPageChanged: (int pageIndex) {
-                  if (pageIndex != _currentIndex) {
-                    setState(() => _currentIndex = pageIndex);
-                  }
-                },
+            return Scaffold(
+              extendBody: true,
+              body: Stack(
                 children: [
-                  for (final Widget screen in screens)
-                    _KeepAlivePage(child: screen),
+                  PageView(
+                    controller: _pageController,
+                    physics: const NeverScrollableScrollPhysics(),
+                    onPageChanged: (int pageIndex) {
+                      if (pageIndex != _currentIndex) {
+                        setState(() => _currentIndex = pageIndex);
+                      }
+                    },
+                    children: [
+                      for (final Widget screen in screens)
+                        _KeepAlivePage(child: screen),
+                    ],
+                  ),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    child: GlassBottomNav(
+                      currentIndex: index,
+                      onTap: _goToPage,
+                      items: navItems,
+                    ),
+                  ),
                 ],
               ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: GlassBottomNav(
-                  currentIndex: index,
-                  onTap: _goToPage,
-                  items: navItems,
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
