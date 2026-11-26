@@ -16,6 +16,7 @@ import '../services/app_session.dart';
 import '../services/employee_request.dart';
 import '../services/notification_service.dart';
 import '../services/selfie_storage.dart';
+import '../services/work_duration.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/glass_app_bar.dart';
@@ -27,7 +28,9 @@ import 'absen_success_screen.dart';
 import 'login_screen.dart';
 
 class AbsenScreen extends StatefulWidget {
-  const AbsenScreen({super.key});
+  const AbsenScreen({super.key, this.httpClient});
+
+  final http.Client? httpClient;
 
   @override
   State<AbsenScreen> createState() => _AbsenScreenState();
@@ -38,12 +41,20 @@ class _AbsenScreenState extends State<AbsenScreen> {
   static const String _prefSelfieMasuk = 'absen_selfie_masuk_path';
   static const String _prefSelfiePulang = 'absen_selfie_pulang_path';
   static const String _prefSelfieEmployee = 'absen_selfie_employee_id';
+  static const String _prefWaktuMasuk = 'absen_waktu_masuk_lengkap';
+  static const String _prefWaktuPulang = 'absen_waktu_pulang_lengkap';
   static const int _selfieDimensiMaksimal = 720;
   static const int _selfieKualitasJpeg = 70;
   static const Duration _gpsUmurMaksimal = Duration(seconds: 45);
   static const double _gpsAkurasiMaksimal = 50;
 
   final ImagePicker _imagePicker = ImagePicker();
+  http.Client? _ownedClient;
+
+  http.Client get _httpClient {
+    if (widget.httpClient != null) return widget.httpClient!;
+    return _ownedClient ??= http.Client();
+  }
 
   bool _isProcessing = false;
   bool _sudahAbsenMasuk = false;
@@ -55,6 +66,9 @@ class _AbsenScreenState extends State<AbsenScreen> {
   String _jamPulangTeks = '--:--';
   String _jamMasukKerja = '--:--';
   String _jamKeluarKerja = '--:--';
+  String _waktuMasukLengkap = '';
+  String _waktuPulangLengkap = '';
+  String _waktuKerjaTeks = WorkDuration.kosong;
 
   String? _selfieMasukPath;
   String? _selfiePulangPath;
@@ -79,6 +93,12 @@ class _AbsenScreenState extends State<AbsenScreen> {
       _cekStatusAbsen(),
       _fetchJamKerja(),
     ]);
+  }
+
+  @override
+  void dispose() {
+    _ownedClient?.close();
+    super.dispose();
   }
 
   Future<void> _jadwalkanPengingatAbsen({
@@ -117,6 +137,8 @@ class _AbsenScreenState extends State<AbsenScreen> {
         identitasTersimpan != identitas) {
       await prefs.remove(_prefSelfieMasuk);
       await prefs.remove(_prefSelfiePulang);
+      await prefs.remove(_prefWaktuMasuk);
+      await prefs.remove(_prefWaktuPulang);
       await prefs.setString(_prefSelfieTanggal, hariIni);
       await prefs.setString(_prefSelfieEmployee, identitas);
     }
@@ -124,6 +146,42 @@ class _AbsenScreenState extends State<AbsenScreen> {
     setState(() {
       _selfieMasukPath = prefs.getString(_prefSelfieMasuk);
       _selfiePulangPath = prefs.getString(_prefSelfiePulang);
+      final String masukTersimpan = prefs.getString(_prefWaktuMasuk) ?? '';
+      final String pulangTersimpan = prefs.getString(_prefWaktuPulang) ?? '';
+      if (_waktuMasukLengkap.isEmpty) _waktuMasukLengkap = masukTersimpan;
+      if (_waktuPulangLengkap.isEmpty) _waktuPulangLengkap = pulangTersimpan;
+      _waktuKerjaTeks = WorkDuration.dariString(
+        _waktuMasukLengkap,
+        _waktuPulangLengkap,
+      );
+    });
+  }
+
+  Future<void> _simpanWaktuLokal(String jenis, DateTime waktu) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_prefSelfieTanggal, _kunciTanggalHariIni());
+    await prefs.setString(_prefSelfieEmployee, await _kunciIdentitas());
+    final String timestamp =
+        '${waktu.year}-${waktu.month.toString().padLeft(2, '0')}-'
+        '${waktu.day.toString().padLeft(2, '0')} '
+        '${waktu.hour.toString().padLeft(2, '0')}:'
+        '${waktu.minute.toString().padLeft(2, '0')}:'
+        '${waktu.second.toString().padLeft(2, '0')}';
+    await prefs.setString(
+      jenis == 'masuk' ? _prefWaktuMasuk : _prefWaktuPulang,
+      timestamp,
+    );
+    if (!mounted) return;
+    setState(() {
+      if (jenis == 'masuk') {
+        _waktuMasukLengkap = timestamp;
+      } else {
+        _waktuPulangLengkap = timestamp;
+      }
+      _waktuKerjaTeks = WorkDuration.dariString(
+        _waktuMasukLengkap,
+        _waktuPulangLengkap,
+      );
     });
   }
 
@@ -188,7 +246,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
   Future<void> _fetchJamKerja() async {
     try {
       final String? token = await AppSession.resolveToken();
-      final response = await http
+      final response = await _httpClient
           .get(
             Uri.parse('${ApiConfig.baseUrl}/get_jam_kerja.php'),
             headers: ApiConfig.authHeaders(token),
@@ -286,7 +344,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
     setState(() => _token = token);
 
     try {
-      final response = await http.get(
+      final response = await _httpClient.get(
         statusUri,
         headers: ApiConfig.authHeaders(token),
       );
@@ -311,6 +369,25 @@ class _AbsenScreenState extends State<AbsenScreen> {
               data['status_pulang'] ??
                   data['status_pulang_label'] ??
                   data['keterangan_pulang'],
+            );
+
+            final String masukLengkap = _teksDari(
+              data['waktu_masuk_lengkap'] ??
+                  data['waktu_masuk'] ??
+                  data['jam_masuk_lengkap'] ??
+                  data['waktu_lokal'],
+            );
+            if (masukLengkap.isNotEmpty) _waktuMasukLengkap = masukLengkap;
+            final String pulangLengkap = _teksDari(
+              data['waktu_pulang_lengkap'] ??
+                  data['waktu_pulang'] ??
+                  data['jam_pulang_lengkap'] ??
+                  data['jam_keluar_lengkap'],
+            );
+            if (pulangLengkap.isNotEmpty) _waktuPulangLengkap = pulangLengkap;
+            _waktuKerjaTeks = WorkDuration.dariString(
+              _waktuMasukLengkap,
+              _waktuPulangLengkap,
             );
 
             final dynamic idAbsen =
@@ -668,7 +745,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
 
       if (response.statusCode == 201) {
         await _simpanPathSelfieLokal('masuk', selfiePath);
-        // Refresh status setelah absen masuk
+        await _simpanWaktuLokal('masuk', now);
         await _cekStatusAbsen();
         await AppNotificationService.showAttendanceReminderNow(
           title: 'Absen Masuk Berhasil',
@@ -842,11 +919,11 @@ class _AbsenScreenState extends State<AbsenScreen> {
 
       if (response.statusCode == 200) {
         await _simpanPathSelfieLokal('pulang', selfiePath);
+        await _simpanWaktuLokal('pulang', now);
         await _cekStatusAbsen();
-        await AppNotificationService.showAttendanceReminderNow(
-          title: 'Absen Pulang Berhasil',
-          body: 'Absen pulang tercatat pukul $_jamPulangTeks. Terima kasih!',
-          id: AppNotificationService.checkOutId,
+        await AppNotificationService.showCheckOutSuccess(
+          jamPulang: _jamPulangTeks,
+          waktuKerja: _waktuKerjaTeks,
         );
         if (!mounted) return;
 
@@ -1184,6 +1261,42 @@ class _AbsenScreenState extends State<AbsenScreen> {
                     ],
                   ),
                 ),
+                if (_sudahAbsenPulang) ...<Widget>[
+                  const SizedBox(height: 14),
+                  SectionCard(
+                    padding: const EdgeInsets.all(18),
+                    child: Row(
+                      children: <Widget>[
+                        const _IconBox(icon: Icons.timer_outlined),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              const Text(
+                                'Waktu Kerja Hari Ini',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                'Waktu Kerja: $_waktuKerjaTeks',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
 
                 const SizedBox(height: 24),
 
@@ -1223,10 +1336,12 @@ class _AbsenScreenState extends State<AbsenScreen> {
                 ]
                 // Jika sudah absen pulang, tampilkan teks status
                 else ...[
-                  const Center(
+                  Center(
                     child: Text(
-                      'Anda sudah menyelesaikan absensi hari ini.',
-                      style: TextStyle(
+                      'Anda sudah menyelesaikan absensi hari ini. '
+                      'Waktu Kerja: $_waktuKerjaTeks',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.green,
                       ),

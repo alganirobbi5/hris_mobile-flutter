@@ -170,6 +170,23 @@ class AppNotificationService {
         payload: 'attendance_reminder',
       );
 
+  static String checkOutBody({
+    required String jamPulang,
+    required String waktuKerja,
+  }) =>
+      'Absen pulang tercatat pukul $jamPulang. '
+      'Waktu Kerja: $waktuKerja. Terima kasih!';
+
+  static Future<void> showCheckOutSuccess({
+    required String jamPulang,
+    required String waktuKerja,
+  }) =>
+      showAttendanceReminderNow(
+        id: checkOutId,
+        title: 'Absen Pulang Berhasil',
+        body: checkOutBody(jamPulang: jamPulang, waktuKerja: waktuKerja),
+      );
+
   static Future<void> showHrAttendance({
     required String employeeName,
     required String time,

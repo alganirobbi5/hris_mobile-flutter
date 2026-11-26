@@ -8,8 +8,11 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../config/api_config.dart';
 import '../services/app_session.dart';
+import '../services/location_name_service.dart';
+import '../services/work_duration.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_toast.dart';
+import '../widgets/osm_map_preview.dart';
 import '../widgets/section_card.dart';
 import '../widgets/selfie_fullscreen_viewer.dart';
 
@@ -29,6 +32,9 @@ class DetailAbsensiScreen extends StatefulWidget {
     this.jabatan = '',
     this.totalWork = '',
     this.recordType = '',
+    this.jamMasukLengkap = '',
+    this.jamPulangLengkap = '',
+    this.namaLokasiResolver,
   });
 
   final int absensiId;
@@ -38,12 +44,16 @@ class DetailAbsensiScreen extends StatefulWidget {
   final String jabatan;
   final String totalWork;
   final String recordType;
+  final String jamMasukLengkap;
+  final String jamPulangLengkap;
   final String nama;
   final String tanggal;
   final String jamMasuk;
   final String jamKeluar;
   final String latitude;
   final String longitude;
+  final Future<String> Function(double latitude, double longitude)?
+      namaLokasiResolver;
 
   @override
   State<DetailAbsensiScreen> createState() => _DetailAbsensiScreenState();
@@ -54,11 +64,14 @@ class _DetailAbsensiScreenState extends State<DetailAbsensiScreen> {
   Uint8List? _selfieOutBytes;
   bool _isLoadingSelfie = false;
   String? _token;
+  String? _namaLokasi;
+  bool _isLoadingLokasi = false;
 
   @override
   void initState() {
     super.initState();
     _resolveToken();
+    _resolveNamaLokasi();
     _fetchSelfieFallback();
   }
 
@@ -66,6 +79,47 @@ class _DetailAbsensiScreenState extends State<DetailAbsensiScreen> {
     final String? token = await AppSession.resolveToken();
     if (!mounted) return;
     setState(() => _token = token);
+  }
+
+  Future<void> _resolveNamaLokasi() async {
+    final double? latitude = _latitude;
+    final double? longitude = _longitude;
+    if (latitude == null || longitude == null) return;
+    if (!mounted) return;
+    setState(() {
+      _namaLokasi = null;
+      _isLoadingLokasi = true;
+    });
+    final String nama = await (widget.namaLokasiResolver ??
+        ((double lat, double lon) => LocationNameService.resolve(lat, lon)))(
+      latitude,
+      longitude,
+    );
+    if (!mounted) return;
+    setState(() {
+      _namaLokasi = nama;
+      _isLoadingLokasi = false;
+    });
+  }
+
+  String get _teksNamaLokasi {
+    if (_isLoadingLokasi || _namaLokasi == null) {
+      return 'Memuat nama lokasi...';
+    }
+    return _namaLokasi!;
+  }
+
+  String get _waktuKerja {
+    final String masuk = widget.jamMasukLengkap.trim().isNotEmpty
+        ? widget.jamMasukLengkap
+        : widget.jamMasuk;
+    final String pulang = widget.jamPulangLengkap.trim().isNotEmpty
+        ? widget.jamPulangLengkap
+        : widget.jamKeluar;
+    if (WorkDuration.parse(pulang) == null) return WorkDuration.kosong;
+    final String hasil = WorkDuration.dariString(masuk, pulang);
+    if (hasil != WorkDuration.kosong) return hasil;
+    return WorkDuration.normalize(widget.totalWork);
   }
 
   Future<void> _fetchSelfieFallback() async {
@@ -258,14 +312,12 @@ class _DetailAbsensiScreenState extends State<DetailAbsensiScreen> {
                         value: widget.jabatan,
                       ),
                     ],
-                    if (widget.totalWork.isNotEmpty) ...<Widget>[
-                      const SizedBox(height: 14),
-                      _DetailRow(
-                        icon: Icons.access_time_rounded,
-                        label: 'Durasi Kerja',
-                        value: widget.totalWork,
-                      ),
-                    ],
+                    const SizedBox(height: 14),
+                    _DetailRow(
+                      icon: Icons.access_time_rounded,
+                      label: 'Durasi Kerja',
+                      value: _waktuKerja,
+                    ),
                     const SizedBox(height: 14),
                     _DetailRow(
                       icon: Icons.location_on_outlined,
@@ -277,6 +329,14 @@ class _DetailAbsensiScreenState extends State<DetailAbsensiScreen> {
                       icon: Icons.location_on_outlined,
                       label: 'Longitude',
                       value: _teksKoordinat(widget.longitude),
+                    ),
+                    const SizedBox(height: 14),
+                    _DetailRow(
+                      icon: Icons.pin_drop_outlined,
+                      label: 'Lokasi',
+                      value: _koordinat == null
+                          ? '-'
+                          : _teksNamaLokasi,
                     ),
                   ],
                 ),
@@ -295,29 +355,69 @@ class _DetailAbsensiScreenState extends State<DetailAbsensiScreen> {
                         color: AppColors.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'Nama Tempat',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
                     Text(
-                      _koordinat ?? 'Koordinat lokasi tidak tersedia',
+                      _koordinat == null
+                          ? 'Koordinat lokasi tidak tersedia'
+                          : _teksNamaLokasi,
                       style: const TextStyle(
-                        fontSize: 12.5,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _koordinat ?? '-',
+                      style: const TextStyle(
+                        fontSize: 11.5,
                         color: AppColors.textSecondary,
                       ),
                     ),
                     const SizedBox(height: 16),
-                    Container(
-                      width: double.infinity,
-                      height: 120,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: AppColors.field,
-                        borderRadius: BorderRadius.circular(12),
+                    if (_koordinat != null)
+                      OsmMapPreview(
+                        latitude: _latitude!,
+                        longitude: _longitude!,
+                        height: 180,
+                      )
+                    else
+                      Container(
+                        width: double.infinity,
+                        height: 180,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: AppColors.field,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: const Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            Icon(
+                              Icons.location_off_outlined,
+                              size: 38,
+                              color: AppColors.textSecondary,
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              'Peta tidak tersedia',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      child: const Icon(
-                        Icons.location_on_rounded,
-                        size: 48,
-                        color: AppColors.primary,
-                      ),
-                    ),
                     const SizedBox(height: 16),
                     FilledButton.icon(
                       onPressed: _koordinat == null ? null : _bukaPetaDariDetail,

@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import '../config/api_config.dart';
 import '../services/app_session.dart';
 import '../services/cuti_approval_access.dart';
+import '../services/employee_request.dart';
 import '../services/cuti_refresh.dart';
 import '../services/izin_keluar_service.dart';
 import '../services/leave_balance.dart';
@@ -19,15 +20,15 @@ import '../widgets/section_card.dart';
 import '../widgets/status_badge.dart';
 
 class ApprovalCutiScreen extends StatefulWidget {
-  const ApprovalCutiScreen({super.key});
+  const ApprovalCutiScreen({super.key, this.httpClient});
+
+  final http.Client? httpClient;
 
   @override
   State<ApprovalCutiScreen> createState() => _ApprovalCutiScreenState();
 }
 
 class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
-  static String get _laporanUrl =>
-      ApiConfig.uri('laporan_cuti.php').toString();
   static const String _approveUrl = '${ApiConfig.baseUrl}/approve_cuti.php';
   static const String _ringkasanUrl = '${ApiConfig.baseUrl}/ringkasan_cuti.php';
 
@@ -45,6 +46,11 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
   bool _isLoadingLeaders = true;
   List<IzinKeluarItem> _izinItems = const <IzinKeluarItem>[];
   bool _isLoadingIzin = true;
+  String? _izinError;
+  final Set<int> _processingIzinIds = <int>{};
+  int _kategori = 0;
+  late final http.Client _client;
+  bool _ownsClient = false;
 
   _RingkasanCuti _ringkasan = const _RingkasanCuti();
   bool _isLoadingRingkasan = true;
@@ -55,12 +61,44 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
   @override
   void initState() {
     super.initState();
+    _client = widget.httpClient ?? http.Client();
+    _ownsClient = widget.httpClient == null;
     _refreshIdentity();
+  }
+
+  @override
+  void dispose() {
+    if (_ownsClient) _client.close();
+    super.dispose();
+  }
+
+  String? get _scope {
+    if (_isLeaveLeader) return 'leader';
+    if (_isHr) return 'all';
+    return null;
+  }
+
+  bool _isTargeted(int leaderUserId) =>
+      leaderUserId == 0 || leaderUserId == AppSession.getUserId();
+
+  List<_PengajuanCuti> _visiblePengajuan() {
+    if (!_isLeaveLeader) return _pengajuan;
+    return _pengajuan
+        .where((_PengajuanCuti item) => _isTargeted(item.leaderUserId))
+        .toList();
+  }
+
+  List<IzinKeluarItem> _visibleIzin() {
+    if (!_isLeaveLeader) return _izinItems;
+    return _izinItems
+        .where((IzinKeluarItem item) => _isTargeted(item.leaderUserId))
+        .toList();
   }
 
   Future<void> _refreshIdentity() async {
     final String? role = await AppSession.resolveRole();
-    await AppSession.refreshFromMe();
+    await AppSession.resolveUserId();
+    await AppSession.refreshFromMe(client: _client);
     if (!mounted) return;
     setState(() {
       _isHr = AppSession.isHrRole(role);
@@ -80,6 +118,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
     try {
       final LeaveLeadersResult result = await LeaveLeaderService.fetch(
         includeEligible: _isHr,
+        client: _client,
       );
       if (!mounted) return;
       setState(() {
@@ -112,15 +151,15 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
     try {
       final String? token = await AppSession.resolveToken();
       final List<Map<String, dynamic>> karyawan =
-          await LeaveBalanceService.fetchEmployees();
+          await LeaveBalanceService.fetchEmployees(client: _client);
       if (!mounted) return;
       _karyawanById = <int, Map<String, dynamic>>{
         for (final Map<String, dynamic> item in karyawan)
           if (item['id'] is int) item['id'] as int: item,
       };
 
-      final Uri laporanUri = Uri.parse(_laporanUrl);
-      final http.Response response = await http
+      final Uri laporanUri = EmployeeRequest.leaveReportUri(scope: _scope);
+      final http.Response response = await _client
           .get(laporanUri, headers: ApiConfig.authHeaders(token))
           .timeout(const Duration(seconds: 20));
 
@@ -223,7 +262,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
         },
       );
 
-      final http.Response response = await http
+      final http.Response response = await _client
           .get(ringkasanUri, headers: ApiConfig.authHeaders(token))
           .timeout(const Duration(seconds: 20));
 
@@ -282,6 +321,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
     });
     _fetchRingkasanCuti();
     _fetchPengajuan();
+    _fetchIzinKeluar();
   }
 
   _RingkasanCuti? _parseRingkasan(String body) {
@@ -317,10 +357,17 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
 
   Future<void> _fetchIzinKeluar() async {
     if (!mounted) return;
-    setState(() => _isLoadingIzin = true);
+    setState(() {
+      _isLoadingIzin = true;
+      _izinError = null;
+    });
     try {
       final List<IzinKeluarItem> items = await IzinKeluarService.fetch(
         allScope: _isHr || _isLeaveLeader,
+        scope: _scope,
+        bulan: _bulanRingkasan,
+        tahun: _tahunRingkasan,
+        client: _client,
       );
       if (!mounted) return;
       setState(() {
@@ -331,40 +378,60 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
       if (!mounted) return;
       setState(() {
         _izinItems = const <IzinKeluarItem>[];
+        _izinError = 'Gagal terhubung ke server';
         _isLoadingIzin = false;
       });
     }
   }
 
   Future<void> _decideIzin(IzinKeluarItem item, String status) async {
+    if (_processingIzinIds.contains(item.id)) return;
+    final bool setuju = status == 'approved';
     final TextEditingController catatanController = TextEditingController();
     final bool? yakin = await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) => AlertDialog(
-        title: Text(status == 'approved' ? 'Setujui izin keluar?' : 'Tolak izin keluar?'),
-        content: TextField(
-          controller: catatanController,
-          maxLines: 3,
-          decoration: const InputDecoration(labelText: 'Catatan (opsional)'),
+        title: Text(setuju ? 'Setujui izin keluar?' : 'Tolak izin keluar?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Catatan untuk ${item.namaKaryawan}${setuju ? '' : ' (alasan penolakan)'}',
+              style: const TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: catatanController,
+              maxLines: 3,
+              decoration: const InputDecoration(
+                hintText: 'Tulis catatan (opsional)',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
         ),
-        actions: <Widget>[
+        actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
             child: const Text('Batal'),
           ),
-          FilledButton(
+          TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Kirim'),
+            child: Text(setuju ? 'Setujui' : 'Tolak'),
           ),
         ],
       ),
     );
     if (yakin != true || !mounted) return;
+
+    setState(() => _processingIzinIds.add(item.id));
     try {
       await IzinKeluarService.decide(
         item.id,
         status,
         catatanHr: catatanController.text.trim(),
+        client: _client,
       );
       if (!mounted) return;
       _showMessage(
@@ -375,94 +442,597 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
       if (mounted) _showMessage(e.message);
     } finally {
       catatanController.dispose();
+      if (mounted) setState(() => _processingIzinIds.remove(item.id));
     }
   }
 
-  Widget _buildIzinKeluarCard() {
-    final List<IzinKeluarItem> menunggu = _izinItems
-        .where((IzinKeluarItem item) => item.status.toLowerCase() == 'pending')
-        .toList();
+  bool _sesuaiPeriodeIzin(IzinKeluarItem item) {
+    final DateTime? tanggal = _parseDateValue(item.tanggal);
+    if (tanggal == null) return true;
+    return tanggal.year == _tahunRingkasan && tanggal.month == _bulanRingkasan;
+  }
+
+  bool _sesuaiFilterIzin(IzinKeluarItem item) {
+    if (!_sesuaiPeriodeIzin(item)) return false;
+    if (_filterStatus == 'all') return true;
+    final int? kode = _statusCode(item.status);
+    switch (_filterStatus) {
+      case 'pending':
+        return kode == 1;
+      case 'approved':
+        return kode == 2;
+      case 'rejected':
+        return kode == 3;
+      default:
+        return true;
+    }
+  }
+
+  List<IzinKeluarItem> _izinDalamPeriode() =>
+      _visibleIzin().where(_sesuaiPeriodeIzin).toList();
+
+  int _izinStatusCount(String statusKey) {
+    final List<IzinKeluarItem> items = _izinDalamPeriode();
+    if (statusKey == 'all') return items.length;
+    final int kode = statusKey == 'pending'
+        ? 1
+        : statusKey == 'approved'
+            ? 2
+            : 3;
+    return items.where((IzinKeluarItem item) => _statusCode(item.status) == kode).length;
+  }
+
+  String _namaLeaderIzin(IzinKeluarItem item) {
+    if (item.targetLeaderName.isNotEmpty) return item.targetLeaderName;
+    if (item.leaderUserId == 0) return '';
+    for (final LeaveLeader leader in _leaders) {
+      if (leader.userId == item.leaderUserId) return leader.displayName;
+    }
+    return '';
+  }
+
+  Widget _buildRingkasanIzinCard() {
+    final String namaBulan = DateFormat('MMMM', 'id_ID')
+        .format(DateTime(_tahunRingkasan, _bulanRingkasan));
+    final bool sibuk = _isLoadingRingkasan || _isLoadingIzin;
+
     return SectionCard(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          const Text(
-            'Persetujuan Izin Keluar',
-            style: TextStyle(
-              fontSize: 14.5,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 10),
-          if (_isLoadingIzin)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 16),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else if (menunggu.isEmpty)
-            const Text(
-              'Tidak ada izin keluar menunggu persetujuan.',
-              style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
-            )
-          else
-            ...menunggu.map(
-              (IzinKeluarItem item) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.calendar_month_rounded,
+                  size: 20,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
+                  children: [
                     Text(
-                      '${item.namaKaryawan} • ${item.tanggal}',
+                      'Ringkasan Bulan $namaBulan $_tahunRingkasan',
                       style: const TextStyle(
-                        fontSize: 13,
+                        fontSize: 14.5,
                         fontWeight: FontWeight.w700,
                         color: AppColors.textPrimary,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${item.jamKeluarPendek} - ${item.jamKembaliPendek} • ${item.kategori}',
-                      style: const TextStyle(
-                        fontSize: 12,
+                    const SizedBox(height: 2),
+                    const Text(
+                      'Statistik pengajuan izin keluar karyawan',
+                      style: TextStyle(
+                        fontSize: 11.5,
                         color: AppColors.textSecondary,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      item.alasan,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    if (_isLeaveLeader) ...<Widget>[
-                      const SizedBox(height: 8),
-                      Row(
-                        children: <Widget>[
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: () => _decideIzin(item, 'rejected'),
-                              child: const Text('Tolak'),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: FilledButton(
-                              onPressed: () => _decideIzin(item, 'approved'),
-                              child: const Text('Setujui'),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
                   ],
                 ),
               ),
+              SizedBox(
+                width: 36,
+                height: 36,
+                child: _isLoadingIzin
+                    ? const Padding(
+                        padding: EdgeInsets.all(9),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.primary,
+                        ),
+                      )
+                    : IconButton(
+                        onPressed: _fetchIzinKeluar,
+                        tooltip: 'Muat ulang ringkasan',
+                        color: AppColors.primary,
+                        icon: const Icon(Icons.refresh_rounded, size: 20),
+                      ),
+              ),
+            ],
+          ),
+          if (_izinError != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              '$_izinError',
+              style: const TextStyle(
+                fontSize: 11,
+                color: AppColors.textSecondary,
+              ),
             ),
+          ],
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton(
+                onPressed: sibuk ? null : () => _geserBulanRingkasan(-1),
+                tooltip: 'Bulan sebelumnya',
+                icon: const Icon(Icons.chevron_left_rounded, size: 20),
+              ),
+              Text(
+                '$_bulanRingkasan/$_tahunRingkasan',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              IconButton(
+                onPressed: sibuk ? null : () => _geserBulanRingkasan(1),
+                tooltip: 'Bulan berikutnya',
+                icon: const Icon(Icons.chevron_right_rounded, size: 20),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              _buildRingkasanStat(
+                label: 'Total',
+                value: _izinStatusCount('all'),
+                color: AppColors.primary,
+                icon: Icons.format_list_bulleted_rounded,
+                filterKey: 'all',
+              ),
+              const SizedBox(width: 8),
+              _buildRingkasanStat(
+                label: 'Menunggu',
+                value: _izinStatusCount('pending'),
+                color: AppColors.warning,
+                icon: Icons.schedule_rounded,
+                filterKey: 'pending',
+              ),
+              const SizedBox(width: 8),
+              _buildRingkasanStat(
+                label: 'Disetujui',
+                value: _izinStatusCount('approved'),
+                color: AppColors.success,
+                icon: Icons.check_circle_outline_rounded,
+                filterKey: 'approved',
+              ),
+              const SizedBox(width: 8),
+              _buildRingkasanStat(
+                label: 'Ditolak',
+                value: _izinStatusCount('rejected'),
+                color: AppColors.danger,
+                icon: Icons.cancel_outlined,
+                filterKey: 'rejected',
+              ),
+            ],
+          ),
         ],
       ),
+    );
+  }
+
+  Widget _buildIzinKeluarCard() {
+    if (_isLoadingIzin) {
+      return const SectionCard(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 32),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    if (_izinError != null) {
+      return SectionCard(
+        child: Column(
+          children: [
+            const Icon(
+              Icons.cloud_off_rounded,
+              size: 32,
+              color: AppColors.textSecondary,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              _izinError!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: _fetchIzinKeluar,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              label: const Text('Coba lagi'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final List<IzinKeluarItem> tersaring =
+        _visibleIzin().where(_sesuaiFilterIzin).toList();
+
+    if (tersaring.isEmpty) {
+      return SectionCard(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 28),
+          child: Center(
+            child: Text(
+              _izinItems.isEmpty
+                  ? 'Belum ada pengajuan izin keluar'
+                  : 'Tidak ada pengajuan untuk filter ini',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 13,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: tersaring.length,
+      itemBuilder: (BuildContext context, int index) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: _buildIzinItem(tersaring[index]),
+        );
+      },
+    );
+  }
+
+  Future<void> _tampilkanDetailIzin(IzinKeluarItem item) async {
+    final String namaLeader = _namaLeaderIzin(item);
+    await showDialog<void>(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
+        title: Text(
+          item.kategori.isEmpty ? 'Detail Pengajuan Izin Keluar' : item.kategori,
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _detailRow('Nama Karyawan', item.namaKaryawan),
+              if (item.employeeId > 0)
+                _detailRow('ID Karyawan', '${item.employeeId}'),
+              _detailRow('Status', _statusLabel(item.status)),
+              const Divider(color: AppColors.border),
+              _detailRow('Kategori', item.kategori),
+              _detailRow('Alasan', item.alasan),
+              _detailRow('Tanggal', _formatDate(item.tanggal)),
+              _detailRow('Jam Keluar', item.jamKeluarPendek),
+              _detailRow('Jam Kembali', item.jamKembaliPendek),
+              if (namaLeader.isNotEmpty) _detailRow('Ditujukan ke', namaLeader),
+              if (item.approvedByName.isNotEmpty)
+                _detailRow('Diproses oleh', item.approvedByName),
+              if (item.catatanHr.isNotEmpty)
+                _detailRow('Catatan', item.catatanHr),
+              const SizedBox(height: 4),
+              Text(
+                'ID Pengajuan: ${item.id}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Tutup'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIzinItem(IzinKeluarItem item) {
+    final String statusLabel = _statusLabel(item.status);
+    final Color statusColor = _statusColor(item.status);
+    final bool isPending = _statusCode(item.status) == 1;
+    final bool isProcessing = _processingIzinIds.contains(item.id);
+    final bool bisaApprove = CutiApprovalAccess.canApprove(
+      isHr: _isHr,
+      isLeaveLeader: _isLeaveLeader,
+      isPending: isPending,
+      leaderUserId: item.leaderUserId,
+      currentUserId: AppSession.getUserId(),
+    );
+    final String namaLeader = _namaLeaderIzin(item);
+
+    return SectionCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: const Icon(
+                  Icons.person_outline_rounded,
+                  size: 21,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  item.namaKaryawan,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              StatusBadge(label: statusLabel, color: statusColor),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => _tampilkanDetailIzin(item),
+              icon: const Icon(Icons.visibility_outlined, size: 16),
+              label: const Text('Lihat Detail'),
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(0, 28),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(
+                Icons.notes_rounded,
+                size: 15,
+                color: AppColors.textSecondary,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  item.alasan,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    height: 1.35,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Icon(
+                Icons.date_range_rounded,
+                size: 15,
+                color: AppColors.textSecondary,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  '${_formatDate(item.tanggal)} • '
+                  '${item.jamKeluarPendek} - ${item.jamKembaliPendek}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Icon(
+                Icons.label_outline_rounded,
+                size: 15,
+                color: AppColors.textSecondary,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  item.kategori,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (item.catatanHr.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(
+                  Icons.chat_bubble_outline_rounded,
+                  size: 15,
+                  color: AppColors.textSecondary,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Catatan: ${item.catatanHr}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (namaLeader.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Ditujukan ke: $namaLeader',
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+          if (statusLabel == 'Disetujui' && item.approvedByName.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Disetujui oleh ${item.approvedByName}',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.success,
+              ),
+            ),
+          ],
+          if (statusLabel == 'Ditolak' && item.approvedByName.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Ditolak oleh ${item.approvedByName}',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.danger,
+              ),
+            ),
+          ],
+          if (bisaApprove) ...[
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: isPending && !isProcessing
+                        ? () => _decideIzin(item, 'approved')
+                        : null,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.success,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size.fromHeight(42),
+                    ),
+                    icon: isProcessing
+                        ? const SizedBox(
+                            width: 15,
+                            height: 15,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.check_rounded, size: 18),
+                    label: const Text('Setujui'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: isPending && !isProcessing
+                        ? () => _decideIzin(item, 'rejected')
+                        : null,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.danger,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size.fromHeight(42),
+                    ),
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                    label: const Text('Tolak'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  int get _cutiPendingCount => _visiblePengajuan()
+      .where((_PengajuanCuti item) => _statusCode(item.status) == 1)
+      .length;
+
+  int get _izinPendingCount => _visibleIzin()
+      .where((IzinKeluarItem item) => _statusCode(item.status) == 1)
+      .length;
+
+  Widget _buildCategorySelector() {
+    return Row(
+      children: <Widget>[
+        Expanded(child: _buildCategoryButton(0, 'Persetujuan Cuti', _cutiPendingCount)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _buildCategoryButton(
+            1,
+            'Persetujuan Izin Keluar',
+            _izinPendingCount,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCategoryButton(int value, String label, int pending) {
+    final bool aktif = _kategori == value;
+    final Widget child = Text('$label ($pending)');
+    return SizedBox(
+      width: double.infinity,
+      child: aktif
+          ? FilledButton.icon(
+              onPressed: () => setState(() => _kategori = value),
+              icon: const Icon(Icons.check_circle_outline_rounded, size: 17),
+              label: child,
+            )
+          : OutlinedButton.icon(
+              onPressed: () => setState(() => _kategori = value),
+              icon: const Icon(Icons.radio_button_unchecked_rounded, size: 17),
+              label: child,
+            ),
     );
   }
 
@@ -511,7 +1081,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
                 columns: const <DataColumn>[
                   DataColumn(label: Text('No')),
                   DataColumn(label: Text('Nama Leader')),
-                  DataColumn(label: Text('Keterangan')),
+                  DataColumn(label: Text('Jabatan')),
                 ],
                 rows: _leaders.asMap().entries.map((MapEntry<int, LeaveLeader> entry) {
                   final int index = entry.key;
@@ -526,9 +1096,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
                           children: <Widget>[
                             Expanded(
                               child: Text(
-                                leader.keterangan.isEmpty
-                                      ? '-'
-                                      : leader.keterangan,
+                                leader.jabatan.isEmpty ? '-' : leader.jabatan,
                                 style: const TextStyle(fontSize: 12),
                               ),
                             ),
@@ -557,73 +1125,23 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
   }
 
   Future<void> _tambahLeaderDialog() async {
-    int? selectedUserId;
-    final TextEditingController keteranganController =
-        TextEditingController();
-    final bool? saved = await showDialog<bool>(
+    final _TambahLeaderResult? hasil = await showDialog<_TambahLeaderResult>(
       context: context,
-      builder: (BuildContext dialogContext) => StatefulBuilder(
-        builder: (BuildContext context, setState) => AlertDialog(
-          title: const Text('Tambah Leader'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              DropdownButtonFormField<int>(
-                initialValue: selectedUserId,
-                isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Pilih User'),
-                items: _eligibleUsers
-                    .map(
-                      (EligibleLeaveUser user) => DropdownMenuItem<int>(
-                        value: user.userId,
-                        child: Text(
-                          user.namaLengkap.isEmpty
-                              ? user.username
-                              : user.namaLengkap,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (int? value) => setState(() => selectedUserId = value),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: keteranganController,
-                decoration: const InputDecoration(
-                  labelText: 'Keterangan (opsional)',
-                ),
-              ),
-            ],
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Batal'),
-            ),
-            FilledButton(
-              onPressed: selectedUserId == null
-                  ? null
-                  : () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Simpan'),
-            ),
-          ],
-        ),
-      ),
+      builder: (BuildContext dialogContext) =>
+          _TambahLeaderDialog(users: _eligibleUsers),
     );
-    if (saved != true || selectedUserId == null || !mounted) return;
+    if (hasil == null || !mounted) return;
     try {
       await LeaveLeaderService.add(
-        selectedUserId!,
-        keterangan: keteranganController.text.trim(),
+        hasil.userId,
+        jabatan: hasil.jabatan,
+        client: _client,
       );
       if (!mounted) return;
       _showMessage('Leader berhasil ditambahkan');
       await _fetchLeaders();
     } on LeaveLeaderException catch (e) {
       if (mounted) _showMessage(e.message);
-    } finally {
-      keteranganController.dispose();
     }
   }
 
@@ -933,7 +1451,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
     try {
       final String? token = await AppSession.resolveToken();
 
-      final http.Response response = await http
+      final http.Response response = await _client
           .post(
             Uri.parse(_approveUrl),
             headers: ApiConfig.authHeaders(token),
@@ -1113,7 +1631,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: GlassAppBar(title: const Text('Persetujuan Cuti')),
+      appBar: GlassAppBar(title: const Text('Persetujuan')),
       body: SafeArea(
         top: false,
         child: RefreshIndicator(
@@ -1121,66 +1639,97 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
             await Future.wait<void>(<Future<void>>[
               _fetchPengajuan(),
               _fetchRingkasanCuti(),
+              _fetchIzinKeluar(),
             ]);
           },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
             child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Persetujuan Cuti',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.4,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Tinjau dan proses pengajuan cuti dari seluruh karyawan.',
-                style: TextStyle(
-                  fontSize: 13.5,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 20),
-              _buildLeaderCard(),
-              const SizedBox(height: 16),
-              _buildIzinKeluarCard(),
-              const SizedBox(height: 16),
-              _buildRingkasanCard(),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  const Expanded(
-                    child: Text(
-                      'Daftar Pengajuan',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const Text(
+                  'Persetujuan',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.4,
+                    color: AppColors.textPrimary,
                   ),
-                  if (!_isLoading && _error == null)
-                    Text(
-                      '${_pengajuan.length} data',
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textSecondary,
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Tinjau dan proses pengajuan cuti serta izin keluar karyawan.',
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                _buildLeaderCard(),
+                const SizedBox(height: 16),
+                _buildCategorySelector(),
+                const SizedBox(height: 16),
+                if (_kategori == 0) ...<Widget>[
+                  _buildRingkasanCard(),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: <Widget>[
+                      const Expanded(
+                        child: Text(
+                          'Daftar Pengajuan Cuti',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
                       ),
-                    ),
+                      if (!_isLoading && _error == null)
+                        Text(
+                          '${_visiblePengajuan().length} data',
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  _buildList(),
+                ] else ...<Widget>[
+                  _buildRingkasanIzinCard(),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: <Widget>[
+                      const Expanded(
+                        child: Text(
+                          'Daftar Pengajuan Izin Keluar',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                      if (!_isLoadingIzin && _izinError == null)
+                        Text(
+                          '${_visibleIzin().length} data',
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  _buildIzinKeluarCard(),
                 ],
-              ),
-              const SizedBox(height: 10),
-              _buildList(),
-            ],
+              ],
+            ),
           ),
-        ),
         ),
       ),
     );
@@ -1226,7 +1775,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
     }
 
     final List<_PengajuanCuti> tersaring =
-        _pengajuan.where(_sesuaiFilter).toList();
+        _visiblePengajuan().where(_sesuaiFilter).toList();
 
     if (tersaring.isEmpty) {
       return SectionCard(
@@ -1752,5 +2301,100 @@ class _RingkasanCuti {
     if (value is num) return value.toInt();
     if (value is String) return int.tryParse(value.trim()) ?? 0;
     return 0;
+  }
+}
+
+class _TambahLeaderResult {
+  const _TambahLeaderResult(this.userId, this.jabatan);
+
+  final int userId;
+  final String jabatan;
+}
+
+class _TambahLeaderDialog extends StatefulWidget {
+  const _TambahLeaderDialog({required this.users});
+
+  final List<EligibleLeaveUser> users;
+
+  @override
+  State<_TambahLeaderDialog> createState() => _TambahLeaderDialogState();
+}
+
+class _TambahLeaderDialogState extends State<_TambahLeaderDialog> {
+  int? _selectedUserId;
+  final TextEditingController _jabatanController = TextEditingController();
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+
+  @override
+  void dispose() {
+    _jabatanController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Tambah Leader'),
+      content: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              DropdownButtonFormField<int>(
+                initialValue: _selectedUserId,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Pilih User'),
+                items: widget.users
+                    .map(
+                      (EligibleLeaveUser user) => DropdownMenuItem<int>(
+                        value: user.userId,
+                        child: Text(
+                          user.namaLengkap.isEmpty
+                              ? user.username
+                              : user.namaLengkap,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    )
+                    .toList(),
+                validator: (int? value) =>
+                    value == null ? 'User wajib dipilih' : null,
+                onChanged: (int? value) =>
+                    setState(() => _selectedUserId = value),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _jabatanController,
+                decoration: const InputDecoration(labelText: 'Jabatan'),
+                validator: (String? value) =>
+                    (value == null || value.trim().isEmpty)
+                        ? 'Jabatan wajib diisi'
+                        : null,
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Batal'),
+        ),
+        FilledButton(
+          onPressed: () {
+            if (_formKey.currentState!.validate()) {
+              Navigator.of(context).pop(
+                _TambahLeaderResult(
+                  _selectedUserId!,
+                  _jabatanController.text.trim(),
+                ),
+              );
+            }
+          },
+          child: const Text('Simpan'),
+        ),
+      ],
+    );
   }
 }

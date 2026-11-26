@@ -8,7 +8,7 @@ class CutiApprovalAccess {
     required int leaderUserId,
     int? currentUserId,
   }) {
-    if (isHr || !isLeaveLeader || !isPending) return false;
+    if (!isLeaveLeader || !isPending) return false;
     return leaderUserId == 0 || leaderUserId == currentUserId;
   }
 }

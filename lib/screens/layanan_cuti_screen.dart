@@ -1,16 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 import '../widgets/glass_app_bar.dart';
 
 import '../services/cuti_refresh.dart';
+import '../services/izin_keluar_service.dart';
 import '../services/leave_leader_service.dart';
+import '../services/riwayat_cuti_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/riwayat_cuti_izin_keluar.dart';
 import '../widgets/section_card.dart';
 import 'cuti_screen.dart';
 import 'izin_keluar_screen.dart';
 
 class LayananCutiScreen extends StatefulWidget {
-  const LayananCutiScreen({super.key});
+  const LayananCutiScreen({
+    super.key,
+    this.cutiLoader,
+    this.izinLoader,
+    this.httpClient,
+  });
+
+  final Future<List<RiwayatCutiItem>> Function()? cutiLoader;
+  final Future<List<IzinKeluarItem>> Function()? izinLoader;
+  final http.Client? httpClient;
 
   @override
   State<LayananCutiScreen> createState() => _LayananCutiScreenState();
@@ -34,8 +47,10 @@ class _LayananCutiScreenState extends State<LayananCutiScreen> {
       _error = null;
     });
     try {
-      final LeaveLeadersResult result =
-          await LeaveLeaderService.fetch(includeEligible: false);
+      final LeaveLeadersResult result = await LeaveLeaderService.fetch(
+        includeEligible: false,
+        client: widget.httpClient,
+      );
       if (!mounted) return;
       setState(() {
         _leaders = result.leaders;
@@ -113,7 +128,7 @@ class _LayananCutiScreenState extends State<LayananCutiScreen> {
                 columns: const <DataColumn>[
                   DataColumn(label: Text('No')),
                   DataColumn(label: Text('Nama Leader')),
-                  DataColumn(label: Text('Keterangan')),
+                  DataColumn(label: Text('Jabatan')),
                 ],
                 rows: _leaders.asMap().entries.map((MapEntry<int, LeaveLeader> e) {
                   final LeaveLeader leader = e.value;
@@ -123,7 +138,7 @@ class _LayananCutiScreenState extends State<LayananCutiScreen> {
                       DataCell(Text(leader.displayName)),
                       DataCell(
                         Text(
-                          leader.keterangan.isEmpty ? '-' : leader.keterangan,
+                          leader.jabatan.isEmpty ? '-' : leader.jabatan,
                           style: const TextStyle(fontSize: 12),
                         ),
                       ),
@@ -221,7 +236,19 @@ class _LayananCutiScreenState extends State<LayananCutiScreen> {
                 ],
               ),
               const SizedBox(height: 20),
-              const CutiScreen(embedded: true, onlyHistory: true),
+              const Text(
+                'Riwayat Cuti & Izin Keluar',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              RiwayatCutiIzinKeluar(
+                cutiLoader: widget.cutiLoader,
+                izinLoader: widget.izinLoader,
+              ),
             ],
           ),
         ),

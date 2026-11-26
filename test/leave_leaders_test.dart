@@ -1,7 +1,12 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hris_mobile/services/app_session.dart';
 import 'package:hris_mobile/services/cuti_approval_access.dart';
 import 'package:hris_mobile/services/employee_request.dart';
 import 'package:hris_mobile/services/leave_leader_service.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 void main() {
   test('parsing data leader dari leave_leaders.php', () {
@@ -12,6 +17,7 @@ void main() {
       'username': 'andi',
       'nama_lengkap': 'Andi Pratama',
       'keterangan': 'Kepala Bagian',
+      'jabatan': 'Kepala Bagian',
     });
 
     expect(leader.id, 3);
@@ -22,6 +28,35 @@ void main() {
       leader.keterangan,
       'Kepala Bagian',
     );
+    expect(leader.jabatan, 'Kepala Bagian');
+  });
+
+  test('jabatan leader memakai keterangan bila field jabatan belum ada', () {
+    final LeaveLeader leader = LeaveLeader.fromJson(<String, dynamic>{
+      'id': 3,
+      'user_id': 9,
+      'nama_lengkap': 'Andi Pratama',
+      'keterangan': 'Kepala Bagian',
+    });
+    expect(leader.jabatan, 'Kepala Bagian');
+  });
+
+  test('POST leave_leaders.php mengirim user_id dan jabatan', () async {
+    AppSession.token = 'test-token';
+    Map<String, dynamic>? body;
+    final http.Client client = MockClient((http.Request request) async {
+      body = jsonDecode(request.body) as Map<String, dynamic>;
+      return http.Response(
+        jsonEncode(<String, dynamic>{'success': true}),
+        200,
+      );
+    });
+
+    await LeaveLeaderService.add(9, jabatan: '  Kepala Bagian  ', client: client);
+
+    expect(body, isNotNull);
+    expect(body!['user_id'], 9);
+    expect(body!['jabatan'], 'Kepala Bagian');
   });
 
   test('nama leader memakai username bila nama lengkap kosong', () {
@@ -68,8 +103,8 @@ void main() {
         leaderUserId: 9,
         currentUserId: 9,
       ),
-      isFalse,
-      reason: 'HR tidak boleh menyetujui',
+      isTrue,
+      reason: 'HR yang juga Leader boleh menyetujui',
     );
     expect(
       CutiApprovalAccess.canApprove(
