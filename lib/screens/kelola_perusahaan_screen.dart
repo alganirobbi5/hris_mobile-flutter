@@ -6,6 +6,7 @@ import '../theme/app_theme.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/glass_app_bar.dart';
 import '../widgets/status_badge.dart';
+import '../widgets/app_refresh_indicator.dart';
 
 class KelolaPerusahaanScreen extends StatefulWidget {
   const KelolaPerusahaanScreen({super.key, this.httpClient});
@@ -97,7 +98,7 @@ class _KelolaPerusahaanScreenState extends State<KelolaPerusahaanScreen> {
       ),
       body: SafeArea(
         top: false,
-        child: RefreshIndicator(
+        child: AppRefreshIndicator(
           onRefresh: _fetch,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),

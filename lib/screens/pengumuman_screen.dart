@@ -15,6 +15,7 @@ import '../widgets/app_toast.dart';
 import '../widgets/section_card.dart';
 import 'detail_pengumuman_screen.dart';
 import 'tambah_pengumuman_screen.dart';
+import '../widgets/app_refresh_indicator.dart';
 
 class PengumumanScreen extends StatefulWidget {
   const PengumumanScreen({super.key});
@@ -261,7 +262,7 @@ class _PengumumanScreenState extends State<PengumumanScreen> {
       appBar: GlassAppBar(title: const Text('Pengumuman')),
       body: SafeArea(
         top: false,
-        child: RefreshIndicator(
+        child: AppRefreshIndicator(
           onRefresh: _fetchPengumuman,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),

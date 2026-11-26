@@ -19,6 +19,7 @@ import '../widgets/app_toast.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/section_card.dart';
 import '../widgets/status_badge.dart';
+import '../widgets/app_refresh_indicator.dart';
 
 class CutiScreen extends StatefulWidget {
   const CutiScreen({
@@ -1302,7 +1303,7 @@ class _CutiScreenState extends State<CutiScreen>
       appBar: GlassAppBar(title: const Text('Cuti')),
       body: SafeArea(
         top: false,
-        child: RefreshIndicator(
+        child: AppRefreshIndicator(
           onRefresh: _fetchRiwayatCuti,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),

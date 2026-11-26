@@ -5,6 +5,7 @@ import '../services/super_admin_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/glass_app_bar.dart';
+import '../widgets/app_refresh_indicator.dart';
 
 class KelolaHrAdminScreen extends StatefulWidget {
   const KelolaHrAdminScreen({super.key, this.httpClient});
@@ -106,7 +107,7 @@ class _KelolaHrAdminScreenState extends State<KelolaHrAdminScreen> {
       ),
       body: SafeArea(
         top: false,
-        child: RefreshIndicator(
+        child: AppRefreshIndicator(
           onRefresh: _fetch,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),

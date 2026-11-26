@@ -10,6 +10,7 @@ import '../theme/app_theme.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/section_card.dart';
 import 'semua_absensi_screen.dart';
+import '../widgets/app_refresh_indicator.dart';
 
 class LaporanScreen extends StatefulWidget {
   const LaporanScreen({super.key});
@@ -346,7 +347,7 @@ class _LaporanScreenState extends State<LaporanScreen>
       appBar: GlassAppBar(title: const Text('Laporan')),
       body: SafeArea(
         top: false,
-        child: RefreshIndicator(
+        child: AppRefreshIndicator(
           onRefresh: () async {
             await _muatRows();
             _fetchSemuaAbsensi();

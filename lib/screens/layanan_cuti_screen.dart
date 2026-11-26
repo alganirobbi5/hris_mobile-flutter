@@ -12,6 +12,7 @@ import '../widgets/riwayat_cuti_izin_keluar.dart';
 import '../widgets/section_card.dart';
 import 'cuti_screen.dart';
 import 'izin_keluar_screen.dart';
+import '../widgets/app_refresh_indicator.dart';
 
 class LayananCutiScreen extends StatefulWidget {
   const LayananCutiScreen({
@@ -194,7 +195,7 @@ class _LayananCutiScreenState extends State<LayananCutiScreen> {
     return Scaffold(
       appBar: GlassAppBar(title: const Text('Cuti & Izin Keluar')),
       body: SafeArea(
-        child: RefreshIndicator(
+        child: AppRefreshIndicator(
           onRefresh: _onRefresh,
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),

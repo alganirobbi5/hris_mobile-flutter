@@ -26,6 +26,7 @@ import '../widgets/selfie_preview_card.dart';
 import '../widgets/status_badge.dart';
 import 'absen_success_screen.dart';
 import 'login_screen.dart';
+import '../widgets/app_refresh_indicator.dart';
 
 class AbsenScreen extends StatefulWidget {
   const AbsenScreen({super.key, this.httpClient});
@@ -1055,7 +1056,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
       ),
       body: SafeArea(
         top: false,
-        child: RefreshIndicator(
+        child: AppRefreshIndicator(
           onRefresh: () async {
             await _muatPathSelfieLokal();
             await Future.wait(<Future<void>>[

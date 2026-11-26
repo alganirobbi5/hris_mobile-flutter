@@ -18,6 +18,7 @@ import '../theme/app_theme.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/section_card.dart';
 import '../widgets/status_badge.dart';
+import '../widgets/app_refresh_indicator.dart';
 
 class ApprovalCutiScreen extends StatefulWidget {
   const ApprovalCutiScreen({super.key, this.httpClient});
@@ -1647,7 +1648,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
       appBar: GlassAppBar(title: const Text('Persetujuan')),
       body: SafeArea(
         top: false,
-        child: RefreshIndicator(
+        child: AppRefreshIndicator(
           onRefresh: () async {
             await Future.wait<void>(<Future<void>>[
               _fetchPengajuan(),

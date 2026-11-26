@@ -23,6 +23,7 @@ import '../widgets/lanyard_card.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/section_card.dart';
 import 'login_screen.dart';
+import '../widgets/app_refresh_indicator.dart';
 
 class ProfilScreen extends StatefulWidget {
   const ProfilScreen({super.key});
@@ -958,7 +959,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
     }
 
     if (_isLanyard) {
-      return RefreshIndicator(
+      return AppRefreshIndicator(
         onRefresh: _fetchProfil,
         child: SingleChildScrollView(
           physics: const NeverScrollableScrollPhysics(),
@@ -990,7 +991,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
       );
     }
 
-    return RefreshIndicator(
+    return AppRefreshIndicator(
       onRefresh: _fetchProfil,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),

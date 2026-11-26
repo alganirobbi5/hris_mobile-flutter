@@ -12,7 +12,7 @@ import '../theme/app_theme.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/primary_button.dart';
-import 'main_screen.dart';
+import 'splash_after_login_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -205,7 +205,9 @@ class _LoginScreenState extends State<LoginScreen> {
         if (!mounted) return;
         AppToast.success('Login Berhasil');
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute<void>(builder: (_) => const MainScreen()),
+          MaterialPageRoute<void>(
+            builder: (_) => const SplashAfterLoginScreen(),
+          ),
         );
       } else {
         debugPrint(

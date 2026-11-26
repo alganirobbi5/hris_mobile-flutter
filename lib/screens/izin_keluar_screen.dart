@@ -9,6 +9,7 @@ import '../widgets/app_text_field.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/section_card.dart';
 import '../widgets/status_badge.dart';
+import '../widgets/app_refresh_indicator.dart';
 
 class IzinKeluarScreen extends StatefulWidget {
   const IzinKeluarScreen({super.key, this.embedded = false});
@@ -203,7 +204,7 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final Widget content = RefreshIndicator(
+    final Widget content = AppRefreshIndicator(
       onRefresh: _fetchData,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
