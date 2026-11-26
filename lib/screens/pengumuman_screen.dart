@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/api_config.dart';
 import '../models/lampiran_pengumuman.dart';
@@ -33,16 +32,20 @@ class _PengumumanScreenState extends State<PengumumanScreen> {
   @override
   void initState() {
     super.initState();
-    _loadRole();
-    _fetchPengumuman();
+    _muatAwal();
+  }
+
+  Future<void> _muatAwal() async {
+    await _loadRole();
+    await _fetchPengumuman();
   }
 
   Future<void> _loadRole() async {
     try {
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final String? role = await AppSession.resolveRole();
       if (!mounted) return;
       setState(() {
-        _roleUser = (prefs.getString('role') ?? '').trim().toLowerCase();
+        _roleUser = (role ?? '').trim().toLowerCase();
       });
     } catch (_) {
       // Abaikan kegagalan membaca preferensi; tombol HR tetap tersembunyi.
@@ -153,10 +156,12 @@ class _PengumumanScreenState extends State<PengumumanScreen> {
 
       if (response.statusCode == 200) {
         final List<_Pengumuman> dariServer = _parsePengumuman(response.body);
-        final List<_Pengumuman> finalList = await _terapkanOverlay(dariServer);
+        // Server adalah sumber kebenaran. Bersihkan overlay optimistik lama
+        // supaya refresh tidak menampilkan data basi.
+        await PengumumanOverlay.clear();
         if (!mounted) return;
         setState(() {
-          _daftarPengumuman = finalList;
+          _daftarPengumuman = dariServer;
           _isLoading = false;
         });
       } else {
@@ -181,35 +186,6 @@ class _PengumumanScreenState extends State<PengumumanScreen> {
         _isLoading = false;
       });
     }
-  }
-
-  Future<List<_Pengumuman>> _terapkanOverlay(
-    List<_Pengumuman> dariServer,
-  ) async {
-    final Map<String, Map<String, dynamic>> overlay =
-        await PengumumanOverlay.load();
-    if (overlay.isEmpty) return dariServer;
-
-    return dariServer
-        .where((_Pengumuman item) {
-          final String key = item.id?.toString() ?? '';
-          final Map<String, dynamic>? perubahan = overlay[key];
-          if (perubahan == null) return true;
-          return perubahan['dihapus'] != true;
-        })
-        .map((_Pengumuman item) {
-          final String key = item.id?.toString() ?? '';
-          final Map<String, dynamic>? perubahan = overlay[key];
-          if (perubahan == null) return item;
-          return _Pengumuman(
-            id: item.id,
-            judul: (perubahan['judul'] as String?) ?? item.judul,
-            isi: (perubahan['isi'] as String?) ?? item.isi,
-            tanggal: item.tanggal,
-            lampiran: (perubahan['lampiran'] as String?) ?? item.lampiran,
-          );
-        })
-        .toList();
   }
 
   List<_Pengumuman> _parsePengumuman(String body) {

@@ -32,6 +32,13 @@ class EmployeeRequest {
   static Uri profile(int? employeeId) =>
       _withEmployeeQuery('profil.php', employeeId);
 
+  /// Simpan email profil. Backend menentukan tabel tujuan dari sesi:
+  /// karyawan -> employees.email, HR tanpa employee -> users.email.
+  static Uri profileUpdate() => ApiConfig.uri('profil.php');
+
+  static Map<String, dynamic> profileUpdateBody(String email) =>
+      <String, dynamic>{'email': email.trim()};
+
   /// Riwayat cuti memakai satu endpoint untuk semua role.
   /// Backend `riwayat_cuti.php` sudah mengembalikan semua pengajuan untuk HR
   /// (employee_id null) dan hanya cuti sendiri untuk karyawan, dengan bentuk

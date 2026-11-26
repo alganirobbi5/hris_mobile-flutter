@@ -181,9 +181,8 @@ void main() {
     expect(find.text('hr'), findsWidgets);
     expect(find.text('PT Dignity'), findsWidgets);
     expect(find.text('DGN-2026'), findsWidgets);
-    expect(find.text('Edit Perusahaan'), findsOneWidget);
+    expect(find.text('Ubah Email'), findsOneWidget);
     expect(find.byType(DangerButton), findsOneWidget);
-    expect(find.byIcon(Icons.logout_rounded), findsWidgets);
   });
 
   testWidgets('HR dapat membuka form edit profil perusahaan', (
@@ -197,7 +196,7 @@ void main() {
 
     await tester.pumpWidget(const MaterialApp(home: MainScreen()));
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(ProfileAvatarButton));
+    await tester.tap(find.text('Settings'));
     await tester.pumpAndSettle();
 
     await tester.ensureVisible(find.text('Edit Perusahaan'));
@@ -226,12 +225,9 @@ void main() {
     await tester.tap(find.byType(ProfileAvatarButton));
     await tester.pumpAndSettle();
 
-    await tester.tap(
-      find.descendant(
-        of: find.byType(AppBar),
-        matching: find.byIcon(Icons.logout_rounded),
-      ),
-    );
+    await tester.ensureVisible(find.byType(DangerButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(DangerButton));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Ya'));
     await tester.pumpAndSettle();

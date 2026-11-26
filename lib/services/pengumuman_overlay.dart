@@ -38,6 +38,13 @@ class PengumumanOverlay {
     } catch (_) {}
   }
 
+  static Future<void> clear() async {
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      await prefs.remove(prefsKey);
+    } catch (_) {}
+  }
+
   static Future<void> upsert({
     required int id,
     String? judul,

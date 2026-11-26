@@ -20,10 +20,6 @@ import '../widgets/info_row.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/section_card.dart';
 import 'login_screen.dart';
-import 'tambah_karyawan_screen.dart';
-import 'tambah_lokasi_screen.dart';
-import 'atur_jam_screen.dart';
-import 'kelola_kuota_cuti_screen.dart';
 
 class ProfilScreen extends StatefulWidget {
   const ProfilScreen({super.key});
@@ -39,10 +35,9 @@ class _ProfilScreenState extends State<ProfilScreen> {
 
   bool _isLoading = true;
   bool _isUploadingAvatar = false;
-  bool _isSavingCompany = false;
+  bool _isSavingEmail = false;
   String? _error;
   Map<String, dynamic>? _profil;
-  String _roleUser = '';
   int? _userId;
   String? _selectedAvatarId;
   String? _avatarUrl;
@@ -83,7 +78,6 @@ class _ProfilScreenState extends State<ProfilScreen> {
       final prefs = await SharedPreferences.getInstance();
       await AppSession.restore(prefs);
       _userId = await AppSession.resolveUserId(prefs);
-      _roleUser = prefs.getString('role') ?? '';
       await ProfileAvatarStore.migrateLegacy(_userId);
       String? savedAvatar;
       String? savedAvatarImage;
@@ -535,45 +529,37 @@ class _ProfilScreenState extends State<ProfilScreen> {
     );
   }
 
-  Future<void> _showEditCompanyDialog() async {
-    final TextEditingController nameController =
-        TextEditingController(text: _companyName);
-    final TextEditingController codeController =
-        TextEditingController(text: _companyCode);
+  Future<void> _showEditEmailDialog() async {
+    final TextEditingController emailController = TextEditingController(
+      text: _email == 'Belum tersedia' ? '' : _email,
+    );
     final GlobalKey<FormState> formKey = GlobalKey<FormState>();
 
     await showDialog<void>(
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
-          title: const Text('Edit Profil Perusahaan'),
+          title: const Text('Ubah Email'),
           content: Form(
             key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nama Perusahaan',
-                  ),
-                  validator: (String? value) =>
-                      (value == null || value.trim().isEmpty)
-                          ? 'Nama perusahaan wajib diisi'
-                          : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: codeController,
-                  decoration: const InputDecoration(
-                    labelText: 'Kode Perusahaan',
-                  ),
-                  validator: (String? value) =>
-                      (value == null || value.trim().isEmpty)
-                          ? 'Kode perusahaan wajib diisi'
-                          : null,
-                ),
-              ],
+            child: TextFormField(
+              controller: emailController,
+              keyboardType: TextInputType.emailAddress,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Email',
+                hintText: 'nama@perusahaan.com',
+                prefixIcon: Icon(Icons.mail_outline_rounded),
+              ),
+              validator: (String? value) {
+                final String text = (value ?? '').trim();
+                if (text.isEmpty) return 'Email wajib diisi';
+                final RegExp pattern = RegExp(
+                  r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                );
+                if (!pattern.hasMatch(text)) return 'Format email tidak valid';
+                return null;
+              },
             ),
           ),
           actions: [
@@ -582,40 +568,57 @@ class _ProfilScreenState extends State<ProfilScreen> {
               child: const Text('Batal'),
             ),
             FilledButton(
-              onPressed: _isSavingCompany
+              onPressed: _isSavingEmail
                   ? null
                   : () async {
                       if (!formKey.currentState!.validate()) return;
-                      final bool saved = await _saveCompany(
-                        nameController.text,
-                        codeController.text,
+                      final bool saved = await _saveEmail(
+                        emailController.text,
                       );
                       if (!mounted) return;
                       if (saved && dialogContext.mounted) {
                         Navigator.of(dialogContext).pop();
                       }
                     },
-              child: Text(_isSavingCompany ? 'Menyimpan...' : 'Simpan'),
+              child: Text(_isSavingEmail ? 'Menyimpan...' : 'Simpan'),
             ),
           ],
         );
       },
     );
 
-    nameController.dispose();
-    codeController.dispose();
+    emailController.dispose();
   }
 
-  Future<bool> _saveCompany(String name, String code) async {
-    setState(() => _isSavingCompany = true);
-    final bool saved = await CompanyProfile.update(name: name, code: code);
+  Future<bool> _saveEmail(String email) async {
+    setState(() => _isSavingEmail = true);
+    bool saved = false;
+    String message = 'Gagal menyimpan email.';
+    try {
+      final String? token = await AppSession.resolveToken();
+      final http.Response response = await http
+          .post(
+            EmployeeRequest.profileUpdate(),
+            headers: ApiConfig.authHeaders(token),
+            body: jsonEncode(EmployeeRequest.profileUpdateBody(email)),
+          )
+          .timeout(const Duration(seconds: 20));
+      final dynamic decoded = response.statusCode == 200
+          ? jsonDecode(response.body)
+          : null;
+      saved = decoded is Map<String, dynamic> && decoded['success'] == true;
+      if (saved) {
+        message = 'Email profil berhasil disimpan.';
+        await _fetchProfil();
+      } else if (decoded is Map<String, dynamic>) {
+        message = (decoded['message'] ?? message).toString();
+      }
+    } catch (_) {
+      saved = false;
+    }
     if (!mounted) return saved;
-    setState(() => _isSavingCompany = false);
-    final String message = saved
-        ? 'Profil perusahaan berhasil disimpan.'
-        : (CompanyProfile.lastError ?? 'Gagal menyimpan profil perusahaan.');
-    AppToast.show(message, type: AppToast.typeFromMessage(message));
-    if (saved) await _loadCompany(refreshFromApi: true);
+    setState(() => _isSavingEmail = false);
+    _showMessage(message);
     return saved;
   }
 
@@ -658,59 +661,11 @@ class _ProfilScreenState extends State<ProfilScreen> {
     );
   }
 
-  Widget _hrActionCard({
-    required IconData icon,
-    required String label,
-    required VoidCallback? onTap,
-  }) {
-    return Card(
-      margin: EdgeInsets.zero,
-      elevation: 1,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 30, color: AppColors.primary),
-              const SizedBox(height: 10),
-              Text(
-                label,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profil'),
-        actions: [
-          IconButton(
-            onPressed: _showLogoutConfirmation,
-            tooltip: 'Keluar',
-            icon: const Icon(
-              Icons.logout_rounded,
-              color: AppColors.textSecondary,
-            ),
-          ),
-        ],
       ),
       body: SafeArea(top: false, child: _buildBody()),
     );
@@ -898,84 +853,16 @@ class _ProfilScreenState extends State<ProfilScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 24),
-
-          if (AppSession.isHrRole(_roleUser)) ...[
-            const Text(
-              'MENU HR',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.8,
-                color: AppColors.textSecondary,
-              ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: _isSavingEmail ? null : _showEditEmailDialog,
+              icon: const Icon(Icons.edit_outlined, size: 16),
+              label: const Text('Ubah Email'),
             ),
-            const SizedBox(height: 10),
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: 1.25,
-              children: [
-                _hrActionCard(
-                  icon: Icons.business_center_outlined,
-                  label: 'Edit Perusahaan',
-                  onTap: _isSavingCompany ? null : _showEditCompanyDialog,
-                ),
-                _hrActionCard(
-                  icon: Icons.person_add_alt_1_rounded,
-                  label: 'Tambah Karyawan',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) => const TambahKaryawanScreen(),
-                      ),
-                    );
-                  },
-                ),
-                _hrActionCard(
-                  icon: Icons.add_location_alt_rounded,
-                  label: 'Tambah Lokasi',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) => const TambahLokasiScreen(),
-                      ),
-                    );
-                  },
-                ),
-                _hrActionCard(
-                  icon: Icons.schedule_rounded,
-                  label: 'Atur Jam Kerja',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) => const AturJamScreen(),
-                      ),
-                    );
-                  },
-                ),
-                _hrActionCard(
-                  icon: Icons.groups_outlined,
-                  label: 'Kelola Kuota Cuti',
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute<void>(
-                        builder: (_) => const KelolaKuotaCutiScreen(),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-          ],
+          ),
+          const SizedBox(height: 14),
 
           // TOMBOL KELUAR (Dengan konfirmasi & hapus sesi)
           DangerButton(

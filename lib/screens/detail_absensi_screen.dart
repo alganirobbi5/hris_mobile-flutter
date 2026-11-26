@@ -48,7 +48,8 @@ class DetailAbsensiScreen extends StatefulWidget {
 }
 
 class _DetailAbsensiScreenState extends State<DetailAbsensiScreen> {
-  Uint8List? _selfieBytes;
+  Uint8List? _selfieInBytes;
+  Uint8List? _selfieOutBytes;
   bool _isLoadingSelfie = false;
   String? _token;
 
@@ -56,11 +57,7 @@ class _DetailAbsensiScreenState extends State<DetailAbsensiScreen> {
   void initState() {
     super.initState();
     _resolveToken();
-    if (widget.absensiId > 0 &&
-        widget.selfieInUrl.isEmpty &&
-        widget.selfiePath.isNotEmpty) {
-      _fetchSelfie();
-    }
+    _fetchSelfieFallback();
   }
 
   Future<void> _resolveToken() async {
@@ -69,29 +66,77 @@ class _DetailAbsensiScreenState extends State<DetailAbsensiScreen> {
     setState(() => _token = token);
   }
 
-  Future<void> _fetchSelfie() async {
+  Future<void> _fetchSelfieFallback() async {
+    if (widget.absensiId <= 0) return;
+    final bool butuhMasuk = widget.selfieInUrl.trim().isEmpty &&
+        (widget.selfiePath.trim().isNotEmpty ||
+            widget.selfieOutUrl.trim().isNotEmpty);
+    final bool butuhPulang = widget.selfieOutUrl.trim().isEmpty &&
+        (widget.selfiePath.trim().isNotEmpty ||
+            widget.selfieInUrl.trim().isNotEmpty);
+    if (!butuhMasuk && !butuhPulang) return;
+
     setState(() => _isLoadingSelfie = true);
+    final Map<String, String> params = <String, String>{
+      'id': widget.absensiId.toString(),
+    };
+    if (widget.recordType == 'admin') {
+      params['scope'] = 'admin';
+    }
     try {
       final String? token = await AppSession.resolveToken();
-      final http.Response response = await http
-          .get(
-            ApiConfig.uri('selfie.php').replace(
-              queryParameters: <String, String>{
-                'id': widget.absensiId.toString(),
-              },
-            ),
-            headers: ApiConfig.authHeaders(token),
-          )
-          .timeout(const Duration(seconds: 20));
-      if (!mounted) return;
-      if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
-        setState(() => _selfieBytes = response.bodyBytes);
+      if (butuhMasuk) {
+        final http.Response response = await http
+            .get(
+              ApiConfig.uri('selfie.php').replace(
+                queryParameters: <String, String>{
+                  ...params,
+                  'type': 'in',
+                },
+              ),
+              headers: ApiConfig.authHeaders(token),
+            )
+            .timeout(const Duration(seconds: 20));
+        if (!mounted) return;
+        if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+          setState(() => _selfieInBytes = response.bodyBytes);
+        }
+      }
+      if (butuhPulang) {
+        final http.Response response = await http
+            .get(
+              ApiConfig.uri('selfie.php').replace(
+                queryParameters: <String, String>{
+                  ...params,
+                  'type': 'out',
+                },
+              ),
+              headers: ApiConfig.authHeaders(token),
+            )
+            .timeout(const Duration(seconds: 20));
+        if (!mounted) return;
+        if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+          setState(() => _selfieOutBytes = response.bodyBytes);
+        }
       }
     } catch (_) {
       // Biarkan placeholder tetap tampil.
     } finally {
       if (mounted) setState(() => _isLoadingSelfie = false);
     }
+  }
+
+  static String _resolveSelfieUrl(String value) {
+    final String trimmed = value.trim();
+    if (trimmed.isEmpty) return '';
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+    final String base = ApiConfig.baseUrl.endsWith('/')
+        ? ApiConfig.baseUrl.substring(0, ApiConfig.baseUrl.length - 1)
+        : ApiConfig.baseUrl;
+    final String path = trimmed.startsWith('/') ? trimmed.substring(1) : trimmed;
+    return '$base/$path';
   }
 
   static String _teksKoordinat(String value) {
@@ -302,10 +347,11 @@ class _DetailAbsensiScreenState extends State<DetailAbsensiScreen> {
                           child: _buildSelfieWindow(
                             judul: 'Absen Masuk',
                             jam: widget.jamMasuk,
-                            url: widget.selfieInUrl,
-                            fallbackBytes: _selfieBytes,
+                            url: _resolveSelfieUrl(widget.selfieInUrl),
+                            fallbackBytes: _selfieInBytes,
                             placeholder: 'Belum ada foto masuk',
-                            loading: _isLoadingSelfie && widget.selfieInUrl.isEmpty,
+                            loading: _isLoadingSelfie &&
+                                widget.selfieInUrl.trim().isEmpty,
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -313,8 +359,11 @@ class _DetailAbsensiScreenState extends State<DetailAbsensiScreen> {
                           child: _buildSelfieWindow(
                             judul: 'Absen Pulang',
                             jam: widget.jamKeluar,
-                            url: widget.selfieOutUrl,
+                            url: _resolveSelfieUrl(widget.selfieOutUrl),
+                            fallbackBytes: _selfieOutBytes,
                             placeholder: 'Belum ada foto pulang',
+                            loading: _isLoadingSelfie &&
+                                widget.selfieOutUrl.trim().isEmpty,
                           ),
                         ),
                       ],
