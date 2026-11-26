@@ -464,6 +464,7 @@ class AppSession {
   static bool get isLoggedIn => token != null && token!.trim().isNotEmpty;
   static bool get isSuperAdmin =>
       (role ?? '').trim().toLowerCase() == 'super_admin';
+  static bool get isHr => isHrRole(role);
 
   static int? getUserId() => userId;
   static int? getEmployeeId() => employeeId;

@@ -4,10 +4,12 @@ import 'package:http/http.dart' as http;
 import '../widgets/glass_app_bar.dart';
 
 import '../services/cuti_refresh.dart';
+import '../services/holidays_service.dart';
 import '../services/izin_keluar_service.dart';
 import '../services/leave_leader_service.dart';
 import '../services/riwayat_cuti_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/holiday_badge.dart';
 import '../widgets/riwayat_cuti_izin_keluar.dart';
 import '../widgets/section_card.dart';
 import 'cuti_screen.dart';
@@ -19,11 +21,13 @@ class LayananCutiScreen extends StatefulWidget {
     super.key,
     this.cutiLoader,
     this.izinLoader,
+    this.holidayLoader,
     this.httpClient,
   });
 
   final Future<List<RiwayatCutiItem>> Function()? cutiLoader;
   final Future<List<IzinKeluarItem>> Function()? izinLoader;
+  final Future<List<HolidayItem>> Function()? holidayLoader;
   final http.Client? httpClient;
 
   @override
@@ -32,13 +36,17 @@ class LayananCutiScreen extends StatefulWidget {
 
 class _LayananCutiScreenState extends State<LayananCutiScreen> {
   List<LeaveLeader> _leaders = const <LeaveLeader>[];
+  List<HolidayItem> _holidays = const <HolidayItem>[];
   bool _isLoading = true;
+  bool _isHolidayLoading = true;
   String? _error;
+  String? _holidayError;
 
   @override
   void initState() {
     super.initState();
     _fetchLeaders();
+    _fetchHolidays();
   }
 
   Future<void> _fetchLeaders() async {
@@ -72,8 +80,45 @@ class _LayananCutiScreenState extends State<LayananCutiScreen> {
     }
   }
 
+  Future<void> _fetchHolidays() async {
+    if (!mounted) return;
+    setState(() {
+      _isHolidayLoading = true;
+      _holidayError = null;
+    });
+    try {
+      final List<HolidayItem> items = widget.holidayLoader != null
+          ? await widget.holidayLoader!()
+          : await HolidayService.fetch(client: widget.httpClient);
+      if (!mounted) return;
+      setState(() {
+        _holidays = items;
+        _isHolidayLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _holidayError = 'Gagal memuat hari libur';
+        _isHolidayLoading = false;
+      });
+    }
+  }
+
+  List<HolidayItem> get _upcomingHolidays {
+    final DateTime now = DateTime.now();
+    final DateTime today = DateTime(now.year, now.month, now.day);
+    final List<HolidayItem> upcoming = _holidays
+        .where((HolidayItem item) {
+          final DateTime? date = item.dateTime;
+          return date != null && !date.isBefore(today);
+        })
+        .toList()
+      ..sort(HolidayItem.compareByDate);
+    return upcoming.take(5).toList();
+  }
+
   Future<void> _onRefresh() async {
-    await _fetchLeaders();
+    await Future.wait<void>(<Future<void>>[_fetchLeaders(), _fetchHolidays()]);
     CutiRefresh.notify();
     await Future<void>.delayed(const Duration(milliseconds: 200));
   }
@@ -153,6 +198,95 @@ class _LayananCutiScreenState extends State<LayananCutiScreen> {
     );
   }
 
+  Widget _buildHolidayCard() {
+    final List<HolidayItem> upcoming = _upcomingHolidays;
+    return SectionCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Text(
+            'Hari Libur Terdekat',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 10),
+          if (_isHolidayLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 18),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_holidayError != null)
+            Column(
+              children: <Widget>[
+                Text(
+                  _holidayError!,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: _fetchHolidays,
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: const Text('Coba lagi'),
+                ),
+              ],
+            )
+          else if (upcoming.isEmpty)
+            const Text(
+              'Tidak ada hari libur terdekat.',
+              style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+            )
+          else
+            ...upcoming.map(
+              (HolidayItem item) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  children: <Widget>[
+                    Icon(
+                      Icons.event_available_outlined,
+                      size: 18,
+                      color: AppColors.primary,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            item.title,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            item.tanggalRingkas,
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    HolidayBadge(isNational: item.isNational),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildActionCard({
     required IconData icon,
     required String label,
@@ -202,6 +336,8 @@ class _LayananCutiScreenState extends State<LayananCutiScreen> {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
             children: <Widget>[
               _buildLeaderCard(),
+              const SizedBox(height: 16),
+              _buildHolidayCard(),
               const SizedBox(height: 16),
               Row(
                 children: <Widget>[
