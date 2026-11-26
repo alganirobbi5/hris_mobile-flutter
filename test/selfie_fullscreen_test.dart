@@ -112,7 +112,7 @@ void main() {
     await tester.runAsync<void>(() => dir.delete(recursive: true));
   });
 
-  testWidgets('menu duplikat Persetujuan Cuti tidak ada di halaman absen HR', (
+  testWidgets('menu HR tidak ada di halaman absen HR', (
     WidgetTester tester,
   ) async {
     SharedPreferences.setMockInitialValues(<String, Object>{
@@ -126,6 +126,7 @@ void main() {
 
     expect(find.text('Persetujuan Cuti'), findsNothing);
     expect(find.text('Cuti & Izin Keluar'), findsNothing);
-    expect(find.text('Kelola Kuota Cuti'), findsOneWidget);
+    expect(find.text('Kelola Kuota Cuti'), findsNothing);
+    expect(find.text('MENU HR'), findsNothing);
   });
 }

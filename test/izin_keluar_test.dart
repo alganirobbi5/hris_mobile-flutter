@@ -87,7 +87,7 @@ void main() {
     expect(find.text('Kelola Kuota Cuti'), findsNothing);
   });
 
-  testWidgets('HR melihat menu HR tanpa tombol Cuti & Izin Keluar', (
+  testWidgets('HR tidak melihat menu HR di halaman absen', (
     WidgetTester tester,
   ) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -97,10 +97,10 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: AbsenScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.text('MENU HR'), findsOneWidget);
+    expect(find.text('MENU HR'), findsNothing);
     expect(find.text('Persetujuan Cuti'), findsNothing);
     expect(find.text('Cuti & Izin Keluar'), findsNothing);
-    expect(find.text('Kelola Kuota Cuti'), findsOneWidget);
+    expect(find.text('Kelola Kuota Cuti'), findsNothing);
     expect(find.text('Pengajuan Cuti'), findsNothing);
   });
 }
