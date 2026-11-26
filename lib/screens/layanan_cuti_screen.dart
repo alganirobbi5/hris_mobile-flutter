@@ -111,7 +111,7 @@ class _LayananCutiScreenState extends State<LayananCutiScreen> {
                 columns: const <DataColumn>[
                   DataColumn(label: Text('No')),
                   DataColumn(label: Text('Nama Leader')),
-                  DataColumn(label: Text('Username / Jabatan')),
+                  DataColumn(label: Text('Keterangan')),
                 ],
                 rows: _leaders.asMap().entries.map((MapEntry<int, LeaveLeader> e) {
                   final LeaveLeader leader = e.value;
@@ -121,9 +121,7 @@ class _LayananCutiScreenState extends State<LayananCutiScreen> {
                       DataCell(Text(leader.displayName)),
                       DataCell(
                         Text(
-                          leader.keterangan.isEmpty
-                              ? leader.username
-                              : '${leader.username} • ${leader.keterangan}',
+                          leader.keterangan.isEmpty ? '-' : leader.keterangan,
                           style: const TextStyle(fontSize: 12),
                         ),
                       ),

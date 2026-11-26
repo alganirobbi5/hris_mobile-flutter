@@ -1100,9 +1100,7 @@ class _CutiScreenState extends State<CutiScreen>
                               (LeaveLeader leader) => DropdownMenuItem<int>(
                                 value: leader.userId,
                                 child: Text(
-                                  leader.keterangan.isEmpty
-                                      ? leader.displayName
-                                      : '${leader.displayName} • ${leader.keterangan}',
+                                  leader.displayName,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),

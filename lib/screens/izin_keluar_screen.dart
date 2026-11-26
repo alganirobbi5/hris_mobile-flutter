@@ -325,9 +325,7 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
                   (LeaveLeader leader) => DropdownMenuItem<int>(
                     value: leader.userId,
                     child: Text(
-                      leader.keterangan.isEmpty
-                          ? leader.displayName
-                          : '${leader.displayName} • ${leader.keterangan}',
+                      leader.displayName,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
