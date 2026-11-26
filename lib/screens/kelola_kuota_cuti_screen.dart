@@ -426,6 +426,8 @@ class _KaryawanKuota {
         .trim();
     final dynamic sisa = json['sisa_kuota'] ??
         json['remaining_leav'] ??
+        json['remaining_leave'] ??
+        json['remaining_days'] ??
         json['sisa_cuti'] ??
         json['sisa_kuota_cuti'] ??
         0;
