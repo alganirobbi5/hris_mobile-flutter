@@ -337,10 +337,13 @@ class _CutiScreenState extends State<CutiScreen>
                 body: jsonEncode(<String, dynamic>{
                   'action': 'create',
                   'employee_id': employeeId,
+                  'title': title,
                   'reason': reason.isEmpty ? title : '$title - $reason',
                   'start_date': _formatApiDate(startDate),
                   'end_date': _formatApiDate(endDate),
                   'replacement_employee_id': _replacementId,
+                  'leader_user_id': _selectedLeaderId,
+                  'days': int.tryParse(_daysController.text.trim()),
                 }),
               )
               .timeout(const Duration(seconds: 30));
@@ -360,6 +363,7 @@ class _CutiScreenState extends State<CutiScreen>
           _fetchRiwayatCuti(),
           _fetchEmployees(),
         ]);
+        CutiRefresh.notify();
       } else {
         _showMessage(_apiErrorMessage(response));
       }
@@ -381,6 +385,7 @@ class _CutiScreenState extends State<CutiScreen>
       _startDate = null;
       _endDate = null;
       _replacementId = null;
+      _selectedLeaderId = null;
       _formResetToken++;
     });
   }
@@ -1087,6 +1092,7 @@ class _CutiScreenState extends State<CutiScreen>
                       ),
                       const SizedBox(height: 18),
                       DropdownButtonFormField<int>(
+                        key: ValueKey<int>(_formResetToken),
                         initialValue: _selectedLeaderId,
                         isExpanded: true,
                         decoration: const InputDecoration(

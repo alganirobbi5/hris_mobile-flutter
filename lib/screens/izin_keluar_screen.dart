@@ -74,8 +74,10 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
       final LeaveLeadersResult result = await LeaveLeaderService.fetch();
       if (!mounted) return;
       setState(() => _leaders = result.leaders);
+    } on LeaveLeaderException catch (e) {
+      if (mounted) _showMessage(e.message);
     } catch (_) {
-      // Leader tetap bisa dipilih ulang lewat pull-to-refresh.
+      if (mounted) _showMessage('Gagal memuat daftar leader.');
     }
   }
 
