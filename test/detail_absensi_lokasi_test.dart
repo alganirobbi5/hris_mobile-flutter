@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hris_mobile/screens/detail_absensi_screen.dart';
 import 'package:hris_mobile/services/location_name_service.dart';
+import 'package:hris_mobile/services/work_duration.dart';
 import 'package:hris_mobile/widgets/osm_map_preview.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -59,6 +60,29 @@ void main() {
       OsmMapPreview.tileY(-6.2088, 16),
       greaterThan(OsmMapPreview.tileY(0, 16)),
     );
+  });
+
+  test('format durasi kerja dua digit sampai satuan detik', () {
+    expect(
+      WorkDuration.format(
+        const Duration(hours: 8, minutes: 15, seconds: 32),
+      ),
+      '08:15:32',
+    );
+    expect(WorkDuration.format(null), '00:00:00');
+    expect(WorkDuration.format(const Duration(seconds: -5)), '00:00:00');
+    expect(
+      WorkDuration.dariString(
+        '2026-11-25 08:00:00',
+        '2026-11-25 16:15:32',
+      ),
+      '08:15:32',
+    );
+    expect(WorkDuration.dariString('08:00:00', '17:00:00'), '09:00:00');
+    expect(WorkDuration.dariString('08:00:00', ''), '00:00:00');
+    expect(WorkDuration.dariString('23:30:00', '00:15:00'), '00:45:00');
+    expect(WorkDuration.normalize('0'), '00:00:00');
+    expect(WorkDuration.normalize('8'), '08:00:00');
   });
 
   test('reverse geocoding memakai Nominatim dan cache memori', () async {
@@ -141,5 +165,54 @@ void main() {
     );
     expect(judulLokasi.style?.fontWeight, FontWeight.w800);
     expect(judulLokasi.style?.fontSize, 16);
+  });
+
+  testWidgets('Detail Absensi memakai timestamp lengkap untuk durasi kerja', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DetailAbsensiScreen(
+          nama: 'Andi Pratama',
+          tanggal: '25 November 2026',
+          jamMasuk: '08:00',
+          jamKeluar: '16:15',
+          jamMasukLengkap: '2026-11-25 08:00:00',
+          jamPulangLengkap: '2026-11-25 16:15:32',
+          totalWork: '0',
+          latitude: '-6.2088',
+          longitude: '106.8456',
+          namaLokasiResolver: (double lat, double lon) async => 'Kantor Pusat',
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Durasi Kerja'), findsOneWidget);
+    expect(find.text('08:15:32'), findsOneWidget);
+    expect(find.text('0'), findsNothing);
+  });
+
+  testWidgets('Detail Absensi memakai 00:00:00 bila belum ada waktu pulang', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DetailAbsensiScreen(
+          nama: 'Andi Pratama',
+          tanggal: '25 November 2026',
+          jamMasuk: '08:00',
+          jamKeluar: '-',
+          jamMasukLengkap: '2026-11-25 08:00:00',
+          latitude: '-6.2088',
+          longitude: '106.8456',
+          namaLokasiResolver: (double lat, double lon) async => 'Kantor Pusat',
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Durasi Kerja'), findsOneWidget);
+    expect(find.text('00:00:00'), findsOneWidget);
   });
 }

@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../config/api_config.dart';
 import '../services/app_session.dart';
 import '../services/location_name_service.dart';
+import '../services/work_duration.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/osm_map_preview.dart';
@@ -29,6 +30,8 @@ class DetailAbsensiScreen extends StatefulWidget {
     this.jabatan = '',
     this.totalWork = '',
     this.recordType = '',
+    this.jamMasukLengkap = '',
+    this.jamPulangLengkap = '',
     this.namaLokasiResolver,
   });
 
@@ -39,6 +42,8 @@ class DetailAbsensiScreen extends StatefulWidget {
   final String jabatan;
   final String totalWork;
   final String recordType;
+  final String jamMasukLengkap;
+  final String jamPulangLengkap;
   final String nama;
   final String tanggal;
   final String jamMasuk;
@@ -103,6 +108,19 @@ class _DetailAbsensiScreenState extends State<DetailAbsensiScreen> {
       return 'Memuat nama lokasi...';
     }
     return _namaLokasi!;
+  }
+
+  String get _waktuKerja {
+    final String masuk = widget.jamMasukLengkap.trim().isNotEmpty
+        ? widget.jamMasukLengkap
+        : widget.jamMasuk;
+    final String pulang = widget.jamPulangLengkap.trim().isNotEmpty
+        ? widget.jamPulangLengkap
+        : widget.jamKeluar;
+    if (WorkDuration.parse(pulang) == null) return WorkDuration.kosong;
+    final String hasil = WorkDuration.dariString(masuk, pulang);
+    if (hasil != WorkDuration.kosong) return hasil;
+    return WorkDuration.normalize(widget.totalWork);
   }
 
   Future<void> _fetchSelfie() async {
@@ -247,14 +265,12 @@ class _DetailAbsensiScreenState extends State<DetailAbsensiScreen> {
                         value: widget.jabatan,
                       ),
                     ],
-                    if (widget.totalWork.isNotEmpty) ...<Widget>[
-                      const SizedBox(height: 14),
-                      _DetailRow(
-                        icon: Icons.access_time_rounded,
-                        label: 'Durasi Kerja',
-                        value: widget.totalWork,
-                      ),
-                    ],
+                    const SizedBox(height: 14),
+                    _DetailRow(
+                      icon: Icons.access_time_rounded,
+                      label: 'Durasi Kerja',
+                      value: _waktuKerja,
+                    ),
                     const SizedBox(height: 14),
                     _DetailRow(
                       icon: Icons.location_on_outlined,

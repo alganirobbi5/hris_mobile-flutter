@@ -464,6 +464,8 @@ class SemuaAbsensiViewState extends State<SemuaAbsensiView> {
               jabatan: item.jabatan,
               totalWork: item.totalWork,
               recordType: item.recordType,
+              jamMasukLengkap: item.jamMasukLengkap,
+              jamPulangLengkap: item.jamPulangLengkap,
             ),
           ),
         );
@@ -661,6 +663,8 @@ class _AbsensiItem {
     this.jabatan = '',
     this.totalWork = '',
     this.recordType = '',
+    this.jamMasukLengkap = '',
+    this.jamPulangLengkap = '',
   });
 
   final int id;
@@ -677,6 +681,8 @@ class _AbsensiItem {
   final String jabatan;
   final String totalWork;
   final String recordType;
+  final String jamMasukLengkap;
+  final String jamPulangLengkap;
 
   factory _AbsensiItem.fromJson(Map<String, dynamic> json) {
     final String firstName = _textOf(json['first_name'], '');
@@ -739,6 +745,25 @@ class _AbsensiItem {
         '',
       ),
       recordType: _textOf(json['record_type'], 'employee'),
+      jamMasukLengkap: _textOf(
+        json['waktu_masuk'] ??
+            json['waktu_masuk_lengkap'] ??
+            json['jam_masuk_lengkap'] ??
+            json['waktu_lokal'] ??
+            json['jam_masuk'] ??
+            json['created_at'],
+        '',
+      ),
+      jamPulangLengkap: _textOf(
+        json['waktu_pulang'] ??
+            json['waktu_pulang_lengkap'] ??
+            json['jam_pulang_lengkap'] ??
+            json['jam_keluar_lengkap'] ??
+            json['jam_pulang'] ??
+            json['jam_keluar'] ??
+            json['check_out'],
+        '',
+      ),
     );
   }
 
