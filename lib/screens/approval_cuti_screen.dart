@@ -1078,7 +1078,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
                 columns: const <DataColumn>[
                   DataColumn(label: Text('No')),
                   DataColumn(label: Text('Nama Leader')),
-                  DataColumn(label: Text('Keterangan')),
+                  DataColumn(label: Text('Jabatan')),
                 ],
                 rows: _leaders.asMap().entries.map((MapEntry<int, LeaveLeader> entry) {
                   final int index = entry.key;
@@ -1093,9 +1093,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
                           children: <Widget>[
                             Expanded(
                               child: Text(
-                                leader.keterangan.isEmpty
-                                      ? '-'
-                                      : leader.keterangan,
+                                leader.jabatan.isEmpty ? '-' : leader.jabatan,
                                 style: const TextStyle(fontSize: 12),
                               ),
                             ),
@@ -1124,73 +1122,23 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
   }
 
   Future<void> _tambahLeaderDialog() async {
-    int? selectedUserId;
-    final TextEditingController keteranganController =
-        TextEditingController();
-    final bool? saved = await showDialog<bool>(
+    final _TambahLeaderResult? hasil = await showDialog<_TambahLeaderResult>(
       context: context,
-      builder: (BuildContext dialogContext) => StatefulBuilder(
-        builder: (BuildContext context, setState) => AlertDialog(
-          title: const Text('Tambah Leader'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              DropdownButtonFormField<int>(
-                initialValue: selectedUserId,
-                isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Pilih User'),
-                items: _eligibleUsers
-                    .map(
-                      (EligibleLeaveUser user) => DropdownMenuItem<int>(
-                        value: user.userId,
-                        child: Text(
-                          user.namaLengkap.isEmpty
-                              ? user.username
-                              : user.namaLengkap,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (int? value) => setState(() => selectedUserId = value),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: keteranganController,
-                decoration: const InputDecoration(
-                  labelText: 'Keterangan (opsional)',
-                ),
-              ),
-            ],
-          ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Batal'),
-            ),
-            FilledButton(
-              onPressed: selectedUserId == null
-                  ? null
-                  : () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Simpan'),
-            ),
-          ],
-        ),
-      ),
+      builder: (BuildContext dialogContext) =>
+          _TambahLeaderDialog(users: _eligibleUsers),
     );
-    if (saved != true || selectedUserId == null || !mounted) return;
+    if (hasil == null || !mounted) return;
     try {
       await LeaveLeaderService.add(
-        selectedUserId!,
-        keterangan: keteranganController.text.trim(),
+        hasil.userId,
+        jabatan: hasil.jabatan,
+        client: _client,
       );
       if (!mounted) return;
       _showMessage('Leader berhasil ditambahkan');
       await _fetchLeaders();
     } on LeaveLeaderException catch (e) {
       if (mounted) _showMessage(e.message);
-    } finally {
-      keteranganController.dispose();
     }
   }
 
@@ -2350,5 +2298,100 @@ class _RingkasanCuti {
     if (value is num) return value.toInt();
     if (value is String) return int.tryParse(value.trim()) ?? 0;
     return 0;
+  }
+}
+
+class _TambahLeaderResult {
+  const _TambahLeaderResult(this.userId, this.jabatan);
+
+  final int userId;
+  final String jabatan;
+}
+
+class _TambahLeaderDialog extends StatefulWidget {
+  const _TambahLeaderDialog({required this.users});
+
+  final List<EligibleLeaveUser> users;
+
+  @override
+  State<_TambahLeaderDialog> createState() => _TambahLeaderDialogState();
+}
+
+class _TambahLeaderDialogState extends State<_TambahLeaderDialog> {
+  int? _selectedUserId;
+  final TextEditingController _jabatanController = TextEditingController();
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+
+  @override
+  void dispose() {
+    _jabatanController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Tambah Leader'),
+      content: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              DropdownButtonFormField<int>(
+                initialValue: _selectedUserId,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Pilih User'),
+                items: widget.users
+                    .map(
+                      (EligibleLeaveUser user) => DropdownMenuItem<int>(
+                        value: user.userId,
+                        child: Text(
+                          user.namaLengkap.isEmpty
+                              ? user.username
+                              : user.namaLengkap,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    )
+                    .toList(),
+                validator: (int? value) =>
+                    value == null ? 'User wajib dipilih' : null,
+                onChanged: (int? value) =>
+                    setState(() => _selectedUserId = value),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _jabatanController,
+                decoration: const InputDecoration(labelText: 'Jabatan'),
+                validator: (String? value) =>
+                    (value == null || value.trim().isEmpty)
+                        ? 'Jabatan wajib diisi'
+                        : null,
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: <Widget>[
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Batal'),
+        ),
+        FilledButton(
+          onPressed: () {
+            if (_formKey.currentState!.validate()) {
+              Navigator.of(context).pop(
+                _TambahLeaderResult(
+                  _selectedUserId!,
+                  _jabatanController.text.trim(),
+                ),
+              );
+            }
+          },
+          child: const Text('Simpan'),
+        ),
+      ],
+    );
   }
 }

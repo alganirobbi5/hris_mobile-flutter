@@ -165,6 +165,8 @@ void main() {
 
     expect(find.text('Tambah Leader'), findsOneWidget);
     expect(find.byTooltip('Hapus leader'), findsOneWidget);
+    expect(find.text('Jabatan'), findsOneWidget);
+    expect(find.text('Kepala Bagian'), findsOneWidget);
     expect(find.text('Setujui'), findsNothing);
     expect(find.text('Tolak'), findsNothing);
     expect(scopes, contains('all'));
@@ -285,6 +287,57 @@ void main() {
     expect(find.text('Tolak'), findsOneWidget);
     client.close();
   });
+
+  testWidgets('HR wajib mengisi Jabatan saat menambah Leader', (
+    WidgetTester tester,
+  ) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('role', 'hr');
+    await prefs.setInt(AppSession.userIdPrefKey, 2);
+    await prefs.setString('auth_token', 'hr-token');
+    AppSession.token = 'hr-token';
+
+    final List<Map<String, dynamic>> addBodies = <Map<String, dynamic>>[];
+    final http.Client client = _approvalClient(
+      isLeaveLeader: false,
+      scopes: <String>[],
+      addBodies: addBodies,
+    );
+    await tester.pumpWidget(
+      MaterialApp(home: ApprovalCutiScreen(httpClient: client)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Tambah Leader'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pilih User'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.text('Jabatan'),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Simpan'));
+    await tester.pumpAndSettle();
+    expect(find.text('Jabatan wajib diisi'), findsOneWidget);
+    expect(addBodies, isEmpty);
+
+    await tester.tap(find.byType(DropdownButtonFormField<int>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Calon Leader').last);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField), 'Kepala Bagian');
+    await tester.tap(find.text('Simpan'));
+    await tester.pumpAndSettle();
+
+    expect(addBodies, hasLength(1));
+    expect(addBodies.first['user_id'], 11);
+    expect(addBodies.first['jabatan'], 'Kepala Bagian');
+    client.close();
+  });
 }
 
 Finder _statLabel(String label) => find.descendant(
@@ -304,6 +357,7 @@ http.Client _approvalClient({
   required bool isLeaveLeader,
   required List<String> scopes,
   List<Map<String, String>>? izinParams,
+  List<Map<String, dynamic>>? addBodies,
   int leaderUserId = 9,
   String leaderName = 'Leader Satu',
   String cutiStatus = 'pending',
@@ -322,6 +376,13 @@ http.Client _approvalClient({
       );
     }
     if (path.endsWith('/leave_leaders.php')) {
+      if (request.method == 'POST') {
+        addBodies?.add(jsonDecode(request.body) as Map<String, dynamic>);
+        return http.Response(
+          jsonEncode(<String, dynamic>{'success': true}),
+          200,
+        );
+      }
       return http.Response(
         jsonEncode(<String, dynamic>{
           'success': true,
@@ -331,9 +392,16 @@ http.Client _approvalClient({
               'user_id': leaderUserId,
               'username': 'leader',
               'nama_lengkap': leaderName,
+              'jabatan': 'Kepala Bagian',
             },
           ],
-          'eligible_users': <dynamic>[],
+          'eligible_users': <Map<String, dynamic>>[
+            <String, dynamic>{
+              'user_id': 11,
+              'username': 'calon',
+              'nama_lengkap': 'Calon Leader',
+            },
+          ],
         }),
         200,
       );
