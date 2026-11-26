@@ -34,7 +34,6 @@ class ProfilScreen extends StatefulWidget {
 
 class _ProfilScreenState extends State<ProfilScreen> {
   static const String _uploadsBaseUrl = 'http://31.97.199.58/hris/uploads';
-  static const String _avatarPrefsKey = 'user_avatar';
 
   final ImagePicker _imagePicker = ImagePicker();
 
@@ -85,6 +84,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
       await AppSession.restore(prefs);
       _userId = await AppSession.resolveUserId(prefs);
       _roleUser = prefs.getString('role') ?? '';
+      await ProfileAvatarStore.migrateLegacy(_userId);
       String? savedAvatar;
       String? savedAvatarImage;
       try {
@@ -93,11 +93,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
       } catch (_) {
         // Avatar lokal opsional; kegagalan tidak boleh menghalangi profil/logout.
       }
-      final String? legacyAvatar = prefs.getString(_avatarPrefsKey);
-      final String? savedAvatarFile = savedAvatarImage ?? legacyAvatar;
-      if (savedAvatarImage != null) {
-        await prefs.setString(_avatarPrefsKey, savedAvatarImage);
-      }
+      final String? savedAvatarFile = savedAvatarImage;
 
       if (!mounted) return;
 
@@ -149,7 +145,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
           final String stored = isDataUrl
               ? serverAvatarText
               : _avatarFileName(serverAvatarText);
-          await prefs.setString(_avatarPrefsKey, stored);
+          await ProfileAvatarStore.saveImage(_userId, stored);
           effectiveAvatar = stored;
         }
 
@@ -321,7 +317,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
   }
 
   Future<void> _uploadAvatar(XFile photo) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    _userId ??= await AppSession.resolveUserId();
     setState(() => _isUploadingAvatar = true);
 
     try {
@@ -332,9 +328,9 @@ class _ProfilScreenState extends State<ProfilScreen> {
           : photoMime;
       final String dataUrl = 'data:$mime;base64,${base64Encode(bytes)}';
 
-      await prefs.setString(_avatarPrefsKey, dataUrl);
       await ProfileAvatarStore.saveImage(_userId, dataUrl);
       await ProfileAvatarStore.save(_userId, null);
+      ProfileAvatarStore.notify();
 
       if (!mounted) return;
       setState(() {
@@ -351,7 +347,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
   }
 
   Future<void> _uploadCatalogAvatar(String avatarId, String assetPath) async {
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    _userId ??= await AppSession.resolveUserId();
     setState(() => _isUploadingAvatar = true);
 
     try {
@@ -362,9 +358,9 @@ class _ProfilScreenState extends State<ProfilScreen> {
       );
       final String dataUrl = 'data:image/png;base64,${base64Encode(bytes)}';
 
-      await prefs.setString(_avatarPrefsKey, dataUrl);
       await ProfileAvatarStore.saveImage(_userId, dataUrl);
       await ProfileAvatarStore.save(_userId, avatarId);
+      ProfileAvatarStore.notify();
 
       if (!mounted) return;
       setState(() {
@@ -410,9 +406,10 @@ class _ProfilScreenState extends State<ProfilScreen> {
     final String? avatarId = result.isEmpty ? null : result;
 
     if (avatarId == null) {
+      _userId ??= await AppSession.resolveUserId();
+      await ProfileAvatarStore.saveImage(_userId, null);
       await ProfileAvatarStore.save(_userId, null);
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_avatarPrefsKey);
+      ProfileAvatarStore.notify();
       if (!mounted) return;
       setState(() {
         _selectedAvatarId = null;

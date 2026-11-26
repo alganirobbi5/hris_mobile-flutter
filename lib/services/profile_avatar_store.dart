@@ -1,7 +1,12 @@
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ProfileAvatarStore {
   ProfileAvatarStore._();
+
+  static final ValueNotifier<int> revision = ValueNotifier<int>(0);
+
+  static void notify() => revision.value++;
 
   static String _key(int? userId) => 'profile_avatar_${userId ?? 'guest'}';
 
@@ -53,6 +58,25 @@ class ProfileAvatarStore {
       } else {
         await prefs.setString(key, avatarId);
       }
+    } catch (_) {
+      return;
+    }
+  }
+
+  /// Migrasi sekali dari kunci lama `user_avatar` yang tidak dibedakan per
+  /// akun. Setelah dipindah ke penyimpanan per-user, kunci lama dihapus agar
+  /// akun lain tidak mewarisi avatar akun sebelumnya.
+  static Future<void> migrateLegacy(int? userId) async {
+    if (userId == null) return;
+    try {
+      final SharedPreferences prefs = await SharedPreferences.getInstance();
+      final String? legacy = prefs.getString('user_avatar');
+      if (legacy == null || legacy.isEmpty) return;
+      final String imageKey = _imageKey(userId);
+      if (prefs.getString(imageKey) == null) {
+        await prefs.setString(imageKey, legacy);
+      }
+      await prefs.remove('user_avatar');
     } catch (_) {
       return;
     }
