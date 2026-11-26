@@ -68,8 +68,8 @@ void main() {
         leaderUserId: 9,
         currentUserId: 9,
       ),
-      isFalse,
-      reason: 'HR tidak boleh menyetujui',
+      isTrue,
+      reason: 'HR yang juga Leader boleh menyetujui',
     );
     expect(
       CutiApprovalAccess.canApprove(

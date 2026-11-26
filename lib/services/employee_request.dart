@@ -189,6 +189,8 @@ class EmployeeRequest {
     bool allScope = false,
     String? status,
     String? scope,
+    int? bulan,
+    int? tahun,
   }) {
     final Map<String, String> params = <String, String>{};
     final String? selected = scope?.trim();
@@ -197,6 +199,8 @@ class EmployeeRequest {
     } else if (allScope) {
       params['scope'] = 'all';
     }
+    if (bulan != null) params['bulan'] = '$bulan';
+    if (tahun != null) params['tahun'] = '$tahun';
     final String? filter = status?.trim();
     if (filter != null && filter.isNotEmpty && filter != 'all') {
       params['status'] = filter;

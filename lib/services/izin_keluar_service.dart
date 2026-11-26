@@ -30,6 +30,7 @@ class IzinKeluarItem {
     required this.namaKaryawan,
     this.leaderUserId = 0,
     this.approvedByName = '',
+    this.targetLeaderName = '',
   });
 
   final int id;
@@ -45,6 +46,7 @@ class IzinKeluarItem {
   final String namaKaryawan;
   final int leaderUserId;
   final String approvedByName;
+  final String targetLeaderName;
 
   String get jamKeluarPendek => _jamPendek(jamKeluar);
   String get jamKembaliPendek => _jamPendek(jamKembali);
@@ -79,6 +81,11 @@ class IzinKeluarItem {
       approvedByName: _text(
         json['approved_by_name'] ?? json['approved_by_nama'],
       ),
+      targetLeaderName: _text(
+        json['target_leader_name'] ??
+            json['nama_leader'] ??
+            json['leader_name'],
+      ),
     );
   }
 
@@ -108,6 +115,8 @@ class IzinKeluarService {
     bool allScope = false,
     String? status,
     String? scope,
+    int? bulan,
+    int? tahun,
     http.Client? client,
   }) async {
     final String? token = await AppSession.resolveToken();
@@ -121,6 +130,8 @@ class IzinKeluarService {
               allScope: allScope,
               status: status,
               scope: scope,
+              bulan: bulan,
+              tahun: tahun,
             ),
             headers: ApiConfig.authHeaders(token),
           )
