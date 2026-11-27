@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -62,17 +63,25 @@ class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
       );
       if (!mounted || result == null || result.files.isEmpty) return;
       final PlatformFile file = result.files.single;
-      final List<int>? bytes = file.bytes;
+      List<int>? bytes = file.bytes;
+      if (bytes == null && file.path != null && file.path!.isNotEmpty) {
+        try {
+          bytes = await File(file.path!).readAsBytes();
+        } catch (_) {
+          bytes = null;
+        }
+      }
       if (bytes == null) {
         AppToast.error('Gagal membaca file yang dipilih.');
         return;
       }
+      final List<int> isiFile = bytes;
 
       final String ext = (file.extension ?? '').toLowerCase();
       final String mime = _mimeFromExtension(ext);
       setState(() {
         _lampiran = LampiranPengumuman(
-          dataUrl: 'data:$mime;base64,${base64Encode(bytes)}',
+          dataUrl: 'data:$mime;base64,${base64Encode(isiFile)}',
           namaFile: file.name,
           mime: mime,
         );
