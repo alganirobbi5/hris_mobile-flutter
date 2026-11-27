@@ -113,13 +113,13 @@ class SuperAdminService {
         .toList();
   }
 
-  static Future<void> tambahPerusahaan({
+  static Future<int> tambahPerusahaan({
     required String code,
     required String name,
     String logo = '',
     http.Client? client,
   }) async {
-    await _post(
+    final Map<String, dynamic> envelope = await _post(
       'companies.php',
       <String, dynamic>{
         'company_code': code.trim(),
@@ -129,6 +129,21 @@ class SuperAdminService {
       'Gagal menambahkan perusahaan.',
       client: client,
     );
+    final dynamic data = envelope['data'];
+    final int id = intValue(
+      envelope['company_id'] ??
+          envelope['id'] ??
+          (data is Map<String, dynamic>
+              ? (data['company_id'] ?? data['id'])
+              : null),
+    );
+    if (id > 0) return id;
+
+    final List<PerusahaanItem> daftar = await fetchPerusahaan(client: client);
+    for (final PerusahaanItem item in daftar) {
+      if (item.code == code.trim()) return item.id;
+    }
+    return 0;
   }
 
   static Future<void> tambahHrAdmin({
@@ -254,7 +269,7 @@ class SuperAdminService {
     return _decodeList(response.body, keys);
   }
 
-  static Future<void> _post(
+  static Future<Map<String, dynamic>> _post(
     String endpoint,
     Map<String, dynamic> body,
     String fallbackMessage, {
@@ -284,6 +299,7 @@ class SuperAdminService {
             : textValue(envelope['message']),
       );
     }
+    return envelope;
   }
 
   static Future<void> _put(

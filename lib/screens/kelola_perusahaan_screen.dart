@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
+import '../services/location_service.dart';
 import '../services/super_admin_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_form_field.dart';
@@ -73,16 +74,27 @@ class _KelolaPerusahaanScreenState extends State<KelolaPerusahaanScreen> {
   Future<void> _tambah() async {
     final _PerusahaanResult? hasil = await showDialog<_PerusahaanResult>(
       context: context,
-      builder: (BuildContext dialogContext) => const _PerusahaanDialog(),
+      builder: (BuildContext dialogContext) =>
+          _PerusahaanDialog(httpClient: _httpClient),
     );
     if (hasil == null || !mounted) return;
     try {
-      await SuperAdminService.tambahPerusahaan(
+      final int companyId = await SuperAdminService.tambahPerusahaan(
         code: hasil.code,
         name: hasil.name,
         logo: hasil.logo,
         client: _httpClient,
       );
+      for (final _LokasiFormValue lokasi in hasil.locations) {
+        await LocationService.createLocation(
+          name: lokasi.nama,
+          latitude: lokasi.latitude,
+          longitude: lokasi.longitude,
+          radiusMeter: lokasi.radiusMeter,
+          companyId: companyId > 0 ? companyId : null,
+          client: _httpClient,
+        );
+      }
       if (!mounted) return;
       AppToast.success('Perusahaan berhasil ditambahkan');
       await _fetch();
@@ -97,7 +109,7 @@ class _KelolaPerusahaanScreenState extends State<KelolaPerusahaanScreen> {
     final _PerusahaanResult? hasil = await showDialog<_PerusahaanResult>(
       context: context,
       builder: (BuildContext dialogContext) =>
-          _PerusahaanDialog(item: item),
+          _PerusahaanDialog(item: item, httpClient: _httpClient),
     );
     if (hasil == null || !mounted) return;
     try {
@@ -269,18 +281,39 @@ class _KelolaPerusahaanScreenState extends State<KelolaPerusahaanScreen> {
   }
 }
 
+class _LokasiFormValue {
+  const _LokasiFormValue({
+    required this.nama,
+    required this.latitude,
+    required this.longitude,
+    required this.radiusMeter,
+  });
+
+  final String nama;
+  final String latitude;
+  final String longitude;
+  final int radiusMeter;
+}
+
 class _PerusahaanResult {
-  const _PerusahaanResult(this.code, this.name, this.logo);
+  const _PerusahaanResult(
+    this.code,
+    this.name,
+    this.logo, {
+    this.locations = const <_LokasiFormValue>[],
+  });
 
   final String code;
   final String name;
   final String logo;
+  final List<_LokasiFormValue> locations;
 }
 
 class _PerusahaanDialog extends StatefulWidget {
-  const _PerusahaanDialog({this.item});
+  const _PerusahaanDialog({this.item, this.httpClient});
 
   final PerusahaanItem? item;
+  final http.Client? httpClient;
 
   @override
   State<_PerusahaanDialog> createState() => _PerusahaanDialogState();
@@ -293,11 +326,280 @@ class _PerusahaanDialogState extends State<_PerusahaanDialog> {
   late final TextEditingController _nameController =
       TextEditingController(text: widget.item?.name ?? '');
   String _logo = '';
+  final List<_LokasiFormValue> _lokasiBaru = <_LokasiFormValue>[];
+  List<LocationItem> _lokasiTersimpan = const <LocationItem>[];
+  bool _isLoadingLokasi = false;
 
   @override
   void initState() {
     super.initState();
     _logo = widget.item?.logo ?? '';
+    if (widget.item != null) _muatLokasi();
+  }
+
+  Future<void> _muatLokasi() async {
+    if (widget.item == null || !mounted) return;
+    setState(() => _isLoadingLokasi = true);
+    try {
+      final List<LocationItem> items = await LocationService.getLocations(
+        companyId: widget.item!.id,
+        client: widget.httpClient,
+      );
+      if (!mounted) return;
+      setState(() {
+        _lokasiTersimpan = items;
+        _isLoadingLokasi = false;
+      });
+    } on LocationException {
+      if (!mounted) return;
+      setState(() => _isLoadingLokasi = false);
+    }
+  }
+
+  Future<void> _tambahLokasi() async {
+    final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+    final TextEditingController nama = TextEditingController();
+    final TextEditingController latitude = TextEditingController();
+    final TextEditingController longitude = TextEditingController();
+    final TextEditingController radius = TextEditingController(
+      text: '100',
+    );
+
+    final _LokasiFormValue? hasil = await showDialog<_LokasiFormValue>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('Tambah Lokasi'),
+        content: SingleChildScrollView(
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                AppTextField(
+                  label: 'Nama Lokasi',
+                  hint: 'Contoh: Kantor Pusat',
+                  controller: nama,
+                  prefixIcon: Icons.location_city_outlined,
+                  validator: (String? value) => _wajib(value, 'Nama lokasi'),
+                ),
+                const SizedBox(height: 12),
+                AppTextField(
+                  label: 'Latitude',
+                  hint: 'Contoh: -6.200000',
+                  controller: latitude,
+                  keyboardType: TextInputType.numberWithOptions(
+                    decimal: true,
+                    signed: true,
+                  ),
+                  prefixIcon: Icons.my_location_outlined,
+                  validator: (String? value) {
+                    final String? wajib = _wajib(value, 'Latitude');
+                    if (wajib != null) return wajib;
+                    final double? angka = double.tryParse(value!.trim());
+                    if (angka == null || angka < -90 || angka > 90) {
+                      return 'Latitude harus antara -90 dan 90';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                AppTextField(
+                  label: 'Longitude',
+                  hint: 'Contoh: 106.816666',
+                  controller: longitude,
+                  keyboardType: TextInputType.numberWithOptions(
+                    decimal: true,
+                    signed: true,
+                  ),
+                  prefixIcon: Icons.map_outlined,
+                  validator: (String? value) {
+                    final String? wajib = _wajib(value, 'Longitude');
+                    if (wajib != null) return wajib;
+                    final double? angka = double.tryParse(value!.trim());
+                    if (angka == null || angka < -180 || angka > 180) {
+                      return 'Longitude harus antara -180 dan 180';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                AppTextField(
+                  label: 'Radius (meter)',
+                  hint: 'Contoh: 100',
+                  controller: radius,
+                  keyboardType: TextInputType.number,
+                  prefixIcon: Icons.radio_button_checked_outlined,
+                  validator: (String? value) {
+                    final String? wajib = _wajib(value, 'Radius');
+                    if (wajib != null) return wajib;
+                    final int? angka = int.tryParse(value!.trim());
+                    if (angka == null || angka <= 0) {
+                      return 'Radius harus lebih dari 0';
+                    }
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (!formKey.currentState!.validate()) return;
+              Navigator.of(dialogContext).pop(
+                _LokasiFormValue(
+                  nama: nama.text.trim(),
+                  latitude: latitude.text.trim(),
+                  longitude: longitude.text.trim(),
+                  radiusMeter: int.tryParse(radius.text.trim()) ?? 100,
+                ),
+              );
+            },
+            child: const Text('Simpan Lokasi'),
+          ),
+        ],
+      ),
+    );
+
+    if (hasil == null) return;
+    if (widget.item == null) {
+      if (!mounted) return;
+      setState(() => _lokasiBaru.add(hasil));
+      return;
+    }
+    try {
+      await LocationService.createLocation(
+        name: hasil.nama,
+        latitude: hasil.latitude,
+        longitude: hasil.longitude,
+        radiusMeter: hasil.radiusMeter,
+        companyId: widget.item!.id,
+        client: widget.httpClient,
+      );
+      await _muatLokasi();
+    } on LocationException catch (e) {
+      if (!mounted) return;
+      AppToast.error(e.message);
+    }
+  }
+
+  Future<void> _hapusLokasi(LocationItem lokasi) async {
+    if (widget.item == null) return;
+    try {
+      await LocationService.deleteLocation(
+        lokasi.id,
+        companyId: widget.item!.id,
+        client: widget.httpClient,
+      );
+      await _muatLokasi();
+    } on LocationException catch (e) {
+      if (!mounted) return;
+      AppToast.error(e.message);
+    }
+  }
+
+  Widget _buildLokasiSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        const FormSectionHeader(
+          title: 'Lokasi Kantor',
+          icon: Icons.location_city_outlined,
+        ),
+        OutlinedButton.icon(
+          onPressed: _tambahLokasi,
+          icon: const Icon(Icons.add_location_alt_outlined, size: 18),
+          label: const Text('+ Tambah Lokasi'),
+        ),
+        if (_isLoadingLokasi)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 10),
+            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          )
+        else if (widget.item != null && _lokasiTersimpan.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              'Belum ada lokasi terdaftar',
+              style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            ),
+          )
+        else
+          ...<Widget>[
+            for (final LocationItem lokasi in _lokasiTersimpan)
+              _buildLokasiBaris(
+                lokasi.name,
+                '${lokasi.koordinat} • ${lokasi.radiusMeter} m',
+                onDelete: () => _hapusLokasi(lokasi),
+              ),
+            for (final _LokasiFormValue lokasi in _lokasiBaru)
+              _buildLokasiBaris(
+                lokasi.nama,
+                '${lokasi.latitude}, ${lokasi.longitude} • '
+                '${lokasi.radiusMeter} m',
+                onDelete: () =>
+                    setState(() => _lokasiBaru.remove(lokasi)),
+              ),
+          ],
+      ],
+    );
+  }
+
+  Widget _buildLokasiBaris(
+    String nama,
+    String detail, {
+    required VoidCallback onDelete,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        children: <Widget>[
+          const Icon(
+            Icons.place_outlined,
+            size: 18,
+            color: AppColors.primary,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  nama,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                Text(
+                  detail,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Hapus lokasi',
+            onPressed: onDelete,
+            icon: const Icon(
+              Icons.delete_outline_rounded,
+              size: 18,
+              color: AppColors.danger,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _pilihLogo() async {
@@ -420,12 +722,14 @@ class _PerusahaanDialogState extends State<_PerusahaanDialog> {
                               ),
                             ),
                           ],
-                        ),
-                ),
-              ),
-            ],
-          ),
-        ),
+                         ),
+                 ),
+               ),
+               const SizedBox(height: 16),
+               _buildLokasiSection(),
+             ],
+           ),
+         ),
       ),
       actions: <Widget>[
         TextButton(
@@ -440,6 +744,7 @@ class _PerusahaanDialogState extends State<_PerusahaanDialog> {
                 _codeController.text.trim(),
                 _nameController.text.trim(),
                 _logo,
+                locations: _lokasiBaru,
               ),
             );
           },

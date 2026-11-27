@@ -1,13 +1,10 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 
 import '../widgets/glass_app_bar.dart';
-import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
-import '../config/api_config.dart';
 import '../services/app_session.dart';
+import '../services/location_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/app_text_field.dart';
@@ -107,50 +104,19 @@ class _TambahLokasiScreenState extends State<TambahLokasiScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final http.Response response = await http
-          .post(
-            Uri.parse('${ApiConfig.baseUrl}/tambah_lokasi.php'),
-            headers: ApiConfig.authHeaders(await AppSession.resolveToken()),
-            body: jsonEncode(<String, dynamic>{
-              'nama_lokasi': _namaLokasiController.text.trim(),
-              'latitude': _latitudeController.text.trim(),
-              'longitude': _longitudeController.text.trim(),
-              'radius_meter':
-                  int.tryParse(_radiusController.text.trim()) ?? 100,
-            }),
-          )
-          .timeout(const Duration(seconds: 30));
-
+      await LocationService.createLocation(
+        name: _namaLokasiController.text.trim(),
+        latitude: _latitudeController.text.trim(),
+        longitude: _longitudeController.text.trim(),
+        radiusMeter: int.tryParse(_radiusController.text.trim()) ?? 100,
+        companyId: AppSession.getCompanyId(),
+      );
       if (!mounted) return;
-
-      if (response.headers['content-type']?.contains('application/json') !=
-          true) {
-        AppToast.error('Respons server tidak valid. Coba lagi nanti.');
-        return;
-      }
-
-      Map<String, dynamic>? body;
-      try {
-        final Object? decoded = jsonDecode(response.body);
-        if (decoded is Map<String, dynamic>) {
-          body = decoded;
-        }
-      } on FormatException {
-        body = null;
-      }
-
-      if (response.statusCode == 201 || response.statusCode == 200) {
-        AppToast.success(
-          body?['message']?.toString() ?? 'Lokasi berhasil ditambahkan!',
-        );
-        Navigator.of(context).pop(true);
-      } else {
-        AppToast.error(
-          body?['message']?.toString() ??
-              body?['error']?.toString() ??
-              'Gagal menambah lokasi (${response.statusCode})',
-        );
-      }
+      AppToast.success('Lokasi berhasil ditambahkan!');
+      Navigator.of(context).pop(true);
+    } on LocationException catch (e) {
+      if (!mounted) return;
+      AppToast.error(e.message);
     } catch (_) {
       if (!mounted) return;
       AppToast.error('Terjadi kesalahan koneksi ke server');

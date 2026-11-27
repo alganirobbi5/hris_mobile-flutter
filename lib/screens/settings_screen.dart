@@ -139,6 +139,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               _buildMenuCard(
                 context: context,
+                icon: Icons.add_location_alt_rounded,
+                label: 'Tambah Lokasi',
+                subtitle: 'Atur lokasi absensi kantor',
+                onTap: () => Navigator.of(context).push<void>(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const TambahLokasiScreen(),
+                  ),
+                ),
+              ),
+              _buildMenuCard(
+                context: context,
                 icon: Icons.person_add_alt_1_rounded,
                 label: 'Tambah Karyawan',
                 subtitle: 'Daftarkan karyawan baru',
@@ -167,17 +178,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onTap: () => Navigator.of(context).push<void>(
                   MaterialPageRoute<void>(
                     builder: (_) => const KontakKaryawanScreen(),
-                  ),
-                ),
-              ),
-              _buildMenuCard(
-                context: context,
-                icon: Icons.add_location_alt_rounded,
-                label: 'Tambah Lokasi',
-                subtitle: 'Atur lokasi absensi kantor',
-                onTap: () => Navigator.of(context).push<void>(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const TambahLokasiScreen(),
                   ),
                 ),
               ),
