@@ -40,7 +40,6 @@ class _LayananCutiScreenState extends State<LayananCutiScreen> {
   bool _isLoading = true;
   bool _isHolidayLoading = true;
   String? _cutiStatus;
-  String? _izinStatus;
   String? _error;
 
   @override
@@ -144,27 +143,10 @@ class _LayananCutiScreenState extends State<LayananCutiScreen> {
     return diurutkan.first.status;
   }
 
-  Future<String?> _statusIzinTerkini() async {
-    final List<IzinKeluarItem> items = widget.izinLoader != null
-        ? await widget.izinLoader!()
-        : await IzinKeluarService.fetch(client: widget.httpClient);
-    if (items.isEmpty) return null;
-    final List<IzinKeluarItem> diurutkan = List<IzinKeluarItem>.from(items)
-      ..sort((IzinKeluarItem a, IzinKeluarItem b) =>
-          b.createdAt.compareTo(a.createdAt));
-    return diurutkan.first.status;
-  }
-
   Future<void> _fetchStatuses() async {
-    final List<String?> hasil = await Future.wait<String?>(<Future<String?>>[
-      _statusCutiTerkini().catchError((_) => null),
-      _statusIzinTerkini().catchError((_) => null),
-    ]);
+    final String? status = await _statusCutiTerkini().catchError((_) => null);
     if (!mounted) return;
-    setState(() {
-      _cutiStatus = hasil[0];
-      _izinStatus = hasil[1];
-    });
+    setState(() => _cutiStatus = status);
   }
 
   List<HolidayItem> get _upcomingHolidays {
@@ -454,14 +436,13 @@ class _LayananCutiScreenState extends State<LayananCutiScreen> {
                     child: _buildActionCard(
                       icon: Icons.exit_to_app_rounded,
                       label: 'Izin Keluar',
-                      status: _izinStatus,
-                      onTap: () async {
-                        await Navigator.of(context).push<void>(
+                      onTap: () {
+                        Navigator.push(
+                          context,
                           MaterialPageRoute<void>(
                             builder: (_) => const IzinKeluarScreen(),
                           ),
                         );
-                        await _fetchStatuses();
                       },
                     ),
                   ),

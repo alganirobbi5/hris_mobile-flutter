@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hris_mobile/screens/absen_screen.dart';
+import 'package:hris_mobile/screens/izin_keluar_screen.dart';
 import 'package:hris_mobile/services/app_session.dart';
 import 'package:hris_mobile/services/employee_request.dart';
 import 'package:hris_mobile/services/izin_keluar_service.dart';
+import 'package:hris_mobile/services/leave_leader_service.dart';
+import 'package:hris_mobile/widgets/section_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -72,6 +75,61 @@ void main() {
     expect(item.catatanHr, isEmpty);
   });
 
+  testWidgets('kartu Status pengajuan menghitung riwayat izin keluar', (
+    WidgetTester tester,
+  ) async {
+    final List<IzinKeluarItem> items = <IzinKeluarItem>[
+      _izinItem(1, 'pending'),
+      _izinItem(2, 'menunggu'),
+      _izinItem(3, 'approved'),
+      _izinItem(4, 'ditolak'),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: IzinKeluarScreen(
+          loader: () async => items,
+          leaderLoader: () async => const LeaveLeadersResult(
+            leaders: <LeaveLeader>[],
+            eligibleUsers: <EligibleLeaveUser>[],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pengajuan Izin Keluar'), findsNWidgets(2));
+    expect(
+      find.text('Ajukan izin keluar dan pantau status persetujuannya.'),
+      findsOneWidget,
+    );
+
+    final Finder kartu = find.ancestor(
+      of: find.text('Status pengajuan'),
+      matching: find.byType(SectionCard),
+    );
+    expect(kartu, findsOneWidget);
+    expect(find.descendant(of: kartu, matching: find.text('2')), findsOneWidget);
+    expect(find.descendant(of: kartu, matching: find.text('1')), findsNWidgets(2));
+    for (final String label in <String>['Menunggu', 'Disetujui', 'Ditolak']) {
+      expect(
+        find.descendant(of: kartu, matching: find.text(label)),
+        findsOneWidget,
+      );
+    }
+    final Finder kartuForm = find.ancestor(
+      of: find.text('Pengajuan Izin Keluar').last,
+      matching: find.byType(SectionCard),
+    );
+    expect(
+      tester.getCenter(kartu).dy,
+      lessThan(tester.getCenter(kartuForm).dy),
+    );
+    await tester.drag(find.byType(ListView).first, const Offset(0, -1200));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('2026-11-25 • 10:00 - 12:00'), findsWidgets);
+  });
+
   testWidgets('karyawan tidak melihat tombol Cuti & Izin di halaman absen', (
     WidgetTester tester,
   ) async {
@@ -104,4 +162,21 @@ void main() {
     expect(find.text('Kelola Kuota Cuti'), findsNothing);
     expect(find.text('Pengajuan Cuti'), findsNothing);
   });
+}
+
+IzinKeluarItem _izinItem(int id, String status) {
+  return IzinKeluarItem(
+    id: id,
+    employeeId: 3,
+    tanggal: '2026-11-25',
+    jamKeluar: '10:00:00',
+    jamKembali: '12:00:00',
+    kembaliKeKantor: true,
+    kategori: 'Keperluan Pribadi',
+    alasan: 'Acara keluarga',
+    status: status,
+    catatanHr: '',
+    namaKaryawan: 'Andi Pratama',
+    createdAt: '2026-11-25T09:00:00',
+  );
 }

@@ -10,6 +10,7 @@ import 'package:hris_mobile/services/riwayat_cuti_service.dart';
 import 'package:hris_mobile/theme/app_theme.dart';
 import 'package:hris_mobile/widgets/glass_bottom_nav.dart';
 import 'package:hris_mobile/widgets/profile_avatar_button.dart';
+import 'package:hris_mobile/widgets/status_badge.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -102,7 +103,7 @@ void main() {
     expect(find.text('Username / Jabatan'), findsNothing);
   });
 
-  testWidgets('badge status tampil seragam pada kedua tombol aksi', (
+  testWidgets('badge status hanya tampil pada tombol Pengajuan Cuti', (
     WidgetTester tester,
   ) async {
     final http.Client client = _statusClient();
@@ -156,14 +157,18 @@ void main() {
       find.descendant(of: kartuCuti, matching: find.text('Disetujui')),
       findsOneWidget,
     );
+    final Text badgeCuti = tester.widget<Text>(
+      find.descendant(of: kartuCuti, matching: find.text('Disetujui')),
+    );
+    expect(badgeCuti.style?.color, AppColors.success);
     expect(
       find.descendant(of: kartuIzin, matching: find.text('Menunggu')),
-      findsOneWidget,
+      findsNothing,
     );
-    final Text badgeIzin = tester.widget<Text>(
-      find.descendant(of: kartuIzin, matching: find.text('Menunggu')),
+    expect(
+      find.descendant(of: kartuIzin, matching: find.byType(StatusBadge)),
+      findsNothing,
     );
-    expect(badgeIzin.style?.color, AppColors.pending);
   });
 
   testWidgets('tombol aksi tanpa pengajuan tidak menampilkan badge', (

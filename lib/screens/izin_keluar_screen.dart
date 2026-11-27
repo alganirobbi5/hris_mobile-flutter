@@ -12,9 +12,16 @@ import '../widgets/status_badge.dart';
 import '../widgets/app_refresh_indicator.dart';
 
 class IzinKeluarScreen extends StatefulWidget {
-  const IzinKeluarScreen({super.key, this.embedded = false});
+  const IzinKeluarScreen({
+    super.key,
+    this.embedded = false,
+    this.loader,
+    this.leaderLoader,
+  });
 
   final bool embedded;
+  final Future<List<IzinKeluarItem>> Function()? loader;
+  final Future<LeaveLeadersResult> Function()? leaderLoader;
 
   @override
   State<IzinKeluarScreen> createState() => _IzinKeluarScreenState();
@@ -56,7 +63,9 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
   Future<void> _fetchLeaders() async {
     try {
       final int? currentUserId = await AppSession.resolveUserId();
-      final LeaveLeadersResult result = await LeaveLeaderService.fetch();
+      final LeaveLeadersResult result = widget.leaderLoader != null
+          ? await widget.leaderLoader!()
+          : await LeaveLeaderService.fetch();
       if (!mounted) return;
       setState(() {
         _leaders = LeaveLeaderService.tanpaDiriSendiri(
@@ -82,7 +91,9 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
       _error = null;
     });
     try {
-      final List<IzinKeluarItem> items = await IzinKeluarService.fetch();
+      final List<IzinKeluarItem> items = widget.loader != null
+          ? await widget.loader!()
+          : await IzinKeluarService.fetch();
       if (!mounted) return;
       setState(() {
         _items = items;
@@ -202,6 +213,32 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
     }
   }
 
+  Map<String, int> _ringkasanStatus() {
+    int menunggu = 0;
+    int disetujui = 0;
+    int ditolak = 0;
+
+    for (final IzinKeluarItem item in _items) {
+      switch (_statusLabel(item.status)) {
+        case 'Menunggu':
+          menunggu++;
+          break;
+        case 'Disetujui':
+          disetujui++;
+          break;
+        case 'Ditolak':
+          ditolak++;
+          break;
+      }
+    }
+
+    return <String, int>{
+      'menunggu': menunggu,
+      'disetujui': disetujui,
+      'ditolak': ditolak,
+    };
+  }
+
   void _showMessage(String message) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -210,12 +247,37 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final Map<String, int> ringkasan = _ringkasanStatus();
     final Widget content = AppRefreshIndicator(
       onRefresh: _fetchData,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 110),
         children: <Widget>[
+          const Text(
+            'Pengajuan Izin Keluar',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.4,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Ajukan izin keluar dan pantau status persetujuannya.',
+            style: TextStyle(
+              fontSize: 13.5,
+              color: AppColors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 20),
+          _StatusSummary(
+            menunggu: ringkasan['menunggu'] ?? 0,
+            disetujui: ringkasan['disetujui'] ?? 0,
+            ditolak: ringkasan['ditolak'] ?? 0,
+          ),
+          const SizedBox(height: 16),
           _buildForm(),
           const SizedBox(height: 20),
           const Text(
@@ -454,7 +516,7 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
             children: <Widget>[
               Expanded(
                 child: Text(
-                  '${item.tanggal} ΓÇó $jam',
+                  '${item.tanggal} • $jam',
                   style: const TextStyle(
                     fontSize: 12.5,
                     color: AppColors.textSecondary,
@@ -509,6 +571,113 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusSummary extends StatelessWidget {
+  const _StatusSummary({
+    required this.menunggu,
+    required this.disetujui,
+    required this.ditolak,
+  });
+
+  final int menunggu;
+  final int disetujui;
+  final int ditolak;
+
+  @override
+  Widget build(BuildContext context) {
+    return SectionCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Status pengajuan',
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _StatusCount(
+                  label: 'Menunggu',
+                  count: menunggu,
+                  color: AppColors.pending,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _StatusCount(
+                  label: 'Disetujui',
+                  count: disetujui,
+                  color: AppColors.success,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _StatusCount(
+                  label: 'Ditolak',
+                  count: ditolak,
+                  color: AppColors.danger,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusCount extends StatelessWidget {
+  const _StatusCount({
+    required this.label,
+    required this.count,
+    required this.color,
+  });
+
+  final String label;
+  final int count;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(13),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            count.toString(),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textSecondary,
+            ),
+          ),
         ],
       ),
     );
