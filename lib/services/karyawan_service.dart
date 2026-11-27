@@ -24,6 +24,7 @@ class KaryawanItem {
     required this.statusAktif,
     this.role = '',
     this.isLeader = false,
+    this.userId = 0,
   });
 
   final int id;
@@ -34,6 +35,7 @@ class KaryawanItem {
   final bool statusAktif;
   final String role;
   final bool isLeader;
+  final int userId;
 
   String get roleLabel {
     final String value = role.trim().toLowerCase();
@@ -83,6 +85,10 @@ class KaryawanItem {
             json['leader'] ??
             json['isLeader'],
       ),
+      userId: _int(
+            json['user_id'] ?? json['employee_id'] ?? json['id'],
+          ) ??
+          0,
     );
   }
 

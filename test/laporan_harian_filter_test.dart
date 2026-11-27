@@ -103,26 +103,45 @@ void main() {
     expect(rows, hasLength(1));
   });
 
-  test('baris laporan dengan status Libur tampil normal', () {
+  test('baris sintetis Libur tidak masuk daftar laporan absensi', () async {
+    final String hariIni = LaporanExcelService.tanggalHariIni();
     final LaporanAbsensiRow libur = LaporanAbsensiRow.fromJson(
       <String, dynamic>{
         'id': 3,
-        'date': '2026-11-27',
+        'date': hariIni,
         'nama': 'Andi Pratama',
         'status': 'Libur',
       },
     );
-    expect(libur.statusTampil, 'Libur');
-    expect(libur.jamMasukTampil, '-');
-    expect(libur.jamKeluarTampil, '-');
+    expect(libur.isLibur, isTrue);
 
-    final LaporanAbsensiRow tanpaStatus = LaporanAbsensiRow.fromJson(
-      <String, dynamic>{
-        'id': 4,
-        'date': '2026-11-27',
-        'nama': 'Budi Santoso',
-      },
-    );
-    expect(tanpaStatus.statusTampil, '-');
+    final http.Client client = MockClient((http.Request request) async {
+      return http.Response(
+        jsonEncode(<String, dynamic>{
+          'data': <Map<String, dynamic>>[
+            <String, dynamic>{
+              'id': 3,
+              'date': hariIni,
+              'nama': 'Andi Pratama',
+              'status': 'Libur',
+            },
+            <String, dynamic>{
+              'id': 4,
+              'date': hariIni,
+              'nama': 'Budi Santoso',
+              'clock_in': '08:00:00',
+              'clock_out': '17:00:00',
+            },
+          ],
+        }),
+        200,
+      );
+    });
+
+    final List<LaporanAbsensiRow> rows =
+        await LaporanExcelService(client: client).fetchHariIni();
+    expect(rows, hasLength(1));
+    expect(rows.single.nama, 'Budi Santoso');
+    expect(rows.any((LaporanAbsensiRow row) => row.isLibur), isFalse);
   });
 }

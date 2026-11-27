@@ -172,6 +172,8 @@ class LaporanAbsensiRow {
     return terlambat ? 'Terlambat' : 'Tepat Waktu';
   }
 
+  bool get isLibur => statusTampil == 'Libur';
+
   String get koordinatTampil {
     final String lat = latitude.trim();
     final String lng = longitude.trim();
@@ -270,6 +272,7 @@ class LaporanExcelService {
     return data
         .whereType<Map<String, dynamic>>()
         .map(LaporanAbsensiRow.fromJson)
+        .where((LaporanAbsensiRow row) => !row.isLibur)
         .toList();
   }
 

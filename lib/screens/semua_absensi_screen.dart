@@ -211,10 +211,12 @@ class SemuaAbsensiViewState extends State<SemuaAbsensiView> {
 
   List<_AbsensiItem> get _filteredAbsensi {
     final String keyword = _query.trim().toLowerCase();
-    if (keyword.isEmpty) return _daftarAbsensi;
-
     return _daftarAbsensi
-        .where((_AbsensiItem item) => item.nama.toLowerCase().contains(keyword))
+        .where(
+          (_AbsensiItem item) =>
+              item.status.toLowerCase() != 'libur' &&
+              (keyword.isEmpty || item.nama.toLowerCase().contains(keyword)),
+        )
         .toList();
   }
 

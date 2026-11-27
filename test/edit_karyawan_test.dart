@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hris_mobile/screens/edit_karyawan_screen.dart';
 import 'package:hris_mobile/screens/settings_screen.dart';
 import 'package:hris_mobile/services/app_session.dart';
+import 'package:hris_mobile/services/employee_service.dart';
 import 'package:hris_mobile/services/karyawan_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -34,6 +35,41 @@ void main() {
     expect(item.statusAktif, isTrue);
   });
 
+  test('EmployeeService.update memakai POST employees.php dengan action update', () async {
+    Uri? diminta;
+    String? metode;
+    Map<String, dynamic>? body;
+    final http.Client client = MockClient((http.Request request) async {
+      diminta = request.url;
+      metode = request.method;
+      body = jsonDecode(request.body) as Map<String, dynamic>;
+      return http.Response(
+        jsonEncode(<String, dynamic>{'success': true}),
+        200,
+      );
+    });
+
+    final String pesan = await EmployeeService.update(
+      id: 7,
+      employeeId: 7,
+      userId: 17,
+      namaLengkap: 'Andi Pratama',
+      username: 'andi.hr',
+      email: 'andi@example.com',
+      mobileNo: '08123456789',
+      statusAktif: true,
+      client: client,
+    );
+
+    expect(pesan, 'Data karyawan berhasil diperbarui.');
+    expect(diminta!.path, endsWith('/employees.php'));
+    expect(metode, 'POST');
+    expect(body!['action'], 'update');
+    expect(body!['id'], 7);
+    expect(body!['employee_id'], 7);
+    expect(body!['user_id'], 17);
+  });
+
   testWidgets('Settings HR menampilkan Edit Karyawan setelah Tambah Karyawan', (
     WidgetTester tester,
   ) async {
@@ -53,12 +89,24 @@ void main() {
     final http.Client client = MockClient((http.Request request) async {
       final String path = request.url.path;
       if (path.endsWith('/employees.php')) {
+        if (request.method == 'POST') {
+          expect(request.url.pathSegments.last, 'employees.php');
+          terkirim.add(jsonDecode(request.body) as Map<String, dynamic>);
+          return http.Response(
+            jsonEncode(<String, dynamic>{
+              'success': true,
+              'message': 'Data karyawan berhasil diperbarui.',
+            }),
+            200,
+          );
+        }
         return http.Response(
           jsonEncode(<String, dynamic>{
             'success': true,
             'data': <Map<String, dynamic>>[
               <String, dynamic>{
                 'id': 7,
+                'user_id': 17,
                 'username': 'andi.hr',
                 'nama_lengkap': 'Andi Pratama',
                 'email': 'andi@example.com',
@@ -71,14 +119,7 @@ void main() {
         );
       }
       if (path.endsWith('/update_karyawan.php')) {
-        terkirim.add(jsonDecode(request.body) as Map<String, dynamic>);
-        return http.Response(
-          jsonEncode(<String, dynamic>{
-            'success': true,
-            'message': 'Data karyawan berhasil diperbarui.',
-          }),
-          200,
-        );
+        return http.Response('', 404);
       }
       return http.Response('', 404);
     });
@@ -151,7 +192,10 @@ void main() {
     await tester.pump();
 
     expect(terkirim, hasLength(1));
+    expect(terkirim.single['action'], 'update');
+    expect(terkirim.single['id'], 7);
     expect(terkirim.single['employee_id'], 7);
+    expect(terkirim.single['user_id'], 17);
     expect(terkirim.single['nama_lengkap'], 'Andi Pratama');
     expect(terkirim.single['username'], 'andi.hr');
     expect(terkirim.single['email'], 'andi.baru@example.com');

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
+import '../services/employee_service.dart';
 import '../services/karyawan_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/whatsapp_helper.dart';
@@ -113,8 +114,10 @@ class _EditKaryawanScreenState extends State<EditKaryawanScreen> {
     if (!mounted) return;
     setState(() => _isSaving = true);
     try {
-      final String pesan = await KaryawanService.update(
+      final String pesan = await EmployeeService.update(
+        id: karyawan.id,
         employeeId: karyawan.id,
+        userId: karyawan.userId > 0 ? karyawan.userId : karyawan.id,
         namaLengkap: _namaController.text.trim(),
         username: _usernameController.text.trim(),
         email: _emailController.text.trim(),
@@ -124,7 +127,7 @@ class _EditKaryawanScreenState extends State<EditKaryawanScreen> {
       );
       if (!mounted) return;
       AppToast.success(pesan);
-    } on KaryawanServiceException catch (e) {
+    } on EmployeeServiceException catch (e) {
       if (mounted) AppToast.error(e.message);
     } catch (_) {
       if (mounted) AppToast.error('Terjadi kesalahan koneksi ke server');

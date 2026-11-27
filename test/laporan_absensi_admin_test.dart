@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hris_mobile/services/laporan_absensi_admin_service.dart';
 import 'package:hris_mobile/services/laporan_excel_service.dart';
@@ -33,6 +35,28 @@ void main() {
     expect(rows, hasLength(1));
     expect(rows.first.nama, 'Siti Aminah');
     expect(rows.first.jamMasukTampil, '07:59');
+  });
+
+  test('parser admin membuang baris sintetis Libur', () {
+    final List<LaporanAbsensiRow> rows = LaporanAbsensiAdminService.parse(
+      jsonEncode(<String, dynamic>{
+        'success': true,
+        'data': <Map<String, dynamic>>[
+          <String, dynamic>{
+            'id': 3,
+            'nama': 'Andi Pratama',
+            'status': 'Libur',
+          },
+          <String, dynamic>{
+            'id': 4,
+            'nama': 'Budi Santoso',
+            'jam_masuk': '08:00:00',
+          },
+        ],
+      }),
+    );
+    expect(rows, hasLength(1));
+    expect(rows.single.nama, 'Budi Santoso');
   });
 
   test('parser mengembalikan kosong untuk respons tanpa daftar', () {

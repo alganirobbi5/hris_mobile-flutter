@@ -83,7 +83,11 @@ class _LaporanScreenState extends State<LaporanScreen>
         debugPrint('Laporan absensi admin gagal: $e');
       }
       if (!mounted) return;
-      setState(() => _rows = _gabungkanTanpaDuplikat(rows, adminRows));
+      setState(
+        () => _rows = _gabungkanTanpaDuplikat(rows, adminRows)
+            .where((LaporanAbsensiRow row) => !row.isLibur)
+            .toList(),
+      );
     } on LaporanExcelException catch (e) {
       if (!mounted) return;
       setState(() => _rowsError = e.message);

@@ -101,7 +101,10 @@ class LaporanAbsensiAdminService {
     return raw
         .whereType<Map<String, dynamic>>()
         .map(LaporanAbsensiRow.fromJson)
-        .where((LaporanAbsensiRow row) => row.id > 0 || row.nama.isNotEmpty)
+        .where(
+          (LaporanAbsensiRow row) =>
+              !row.isLibur && (row.id > 0 || row.nama.isNotEmpty),
+        )
         .toList();
   }
 }

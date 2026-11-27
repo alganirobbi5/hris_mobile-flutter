@@ -69,9 +69,42 @@ void main() {
 
     expect(find.text('Waktu Kerja: 08:15:32'), findsWidgets);
   });
+
+  testWidgets('durasi memakai working_seconds dari server bila tersedia', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AbsenScreen(
+          httpClient: _absenClient(
+            statusTambahan: <String, dynamic>{'working_seconds': 29000},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Waktu Kerja: 08:03:20'), findsWidgets);
+    expect(find.text('Waktu Kerja: 00:00:00'), findsNothing);
+  });
+
+  testWidgets('durasi tetap dihitung saat hanya ada jam masuk dan pulang', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(home: AbsenScreen(httpClient: _absenClient(dariApi: false))),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Waktu Kerja: 08:15:00'), findsWidgets);
+    expect(find.text('Waktu Kerja: 00:00:00'), findsNothing);
+  });
 }
 
-http.Client _absenClient({bool dariApi = true}) {
+http.Client _absenClient({
+  bool dariApi = true,
+  Map<String, dynamic>? statusTambahan,
+}) {
   return MockClient((http.Request request) async {
     final String path = request.url.path;
     if (path.endsWith('/get_jam_kerja.php')) {
@@ -94,6 +127,7 @@ http.Client _absenClient({bool dariApi = true}) {
         data['waktu_masuk'] = '2026-11-25 08:00:00';
         data['waktu_pulang'] = '2026-11-25 16:15:32';
       }
+      if (statusTambahan != null) data.addAll(statusTambahan);
       return http.Response(
         jsonEncode(<String, dynamic>{'data': data}),
         200,

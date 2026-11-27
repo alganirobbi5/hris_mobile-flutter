@@ -70,6 +70,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
   String _waktuMasukLengkap = '';
   String _waktuPulangLengkap = '';
   String _waktuKerjaTeks = WorkDuration.kosong;
+  int? _workingSecondsApi;
 
   String? _selfieMasukPath;
   String? _selfiePulangPath;
@@ -151,10 +152,90 @@ class _AbsenScreenState extends State<AbsenScreen> {
       final String pulangTersimpan = prefs.getString(_prefWaktuPulang) ?? '';
       if (_waktuMasukLengkap.isEmpty) _waktuMasukLengkap = masukTersimpan;
       if (_waktuPulangLengkap.isEmpty) _waktuPulangLengkap = pulangTersimpan;
-      _waktuKerjaTeks = WorkDuration.dariString(
-        _waktuMasukLengkap,
-        _waktuPulangLengkap,
+      _waktuKerjaTeks = _hitungWaktuKerja();
+    });
+  }
+
+  int? _detikDari(dynamic value) {
+    if (value is num) return value.round();
+    return int.tryParse(value?.toString().trim() ?? '');
+  }
+
+  Map<String, dynamic> _mapDataRespons(String body) {
+    try {
+      final dynamic decoded = jsonDecode(body);
+      if (decoded is Map<String, dynamic>) {
+        final dynamic nested = decoded['data'] ?? decoded['result'];
+        if (nested is Map<String, dynamic>) return nested;
+        return decoded;
+      }
+    } on FormatException {
+      return <String, dynamic>{};
+    }
+    return <String, dynamic>{};
+  }
+
+  String _hitungWaktuKerja() {
+    final String masuk = _waktuMasukLengkap.trim();
+    final String pulang = _waktuPulangLengkap.trim();
+    final bool waktuLengkap = masuk.isNotEmpty && pulang.isNotEmpty;
+
+    if (waktuLengkap &&
+        _sudahAbsenPulang &&
+        _workingSecondsApi != null &&
+        _workingSecondsApi! >= 0) {
+      final String dariServer = WorkDuration.format(
+        Duration(seconds: _workingSecondsApi!),
       );
+      if (dariServer != WorkDuration.kosong) return dariServer;
+    }
+
+    if (waktuLengkap) {
+      final DateTime? waktuMasuk = WorkDuration.parse(masuk);
+      final DateTime? waktuPulang = WorkDuration.parse(pulang);
+      if (waktuMasuk != null && waktuPulang != null) {
+        final String hasil =
+            WorkDuration.dariDateTime(waktuMasuk, waktuPulang);
+        if (hasil != WorkDuration.kosong) return hasil;
+      }
+    }
+
+    final String jamMasuk = _jamAbsenTeks.replaceAll(' WIB', '').trim();
+    final String jamPulang = _jamPulangTeks.replaceAll(' WIB', '').trim();
+    if (jamMasuk.isNotEmpty &&
+        jamMasuk != '--:--' &&
+        jamPulang.isNotEmpty &&
+        jamPulang != '--:--') {
+      final String hasil = WorkDuration.dariString(jamMasuk, jamPulang);
+      if (hasil != WorkDuration.kosong) return hasil;
+    }
+
+    return WorkDuration.kosong;
+  }
+
+  void _terapkanWaktuPulangDariRespons(String body) {
+    if (!mounted) return;
+    final Map<String, dynamic> data = _mapDataRespons(body);
+    final String pulang = _teksDari(
+      data['waktu_pulang_lengkap'] ??
+          data['clock_out'] ??
+          data['waktu_pulang'] ??
+          data['jam_pulang_lengkap'] ??
+          data['check_out'],
+    );
+    final int? detik = _detikDari(
+      data['working_seconds'] ??
+          data['workingSeconds'] ??
+          data['worked_seconds'] ??
+          data['total_work_seconds'] ??
+          data['lama_kerja_detik'],
+    );
+    if (!mounted) return;
+    setState(() {
+      if (pulang.isNotEmpty) _waktuPulangLengkap = pulang;
+      if (detik != null) _workingSecondsApi = detik;
+      _sudahAbsenPulang = true;
+      _waktuKerjaTeks = _hitungWaktuKerja();
     });
   }
 
@@ -179,10 +260,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
       } else {
         _waktuPulangLengkap = timestamp;
       }
-      _waktuKerjaTeks = WorkDuration.dariString(
-        _waktuMasukLengkap,
-        _waktuPulangLengkap,
-      );
+      _waktuKerjaTeks = _hitungWaktuKerja();
     });
   }
 
@@ -386,10 +464,15 @@ class _AbsenScreenState extends State<AbsenScreen> {
                   data['jam_keluar_lengkap'],
             );
             if (pulangLengkap.isNotEmpty) _waktuPulangLengkap = pulangLengkap;
-            _waktuKerjaTeks = WorkDuration.dariString(
-              _waktuMasukLengkap,
-              _waktuPulangLengkap,
+            final int? detikKerja = _detikDari(
+              data['working_seconds'] ??
+                  data['workingSeconds'] ??
+                  data['worked_seconds'] ??
+                  data['total_work_seconds'] ??
+                  data['lama_kerja_detik'],
             );
+            if (detikKerja != null) _workingSecondsApi = detikKerja;
+            _waktuKerjaTeks = _hitungWaktuKerja();
 
             final dynamic idAbsen =
                 data['attendance_id'] ??
@@ -921,6 +1004,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
       if (response.statusCode == 200) {
         await _simpanPathSelfieLokal('pulang', selfiePath);
         await _simpanWaktuLokal('pulang', now);
+        _terapkanWaktuPulangDariRespons(response.body);
         await _cekStatusAbsen();
         await AppNotificationService.showCheckOutSuccess(
           jamPulang: _jamPulangTeks,
