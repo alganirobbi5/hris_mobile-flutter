@@ -23,6 +23,7 @@ class KaryawanItem {
     required this.mobileNo,
     required this.statusAktif,
     this.role = '',
+    this.isLeader = false,
   });
 
   final int id;
@@ -32,6 +33,15 @@ class KaryawanItem {
   final String mobileNo;
   final bool statusAktif;
   final String role;
+  final bool isLeader;
+
+  String get roleLabel {
+    final String value = role.trim().toLowerCase();
+    if (isLeader || value == 'leader') return 'LEADER';
+    if (value == 'hr' || value == 'admin') return 'HR';
+    if (value == 'super_admin' || value == 'superadmin') return 'SUPER ADMIN';
+    return 'EMPLOYEE';
+  }
 
   static KaryawanItem fromJson(Map<String, dynamic> json) {
     final String firstName = _text(json['first_name']);
@@ -67,6 +77,12 @@ class KaryawanItem {
             json['designation_name'] ??
             json['position'],
       ),
+      isLeader: _bool(
+        json['is_leader'] ??
+            json['is_leave_leader'] ??
+            json['leader'] ??
+            json['isLeader'],
+      ),
     );
   }
 
@@ -79,6 +95,13 @@ class KaryawanItem {
   static int? _int(dynamic value) {
     if (value is int) return value;
     return int.tryParse(_text(value));
+  }
+
+  static bool _bool(dynamic value) {
+    if (value is bool) return value;
+    if (value is num) return value == 1;
+    final String text = _text(value).toLowerCase();
+    return text == '1' || text == 'true' || text == 'yes';
   }
 }
 

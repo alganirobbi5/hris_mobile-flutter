@@ -29,6 +29,7 @@ class _KontakKaryawanScreenState extends State<KontakKaryawanScreen> {
 
   String _query = '';
   String _companyName = CompanyConfig.namaPerusahaan;
+  String _companyCode = CompanyConfig.namaPerusahaan;
   bool _isLoading = true;
   List<KaryawanItem> _karyawan = const <KaryawanItem>[];
 
@@ -49,7 +50,10 @@ class _KontakKaryawanScreenState extends State<KontakKaryawanScreen> {
   Future<void> _loadCompany() async {
     final CompanyProfileData profil = await CompanyProfile.load();
     if (!mounted) return;
-    setState(() => _companyName = profil.name);
+    setState(() {
+      _companyName = profil.name;
+      _companyCode = profil.code.trim().isEmpty ? profil.name : profil.code;
+    });
   }
 
   Future<void> _fetchKaryawan() async {
@@ -97,19 +101,51 @@ class _KontakKaryawanScreenState extends State<KontakKaryawanScreen> {
         .toUpperCase();
   }
 
+  Widget _buildClip() {
+    return Center(
+      child: Container(
+        width: 26,
+        height: 18,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: <Color>[Color(0xFFE6E8F0), Colors.white, Color(0xFFC7CBD9)],
+          ),
+          borderRadius: BorderRadius.circular(5),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.18),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Center(
+          child: Container(
+            width: 10,
+            height: 6,
+            decoration: BoxDecoration(
+              color: const Color(0xFF4436D6),
+              borderRadius: BorderRadius.circular(3),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _infoRow(IconData icon, String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         children: <Widget>[
-          Icon(icon, size: 14, color: Colors.white.withValues(alpha: 0.85)),
+          Icon(icon, size: 15, color: Colors.white.withValues(alpha: 0.85)),
           const SizedBox(width: 8),
           SizedBox(
-            width: 58,
+            width: 64,
             child: Text(
               label,
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 10.5,
                 color: Colors.white.withValues(alpha: 0.72),
               ),
             ),
@@ -131,199 +167,314 @@ class _KontakKaryawanScreenState extends State<KontakKaryawanScreen> {
     );
   }
 
-  Widget _buildIdCard(KaryawanItem item) {
-    final bool punyaNoHp = item.mobileNo.isNotEmpty;
+  Widget _statusBadge(bool aktif) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
-        gradient: const LinearGradient(
-          colors: <Color>[Color(0xFF7B5CFF), Color(0xFF5B4CFF), Color(0xFF3B5BDB)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.28),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+        color: Colors.white.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: aktif ? const Color(0xFF7BE0AD) : const Color(0xFFFF9B9B),
+            ),
+          ),
+          const SizedBox(width: 5),
+          Text(
+            aktif ? 'Aktif' : 'Nonaktif',
+            style: const TextStyle(
+              fontSize: 9.5,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+            ),
           ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            Row(
-              children: <Widget>[
-                const Text(
-                  'ID CARD',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.8,
-                    color: Colors.white,
-                  ),
-                ),
-                const Spacer(),
-                Flexible(
-                  child: Text(
-                    _companyName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.end,
-                    style: TextStyle(
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white.withValues(alpha: 0.82),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: <Widget>[
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.6),
-                    ),
-                  ),
-                  child: Center(
-                    child: Text(
-                      _initials(item.namaLengkap),
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: <Widget>[
-                      Text(
-                        item.namaLengkap.isEmpty ? 'Tanpa Nama' : item.namaLengkap,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        item.username.isEmpty ? '@karyawan' : '@${item.username}',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.white.withValues(alpha: 0.82),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: <Widget>[
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    (item.role.isEmpty ? 'Karyawan' : item.role).toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.6,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  item.statusAktif ? 'Aktif' : 'Nonaktif',
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white.withValues(alpha: 0.85),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.13),
-                borderRadius: BorderRadius.circular(14),
+    );
+  }
+
+  Widget _buildIdCard(KaryawanItem item) {
+    final bool punyaNoHp = item.mobileNo.isNotEmpty;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        _buildClip(),
+        Transform.translate(
+          offset: const Offset(0, -6),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(26),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: <Color>[
+                  Color(0xFF7B5CFF),
+                  Color(0xFF5B4CFF),
+                  Color(0xFF3B5BDB),
+                ],
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.35),
+                width: 1.4,
+              ),
+              boxShadow: <BoxShadow>[
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.42),
+                  blurRadius: 34,
+                  offset: const Offset(0, 20),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.12),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(26),
+              child: Stack(
                 children: <Widget>[
-                  _infoRow(Icons.mail_outline_rounded, 'Email', item.email),
-                  _infoRow(
-                    Icons.phone_outlined,
-                    'No. HP',
-                    punyaNoHp ? item.mobileNo : 'No. HP belum diisi',
+                  Positioned(
+                    right: -50,
+                    top: -40,
+                    child: Container(
+                      width: 170,
+                      height: 170,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: 0.08),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    left: -40,
+                    bottom: 30,
+                    child: Container(
+                      width: 130,
+                      height: 130,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: 0.05),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        Row(
+                          children: <Widget>[
+                            Container(
+                              width: 30,
+                              height: 30,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(9),
+                              ),
+                              child: const Icon(
+                                Icons.verified_rounded,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            const Expanded(
+                              child: Text(
+                                'ID CARD',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 2.2,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                            Flexible(
+                              child: Text(
+                                _companyCode,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.end,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white.withValues(alpha: 0.75),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: <Widget>[
+                            Container(
+                              width: 78,
+                              height: 92,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.8),
+                                  width: 2,
+                                ),
+                                boxShadow: <BoxShadow>[
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.18),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 5),
+                                  ),
+                                ],
+                              ),
+                              clipBehavior: Clip.antiAlias,
+                              alignment: Alignment.center,
+                              child: Text(
+                                _initials(item.namaLengkap),
+                                style: const TextStyle(
+                                  fontSize: 26,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Text(
+                                    item.namaLengkap.isEmpty
+                                        ? 'Tanpa Nama'
+                                        : item.namaLengkap,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: -0.3,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    children: <Widget>[
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 9,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.2,
+                                          ),
+                                          borderRadius: BorderRadius.circular(999),
+                                        ),
+                                        child: Text(
+                                          item.roleLabel,
+                                          style: const TextStyle(
+                                            fontSize: 9.5,
+                                            fontWeight: FontWeight.w800,
+                                            letterSpacing: 0.7,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Flexible(
+                                        child: _statusBadge(item.statusAktif),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    _companyName,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11.5,
+                                      color: Colors.white.withValues(alpha: 0.82),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.13),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.2),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: <Widget>[
+                              _infoRow(
+                                Icons.mail_outline_rounded,
+                                'Email',
+                                item.email,
+                              ),
+                              const SizedBox(height: 10),
+                              _infoRow(
+                                Icons.person_outline_rounded,
+                                'Username',
+                                item.username.isEmpty
+                                    ? '-'
+                                    : '@${item.username}',
+                              ),
+                              const SizedBox(height: 10),
+                              _infoRow(
+                                Icons.phone_outlined,
+                                'No. HP',
+                                punyaNoHp ? item.mobileNo : 'No. HP belum diisi',
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: punyaNoHp
+                                ? () => WhatsAppHelper.openChat(
+                                    context,
+                                    phone: item.mobileNo,
+                                    message: 'Halo ${item.namaLengkap}, ',
+                                  )
+                                : null,
+                            icon: const Icon(Icons.chat_bubble_outline, size: 17),
+                            label: const Text('Chat WhatsApp'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              disabledForegroundColor: Colors.white54,
+                              side: BorderSide(
+                                color: Colors.white.withValues(alpha: 0.7),
+                              ),
+                              minimumSize: const Size(0, 42),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: <Widget>[
-                if (!punyaNoHp)
-                  Expanded(
-                    child: Text(
-                      'No. HP belum diisi',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        color: Colors.white.withValues(alpha: 0.78),
-                      ),
-                    ),
-                  ),
-                OutlinedButton.icon(
-                  onPressed: punyaNoHp
-                      ? () => WhatsAppHelper.openChat(
-                          context,
-                          phone: item.mobileNo,
-                          message: 'Halo ${item.namaLengkap}, ',
-                        )
-                      : null,
-                  icon: const Icon(Icons.chat_bubble_outline, size: 17),
-                  label: const Text('Chat WhatsApp'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    disabledForegroundColor: Colors.white54,
-                    side: BorderSide(color: Colors.white.withValues(alpha: 0.7)),
-                    minimumSize: const Size(0, 40),
-                  ),
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 
