@@ -277,14 +277,27 @@ class LaporanExcelService {
   }
 
   static List<dynamic> _extractRows(dynamic decoded) {
-    if (decoded is List) return decoded;
-    if (decoded is Map<String, dynamic>) {
+    List<dynamic> hasil = const <dynamic>[];
+    if (decoded is List) {
+      hasil = decoded;
+    } else if (decoded is Map<String, dynamic>) {
       for (final String key in <String>['data', 'absensi', 'result', 'list']) {
         final dynamic value = decoded[key];
-        if (value is List) return value;
+        if (value is List) {
+          hasil = value;
+          break;
+        }
       }
     }
-    return const <dynamic>[];
+    return hasil.where((dynamic item) {
+      if (item is! Map<String, dynamic>) return false;
+      if ((item['record_type'] ?? '').toString().toLowerCase() == 'holiday') {
+        return false;
+      }
+      final String nama =
+          (item['nama'] ?? item['employee_name'] ?? '').toString().trim();
+      return nama != 'Hari Libur';
+    }).toList();
   }
 
   /// Tanggal hari ini mengikuti timezone perusahaan (Asia/Jakarta),

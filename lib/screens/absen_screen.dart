@@ -822,7 +822,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
           .timeout(ApiConfig.requestTimeout);
 
       if (!mounted) return;
-      if (response.statusCode == 401) {
+      if (response.statusCode == 401 || response.statusCode == 403) {
         await _handleUnauthorized();
         return;
       }
@@ -996,7 +996,7 @@ class _AbsenScreenState extends State<AbsenScreen> {
           .timeout(ApiConfig.requestTimeout);
 
       if (!mounted) return;
-      if (response.statusCode == 401) {
+      if (response.statusCode == 401 || response.statusCode == 403) {
         await _handleUnauthorized();
         return;
       }

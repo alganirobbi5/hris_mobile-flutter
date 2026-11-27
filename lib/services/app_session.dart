@@ -245,7 +245,17 @@ class AppSession {
             headers: ApiConfig.authHeaders(tokenAwal),
           )
           .timeout(ApiConfig.requestTimeout);
-      if (response.statusCode == 401 || response.statusCode == 403) {
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        await logout();
+        return false;
+      }
+      try {
+        final dynamic decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic> && decoded['success'] == false) {
+          await logout();
+          return false;
+        }
+      } on FormatException {
         await logout();
         return false;
       }

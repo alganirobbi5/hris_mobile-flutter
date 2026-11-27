@@ -298,13 +298,10 @@ class _CutiScreenState extends State<CutiScreen>
     if (!_formKey.currentState!.validate()) return;
 
     final int? employeeId = await AppSession.currentEmployeeId();
-    if (employeeId == null) {
-      final String? role = await AppSession.resolveRole();
-      _showMessage(
-        AppSession.isHrRole(role)
-            ? 'Akun HR tidak memiliki employee_id untuk mengajukan cuti'
-            : 'employee_id tidak ditemukan. Silakan login ulang.',
-      );
+    final String? roleSekarang = await AppSession.resolveRole();
+    final bool akunHr = AppSession.isHrRole(roleSekarang);
+    if (employeeId == null && !akunHr) {
+      _showMessage('employee_id tidak ditemukan. Silakan login ulang.');
       return;
     }
 
@@ -324,6 +321,7 @@ class _CutiScreenState extends State<CutiScreen>
           days: int.tryParse(_daysController.text.trim()),
           employeeName: AppSession.name?.trim(),
           nik: AppSession.username?.trim(),
+          allowMissingEmployee: akunHr,
         ),
       );
 
@@ -344,7 +342,7 @@ class _CutiScreenState extends State<CutiScreen>
                 headers: ApiConfig.authHeaders(token),
                 body: jsonEncode(<String, dynamic>{
                   'action': 'create',
-                  'employee_id': employeeId,
+                  'employee_id': ?employeeId,
                   'title': title,
                   'reason': reason.isEmpty ? title : '$title - $reason',
                   'start_date': _formatApiDate(startDate),
