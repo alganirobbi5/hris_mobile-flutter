@@ -16,6 +16,8 @@ import '../services/profile_avatar_store.dart';
 import '../services/profile_credential_service.dart';
 import '../services/profile_email_store.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_form_field.dart';
+import '../widgets/app_text_field.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/avatar_picker_sheet.dart';
 import '../widgets/glass_app_bar.dart';
@@ -697,15 +699,12 @@ class _ProfilScreenState extends State<ProfilScreen> {
           title: const Text('Ubah Email'),
           content: Form(
             key: formKey,
-            child: TextFormField(
+            child: AppTextField(
+              label: 'Email',
+              hint: 'nama@perusahaan.com',
               controller: emailController,
               keyboardType: TextInputType.emailAddress,
-              autofocus: true,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                hintText: 'nama@perusahaan.com',
-                prefixIcon: Icon(Icons.mail_outline_rounded),
-              ),
+              prefixIcon: Icons.mail_outline_rounded,
               validator: (String? value) {
                 final String text = (value ?? '').trim();
                 if (text.isEmpty) return 'Email wajib diisi';
@@ -1233,32 +1232,45 @@ class _CredentialDialogState extends State<_CredentialDialog> {
           key: _formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              TextFormField(
+              const FormSectionHeader(
+                title: 'Akun',
+                icon: Icons.person_outline_rounded,
+              ),
+              AppTextField(
+                label: 'Username',
+                hint: 'Masukkan username',
                 controller: _usernameController,
-                decoration: const InputDecoration(labelText: 'Username'),
+                prefixIcon: Icons.person_outline_rounded,
                 validator: (String? value) =>
                     (value == null || value.trim().isEmpty)
                         ? 'Username wajib diisi'
                         : null,
               ),
-              const SizedBox(height: 12),
-              TextFormField(
+              const SizedBox(height: 20),
+              const FormSectionHeader(
+                title: 'Keamanan',
+                icon: Icons.lock_outline_rounded,
+              ),
+              AppTextField(
+                label: 'Password Lama',
+                hint: 'Masukkan password saat ini',
                 controller: _oldPasswordController,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: 'Password Lama'),
+                prefixIcon: Icons.lock_outline_rounded,
                 validator: (String? value) =>
                     (value == null || value.isEmpty)
                         ? 'Password lama wajib diisi'
                         : null,
               ),
-              const SizedBox(height: 12),
-              TextFormField(
+              const SizedBox(height: 14),
+              AppTextField(
+                label: 'Password Baru (opsional)',
+                hint: 'Kosongkan jika tidak diubah',
                 controller: _newPasswordController,
                 obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Password Baru (opsional)',
-                ),
+                prefixIcon: Icons.lock_outline_rounded,
                 validator: (String? value) {
                   final String text = value ?? '';
                   if (text.isEmpty) return null;
@@ -1266,13 +1278,13 @@ class _CredentialDialogState extends State<_CredentialDialog> {
                   return null;
                 },
               ),
-              const SizedBox(height: 12),
-              TextFormField(
+              const SizedBox(height: 14),
+              AppTextField(
+                label: 'Konfirmasi Password Baru',
+                hint: 'Ulangi password baru',
                 controller: _confirmPasswordController,
                 obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Konfirmasi Password Baru',
-                ),
+                prefixIcon: Icons.lock_outline_rounded,
                 validator: (String? value) {
                   final String baru = _newPasswordController.text;
                   if (baru.isEmpty) return null;

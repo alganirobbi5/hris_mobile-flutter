@@ -3,6 +3,8 @@ import 'package:http/http.dart' as http;
 
 import '../services/super_admin_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_form_field.dart';
+import '../widgets/app_text_field.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/glass_app_bar.dart';
 import '../widgets/app_refresh_indicator.dart';
@@ -295,11 +297,17 @@ class _HrAdminDialogState extends State<_HrAdminDialog> {
           key: _formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              DropdownButtonFormField<int>(
-                initialValue: _companyId,
-                isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Perusahaan'),
+              FormSectionHeader(
+                title: 'Perusahaan',
+                icon: Icons.business_outlined,
+              ),
+              AppFormDropdown<int>(
+                label: 'Perusahaan',
+                value: _companyId,
+                hint: 'Pilih perusahaan',
+                prefixIcon: Icons.business_outlined,
                 items: widget.companies
                     .map(
                       (PerusahaanItem company) => DropdownMenuItem<int>(
@@ -316,35 +324,54 @@ class _HrAdminDialogState extends State<_HrAdminDialog> {
                 onChanged: (int? value) =>
                     setState(() => _companyId = value),
               ),
-              const SizedBox(height: 12),
-              TextFormField(
+              const SizedBox(height: 20),
+              const FormSectionHeader(
+                title: 'Data Pribadi',
+                icon: Icons.person_outline_rounded,
+              ),
+              AppTextField(
+                label: 'Nama Depan',
+                hint: 'Masukkan nama depan',
                 controller: _firstNameController,
-                decoration: const InputDecoration(labelText: 'Nama Depan'),
+                prefixIcon: Icons.badge_outlined,
                 validator: (String? value) => _wajib(value, 'Nama depan'),
               ),
-              const SizedBox(height: 12),
-              TextFormField(
+              const SizedBox(height: 14),
+              AppTextField(
+                label: 'Nama Belakang',
+                hint: 'Masukkan nama belakang',
                 controller: _lastNameController,
-                decoration: const InputDecoration(labelText: 'Nama Belakang'),
+                prefixIcon: Icons.badge_outlined,
                 validator: (String? value) => _wajib(value, 'Nama belakang'),
               ),
-              const SizedBox(height: 12),
-              TextFormField(
+              const SizedBox(height: 20),
+              const FormSectionHeader(
+                title: 'Akun Login',
+                icon: Icons.lock_outline_rounded,
+              ),
+              AppTextField(
+                label: 'Username',
+                hint: 'Masukkan username',
                 controller: _usernameController,
-                decoration: const InputDecoration(labelText: 'Username'),
+                prefixIcon: Icons.person_outline_rounded,
                 validator: (String? value) => _wajib(value, 'Username'),
               ),
-              const SizedBox(height: 12),
-              TextFormField(
+              const SizedBox(height: 14),
+              AppTextField(
+                label: 'Email',
+                hint: 'nama@perusahaan.com',
                 controller: _emailController,
-                decoration: const InputDecoration(labelText: 'Email'),
+                keyboardType: TextInputType.emailAddress,
+                prefixIcon: Icons.mail_outline_rounded,
                 validator: (String? value) => _wajib(value, 'Email'),
               ),
-              const SizedBox(height: 12),
-              TextFormField(
+              const SizedBox(height: 14),
+              AppTextField(
+                label: 'Password',
+                hint: 'Masukkan password',
                 controller: _passwordController,
                 obscureText: true,
-                decoration: const InputDecoration(labelText: 'Password'),
+                prefixIcon: Icons.lock_outline_rounded,
                 validator: (String? value) => _wajib(value, 'Password'),
               ),
             ],

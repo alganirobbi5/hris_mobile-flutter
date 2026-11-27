@@ -4,7 +4,9 @@ import 'package:http/http.dart' as http;
 import '../services/app_session.dart';
 import '../services/holidays_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_form_field.dart';
 import '../widgets/app_refresh_indicator.dart';
+import '../widgets/app_text_field.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/glass_app_bar.dart';
 import '../widgets/holiday_badge.dart';
@@ -290,35 +292,43 @@ class _HolidayFormDialogState extends State<_HolidayFormDialog> {
           key: _formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              TextFormField(
+              const FormSectionHeader(
+                title: 'Detail Hari Libur',
+                icon: Icons.event_available_outlined,
+              ),
+              AppTextField(
+                label: 'Tanggal Libur',
+                hint: 'Pilih tanggal',
                 controller: _tanggalController,
                 readOnly: true,
-                decoration: const InputDecoration(
-                  labelText: 'Tanggal Libur',
-                  suffixIcon: Icon(Icons.calendar_month_outlined),
+                prefixIcon: Icons.calendar_month_outlined,
+                suffixIcon: const Icon(
+                  Icons.arrow_drop_down_rounded,
+                  color: AppColors.textSecondary,
                 ),
                 onTap: _pilihTanggal,
                 validator: (String? value) =>
                     _tanggal == null ? 'Tanggal libur wajib dipilih' : null,
               ),
-              const SizedBox(height: 12),
-              TextFormField(
+              const SizedBox(height: 14),
+              AppTextField(
+                label: 'Nama Hari Libur',
+                hint: 'Contoh: Hari Raya Idul Fitri',
                 controller: _namaController,
-                decoration: const InputDecoration(
-                  labelText: 'Nama Hari Libur',
-                ),
+                prefixIcon: Icons.event_note_outlined,
                 validator: (String? value) =>
                     (value == null || value.trim().isEmpty)
                         ? 'Nama hari libur wajib diisi'
                         : null,
               ),
-              const SizedBox(height: 12),
-              TextFormField(
+              const SizedBox(height: 14),
+              AppTextField(
+                label: 'Keterangan (Opsional)',
+                hint: 'Tambahkan keterangan',
                 controller: _keteranganController,
-                decoration: const InputDecoration(
-                  labelText: 'Keterangan',
-                ),
+                prefixIcon: Icons.notes_outlined,
               ),
             ],
           ),

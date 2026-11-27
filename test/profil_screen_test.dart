@@ -126,9 +126,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Ubah Username & Password'), findsWidgets);
-    expect(find.text('Password Lama'), findsOneWidget);
-    expect(find.text('Password Baru (opsional)'), findsOneWidget);
-    expect(find.text('Konfirmasi Password Baru'), findsOneWidget);
+    expect(find.text('PASSWORD LAMA'), findsOneWidget);
+    expect(find.text('PASSWORD BARU (OPSIONAL)'), findsOneWidget);
+    expect(find.text('KONFIRMASI PASSWORD BARU'), findsOneWidget);
 
     await tester.tap(find.text('Simpan'));
     await tester.pump();

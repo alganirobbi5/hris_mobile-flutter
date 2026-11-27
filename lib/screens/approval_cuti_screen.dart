@@ -15,6 +15,8 @@ import '../services/izin_keluar_service.dart';
 import '../services/leave_balance.dart';
 import '../services/leave_leader_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_form_field.dart';
+import '../widgets/app_text_field.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/section_card.dart';
 import '../widgets/status_badge.dart';
@@ -2354,11 +2356,17 @@ class _TambahLeaderDialogState extends State<_TambahLeaderDialog> {
           key: _formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              DropdownButtonFormField<int>(
-                initialValue: _selectedUserId,
-                isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Pilih User'),
+              const FormSectionHeader(
+                title: 'Data Leader',
+                icon: Icons.supervisor_account_outlined,
+              ),
+              AppFormDropdown<int>(
+                label: 'Pilih User',
+                value: _selectedUserId,
+                hint: 'Pilih karyawan',
+                prefixIcon: Icons.person_outline_rounded,
                 items: widget.users
                     .map(
                       (EligibleLeaveUser user) => DropdownMenuItem<int>(
@@ -2377,10 +2385,12 @@ class _TambahLeaderDialogState extends State<_TambahLeaderDialog> {
                 onChanged: (int? value) =>
                     setState(() => _selectedUserId = value),
               ),
-              const SizedBox(height: 12),
-              TextFormField(
+              const SizedBox(height: 14),
+              AppTextField(
+                label: 'Jabatan',
+                hint: 'Contoh: Kepala Bagian',
                 controller: _jabatanController,
-                decoration: const InputDecoration(labelText: 'Jabatan'),
+                prefixIcon: Icons.work_outline_rounded,
                 validator: (String? value) =>
                     (value == null || value.trim().isEmpty)
                         ? 'Jabatan wajib diisi'

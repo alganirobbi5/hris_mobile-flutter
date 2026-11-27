@@ -3,6 +3,8 @@ import 'package:http/http.dart' as http;
 
 import '../services/super_admin_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_form_field.dart';
+import '../widgets/app_text_field.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/glass_app_bar.dart';
 import '../widgets/status_badge.dart';
@@ -279,21 +281,25 @@ class _PerusahaanDialogState extends State<_PerusahaanDialog> {
           key: _formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              TextFormField(
+              const FormSectionHeader(
+                title: 'Identitas Perusahaan',
+                icon: Icons.business_outlined,
+              ),
+              AppTextField(
+                label: 'Kode Perusahaan',
+                hint: 'CMJ-2026',
                 controller: _codeController,
-                decoration: const InputDecoration(
-                  labelText: 'Kode Perusahaan',
-                  hintText: 'CMJ-2026',
-                ),
+                prefixIcon: Icons.qr_code_2_outlined,
                 validator: _validasiKode,
               ),
-              const SizedBox(height: 12),
-              TextFormField(
+              const SizedBox(height: 14),
+              AppTextField(
+                label: 'Nama Perusahaan',
+                hint: 'Masukkan nama perusahaan',
                 controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Nama Perusahaan',
-                ),
+                prefixIcon: Icons.business_outlined,
                 validator: (String? value) => _wajib(value, 'Nama perusahaan'),
               ),
             ],

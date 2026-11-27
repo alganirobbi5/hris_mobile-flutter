@@ -54,12 +54,13 @@ void main() {
     expect(find.text('NAMA DEPAN'), findsOneWidget);
     expect(find.text('NAMA BELAKANG'), findsOneWidget);
     expect(find.text('NAMA BELAKANG (OPSIONAL)'), findsNothing);
-    expect(find.text('Jenis Kelamin'), findsOneWidget);
+    expect(find.text('JENIS KELAMIN'), findsOneWidget);
     expect(find.text('EMAIL'), findsOneWidget);
     expect(find.text('NO. HP'), findsOneWidget);
-    expect(find.text('Departemen'), findsOneWidget);
-    expect(find.text('Jabatan'), findsOneWidget);
-    expect(find.text('Status'), findsOneWidget);
+    expect(find.text('DEPARTEMEN'), findsOneWidget);
+    expect(find.text('JABATAN'), findsOneWidget);
+    expect(find.text('Status'), findsNothing);
+    expect(find.text('Nonaktif'), findsNothing);
     expect(find.text('USERNAME (UNTUK LOGIN)'), findsOneWidget);
     expect(find.text('PASSWORD'), findsOneWidget);
     expect(find.text('IT'), findsNothing);
@@ -117,7 +118,7 @@ void main() {
     await tester.tap(find.text('Developer').last);
     await tester.pumpAndSettle();
 
-    expect(find.text('Aktif'), findsOneWidget);
+    expect(find.text('Nonaktif'), findsNothing);
 
     await tester.ensureVisible(find.text('Simpan Karyawan'));
     await tester.tap(find.text('Simpan Karyawan'));

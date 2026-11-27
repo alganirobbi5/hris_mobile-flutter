@@ -314,11 +314,11 @@ void main() {
     await tester.tap(find.text('Tambah Leader'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Pilih User'), findsOneWidget);
+    expect(find.text('PILIH USER'), findsOneWidget);
     expect(
       find.descendant(
         of: find.byType(AlertDialog),
-        matching: find.text('Jabatan'),
+        matching: find.text('JABATAN'),
       ),
       findsOneWidget,
     );

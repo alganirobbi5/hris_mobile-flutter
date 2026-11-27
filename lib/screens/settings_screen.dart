@@ -5,6 +5,8 @@ import '../widgets/glass_app_bar.dart';
 import '../config/company_config.dart';
 import '../services/company_profile.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_form_field.dart';
+import '../widgets/app_text_field.dart';
 import '../widgets/app_toast.dart';
 import 'approval_cuti_screen.dart';
 import 'atur_jam_screen.dart';
@@ -67,23 +69,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
             key: formKey,
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                TextFormField(
+                const FormSectionHeader(
+                  title: 'Profil Perusahaan',
+                  icon: Icons.business_outlined,
+                ),
+                AppTextField(
+                  label: 'Nama Perusahaan',
+                  hint: 'Masukkan nama perusahaan',
                   controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Nama Perusahaan',
-                  ),
+                  prefixIcon: Icons.business_outlined,
                   validator: (String? value) =>
                       (value == null || value.trim().isEmpty)
                           ? 'Nama perusahaan wajib diisi'
                           : null,
                 ),
-                const SizedBox(height: 12),
-                TextFormField(
+                const SizedBox(height: 14),
+                AppTextField(
+                  label: 'Kode Perusahaan',
+                  hint: 'Masukkan kode perusahaan',
                   controller: codeController,
-                  decoration: const InputDecoration(
-                    labelText: 'Kode Perusahaan',
-                  ),
+                  prefixIcon: Icons.qr_code_2_outlined,
                   validator: (String? value) =>
                       (value == null || value.trim().isEmpty)
                           ? 'Kode perusahaan wajib diisi'

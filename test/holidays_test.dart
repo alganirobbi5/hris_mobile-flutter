@@ -185,17 +185,20 @@ void main() {
 
     await tester.tap(find.text('Tambah Hari Libur'));
     await tester.pumpAndSettle();
-    expect(_field('Tanggal Libur'), findsOneWidget);
-    expect(_field('Nama Hari Libur'), findsOneWidget);
-    expect(_field('Keterangan'), findsOneWidget);
+    expect(find.text('TANGGAL LIBUR'), findsOneWidget);
+    expect(find.text('NAMA HARI LIBUR'), findsOneWidget);
+    expect(find.text('KETERANGAN (OPSIONAL)'), findsOneWidget);
 
-    await tester.tap(_field('Tanggal Libur'));
+    await tester.tap(find.byType(TextFormField).at(0));
     await tester.pumpAndSettle();
     await tester.tap(find.text('OK'));
     await tester.pumpAndSettle();
 
-    await tester.enterText(_field('Nama Hari Libur'), 'Hari Kemerdekaan');
-    await tester.enterText(_field('Keterangan'), 'Upacara bendera');
+    await tester.enterText(
+      find.byType(TextFormField).at(1),
+      'Hari Kemerdekaan',
+    );
+    await tester.enterText(find.byType(TextFormField).at(2), 'Upacara bendera');
     await tester.tap(find.text('Simpan'));
     await tester.pump();
     await tester.pump();
@@ -347,13 +350,6 @@ http.Client _holidayClient({
     }
     return http.Response('', 405);
   });
-}
-
-Finder _field(String label) {
-  return find.byWidgetPredicate(
-    (Widget widget) =>
-        widget is InputDecorator && widget.decoration.labelText == label,
-  );
 }
 
 void _gunakanLayarTinggi(WidgetTester tester) {

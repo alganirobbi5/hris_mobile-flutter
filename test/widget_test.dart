@@ -224,8 +224,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Edit Profil Perusahaan'), findsWidgets);
-    expect(find.text('Nama Perusahaan'), findsWidgets);
-    expect(find.text('Kode Perusahaan'), findsWidgets);
+    expect(find.text('NAMA PERUSAHAAN'), findsWidgets);
+    expect(find.text('KODE PERUSAHAAN'), findsWidgets);
     expect(find.text('Simpan'), findsOneWidget);
   });
 
