@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hris_mobile/main.dart';
 import 'package:hris_mobile/screens/absen_success_screen.dart';
+import 'package:hris_mobile/screens/edit_perusahaan_screen.dart';
 import 'package:hris_mobile/screens/main_screen.dart';
 import 'package:hris_mobile/services/app_session.dart';
 import 'package:hris_mobile/screens/login_screen.dart';
@@ -223,10 +224,12 @@ void main() {
     await tester.tap(find.text('Edit Perusahaan'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Edit Profil Perusahaan'), findsWidgets);
+    expect(find.byType(EditPerusahaanScreen), findsOneWidget);
+    expect(find.byType(AlertDialog), findsNothing);
     expect(find.text('NAMA PERUSAHAAN'), findsWidgets);
     expect(find.text('KODE PERUSAHAAN'), findsWidgets);
-    expect(find.text('Simpan'), findsOneWidget);
+    expect(find.text('LOGO PERUSAHAAN'), findsOneWidget);
+    expect(find.text('Simpan Perubahan'), findsOneWidget);
   });
 
   testWidgets('Logout Admin HR membersihkan sesi tanpa API profil', (
