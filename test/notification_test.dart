@@ -1,6 +1,13 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hris_mobile/services/absen_polling_service.dart';
+import 'package:hris_mobile/services/app_session.dart';
 import 'package:hris_mobile/services/notification_service.dart';
 import 'package:hris_mobile/widgets/app_toast.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   test('tipe toast ditebak dari isi pesan', () {
@@ -28,5 +35,42 @@ void main() {
       title: 'Tes',
       body: 'Tes notifikasi',
     );
+  });
+
+  test('polling notifikasi dipanggil untuk semua peran', () async {
+    for (final String peran in <String>['employee', 'hr', 'super_admin']) {
+      SharedPreferences.setMockInitialValues(<String, Object>{
+        'role': peran,
+        'api_token': 'token-$peran',
+      });
+      AppSession.role = null;
+      await AppSession.restore();
+      final List<String> dipanggil = <String>[];
+      final http.Client client = MockClient((http.Request request) async {
+        if (request.url.path.endsWith('/notifications.php')) {
+          dipanggil.add('notifications');
+          return http.Response(
+            jsonEncode(<String, dynamic>{
+              'success': true,
+              'data': <dynamic>[],
+              'unread': 0,
+            }),
+            200,
+          );
+        }
+        dipanggil.add('absensi');
+        return http.Response(
+          jsonEncode(<String, dynamic>{'success': true, 'data': <dynamic>[]}),
+          200,
+        );
+      });
+      await AbsenPollingService.pollOnce(client: client);
+      expect(dipanggil, contains('notifications'), reason: 'peran $peran');
+      if (peran == 'hr') {
+        expect(dipanggil, contains('absensi'));
+      } else {
+        expect(dipanggil, isNot(contains('absensi')));
+      }
+    }
   });
 }

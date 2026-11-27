@@ -34,7 +34,7 @@ class AbsenPollingService {
   static Future<void> pollOnce({http.Client? client}) async {
     if (_running) return;
     final String? role = await AppSession.resolveRole();
-    if (!AppSession.isHrRole(role)) return;
+    if (role == null || role.isEmpty) return;
 
     _running = true;
     final http.Client httpClient = client ?? http.Client();
@@ -43,8 +43,10 @@ class AbsenPollingService {
       final String? token = await AppSession.resolveToken();
       final Map<String, String> headers = ApiConfig.authHeaders(token);
 
-      await _pollNotifications(httpClient, headers);
-      await _pollAttendance(httpClient, headers);
+      await _pollNotifications(httpClient, headers, role);
+      if (AppSession.isHrRole(role)) {
+        await _pollAttendance(httpClient, headers);
+      }
     } catch (_) {
       // Polling gagal tidak boleh mengganggu aplikasi.
     } finally {
@@ -55,6 +57,7 @@ class AbsenPollingService {
   static Future<void> _pollNotifications(
     http.Client client,
     Map<String, String> headers,
+    String role,
   ) async {
     final http.Response response = await client
         .get(
@@ -80,16 +83,45 @@ class AbsenPollingService {
 
     for (final _NotifRow row in baru) {
       _seenNotif.add(row.id);
-      await AppNotificationService.showHrAttendance(
-        employeeName: row.title,
-        time: row.message,
-      );
+      await _tampilkanNotifikasi(row, role);
     }
 
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(
       _seenNotifKey,
       _seenNotif.map((int id) => id.toString()).toList(),
+    );
+  }
+
+  static Future<void> _tampilkanNotifikasi(_NotifRow row, String role) async {
+    final String type = row.type;
+    if (type == 'attendance' && !AppSession.isHrRole(role)) return;
+    if (type == 'leave_request' && role == 'super_admin') return;
+    if (type == 'attendance_self') {
+      await AppNotificationService.showAttendanceReminderNow(
+        id: 1000 + row.id,
+        title: row.title,
+        body: row.message,
+      );
+      return;
+    }
+    if (type == 'announcement') {
+      await AppNotificationService.showAnnouncement(
+        title: row.title,
+        body: row.message,
+      );
+      return;
+    }
+    if (type == 'leave_request') {
+      await AppNotificationService.showLeaveStatus(
+        title: row.title,
+        body: row.message,
+      );
+      return;
+    }
+    await AppNotificationService.showHrAttendance(
+      employeeName: row.title,
+      time: row.message,
     );
   }
 
@@ -177,6 +209,7 @@ class _NotifRow {
     required this.id,
     required this.title,
     required this.message,
+    required this.type,
   });
 
   factory _NotifRow.fromJson(Map<String, dynamic> json) {
@@ -184,12 +217,14 @@ class _NotifRow {
       id: int.tryParse((json['id'] ?? json['notification_id'])?.toString() ?? '') ?? 0,
       title: (json['title'] ?? 'Notifikasi').toString().trim(),
       message: (json['message'] ?? '').toString().trim(),
+      type: (json['type'] ?? 'general').toString().trim(),
     );
   }
 
   final int id;
   final String title;
   final String message;
+  final String type;
 }
 
 class _AbsenRow {

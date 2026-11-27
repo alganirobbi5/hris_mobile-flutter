@@ -30,7 +30,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   late final Future<_AksesNavigasi> _aksesFuture;
   PageController? _pageController;
   Timer? _pollingTimer;
-  bool _isHr = false;
 
   @override
   void initState() {
@@ -43,9 +42,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   Future<void> _startPolling() async {
     await AppNotificationService.initialize();
     await AbsenPollingService.loadSeen();
-    final _AksesNavigasi akses = await _aksesFuture;
-    if (!mounted || !akses.isHr) return;
-    setState(() => _isHr = akses.isHr);
+    await _aksesFuture;
+    if (!mounted) return;
     _pollingTimer?.cancel();
     _pollingTimer = Timer.periodic(
       const Duration(seconds: 8),
@@ -56,7 +54,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _isHr) {
+    if (state == AppLifecycleState.resumed) {
       AbsenPollingService.pollOnce();
     }
   }
