@@ -11,6 +11,7 @@ import '../services/riwayat_cuti_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/riwayat_cuti_izin_keluar.dart';
 import '../widgets/section_card.dart';
+import '../widgets/status_badge.dart';
 import 'cuti_screen.dart';
 import 'izin_keluar_screen.dart';
 import '../widgets/app_refresh_indicator.dart';
@@ -38,6 +39,8 @@ class _LayananCutiScreenState extends State<LayananCutiScreen> {
   List<HolidayItem> _holidays = const <HolidayItem>[];
   bool _isLoading = true;
   bool _isHolidayLoading = true;
+  String? _cutiStatus;
+  String? _izinStatus;
   String? _error;
 
   @override
@@ -45,6 +48,7 @@ class _LayananCutiScreenState extends State<LayananCutiScreen> {
     super.initState();
     _fetchLeaders();
     _fetchHolidays();
+    _fetchStatuses();
   }
 
   Future<void> _fetchLeaders() async {
@@ -101,6 +105,68 @@ class _LayananCutiScreenState extends State<LayananCutiScreen> {
     }
   }
 
+  String _statusLabel(String status) {
+    final String value = status.trim().toLowerCase();
+    if (value == '2' ||
+        value == 'disetujui' ||
+        value == 'approved' ||
+        value == 'approve') {
+      return 'Disetujui';
+    }
+    if (value == '3' ||
+        value == 'ditolak' ||
+        value == 'rejected' ||
+        value == 'reject') {
+      return 'Ditolak';
+    }
+    return 'Menunggu';
+  }
+
+  Color _statusColor(String status) {
+    switch (_statusLabel(status)) {
+      case 'Disetujui':
+        return AppColors.success;
+      case 'Ditolak':
+        return AppColors.danger;
+      default:
+        return AppColors.pending;
+    }
+  }
+
+  Future<String?> _statusCutiTerkini() async {
+    final List<RiwayatCutiItem> items = widget.cutiLoader != null
+        ? await widget.cutiLoader!()
+        : await RiwayatCutiService.fetch(client: widget.httpClient);
+    if (items.isEmpty) return null;
+    final List<RiwayatCutiItem> diurutkan = List<RiwayatCutiItem>.from(items)
+      ..sort((RiwayatCutiItem a, RiwayatCutiItem b) =>
+          b.createdAt.compareTo(a.createdAt));
+    return diurutkan.first.status;
+  }
+
+  Future<String?> _statusIzinTerkini() async {
+    final List<IzinKeluarItem> items = widget.izinLoader != null
+        ? await widget.izinLoader!()
+        : await IzinKeluarService.fetch(client: widget.httpClient);
+    if (items.isEmpty) return null;
+    final List<IzinKeluarItem> diurutkan = List<IzinKeluarItem>.from(items)
+      ..sort((IzinKeluarItem a, IzinKeluarItem b) =>
+          b.createdAt.compareTo(a.createdAt));
+    return diurutkan.first.status;
+  }
+
+  Future<void> _fetchStatuses() async {
+    final List<String?> hasil = await Future.wait<String?>(<Future<String?>>[
+      _statusCutiTerkini().catchError((_) => null),
+      _statusIzinTerkini().catchError((_) => null),
+    ]);
+    if (!mounted) return;
+    setState(() {
+      _cutiStatus = hasil[0];
+      _izinStatus = hasil[1];
+    });
+  }
+
   List<HolidayItem> get _upcomingHolidays {
     final DateTime now = DateTime.now();
     final DateTime today = DateTime(now.year, now.month, now.day);
@@ -144,7 +210,11 @@ class _LayananCutiScreenState extends State<LayananCutiScreen> {
   }
 
   Future<void> _onRefresh() async {
-    await Future.wait<void>(<Future<void>>[_fetchLeaders(), _fetchHolidays()]);
+    await Future.wait<void>(<Future<void>>[
+      _fetchLeaders(),
+      _fetchHolidays(),
+      _fetchStatuses(),
+    ]);
     CutiRefresh.notify();
     await Future<void>.delayed(const Duration(milliseconds: 200));
   }
@@ -300,7 +370,10 @@ class _LayananCutiScreenState extends State<LayananCutiScreen> {
     required IconData icon,
     required String label,
     required VoidCallback onTap,
+    String? status,
   }) {
+    final String? labelStatus = status == null ? null : _statusLabel(status);
+    final Color? warnaStatus = status == null ? null : _statusColor(status);
     return Card(
       margin: EdgeInsets.zero,
       elevation: 1,
@@ -311,11 +384,15 @@ class _LayananCutiScreenState extends State<LayananCutiScreen> {
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
+          padding: EdgeInsets.symmetric(
+            vertical: status == null ? 18 : 14,
+            horizontal: 8,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: <Widget>[
-              Icon(icon, size: 28, color: AppColors.primary),
+              Icon(icon, size: status == null ? 28 : 26, color: AppColors.primary),
               const SizedBox(height: 8),
               Text(
                 label,
@@ -326,6 +403,13 @@ class _LayananCutiScreenState extends State<LayananCutiScreen> {
                   color: AppColors.textPrimary,
                 ),
               ),
+              if (labelStatus != null) ...<Widget>[
+                const SizedBox(height: 6),
+                StatusBadge(
+                  label: labelStatus,
+                  color: warnaStatus ?? AppColors.pending,
+                ),
+              ],
             ],
           ),
         ),
@@ -354,13 +438,14 @@ class _LayananCutiScreenState extends State<LayananCutiScreen> {
                     child: _buildActionCard(
                       icon: Icons.calendar_month_outlined,
                       label: 'Pengajuan Cuti',
-                      onTap: () {
-                        Navigator.push(
-                          context,
+                      status: _cutiStatus,
+                      onTap: () async {
+                        await Navigator.of(context).push<void>(
                           MaterialPageRoute<void>(
                             builder: (_) => const CutiScreen(),
                           ),
                         );
+                        await _fetchStatuses();
                       },
                     ),
                   ),
@@ -369,13 +454,14 @@ class _LayananCutiScreenState extends State<LayananCutiScreen> {
                     child: _buildActionCard(
                       icon: Icons.exit_to_app_rounded,
                       label: 'Izin Keluar',
-                      onTap: () {
-                        Navigator.push(
-                          context,
+                      status: _izinStatus,
+                      onTap: () async {
+                        await Navigator.of(context).push<void>(
                           MaterialPageRoute<void>(
                             builder: (_) => const IzinKeluarScreen(),
                           ),
                         );
+                        await _fetchStatuses();
                       },
                     ),
                   ),

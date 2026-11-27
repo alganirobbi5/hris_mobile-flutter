@@ -7,6 +7,7 @@ import 'package:hris_mobile/screens/main_screen.dart';
 import 'package:hris_mobile/services/app_session.dart';
 import 'package:hris_mobile/services/izin_keluar_service.dart';
 import 'package:hris_mobile/services/riwayat_cuti_service.dart';
+import 'package:hris_mobile/theme/app_theme.dart';
 import 'package:hris_mobile/widgets/glass_bottom_nav.dart';
 import 'package:hris_mobile/widgets/profile_avatar_button.dart';
 import 'package:http/http.dart' as http;
@@ -100,6 +101,106 @@ void main() {
     expect(find.text('Kepala Bagian'), findsOneWidget);
     expect(find.text('Username / Jabatan'), findsNothing);
   });
+
+  testWidgets('badge status tampil seragam pada kedua tombol aksi', (
+    WidgetTester tester,
+  ) async {
+    final http.Client client = _statusClient();
+    final List<RiwayatCutiItem> cuti = <RiwayatCutiItem>[
+      RiwayatCutiItem(
+        id: 1,
+        type: 'Cuti Tahunan',
+        leavFrom: '2026-11-20',
+        leavTo: '2026-11-21',
+        status: 'approved',
+        createdAt: '2026-11-25T10:00:00',
+      ),
+    ];
+    final List<IzinKeluarItem> izin = <IzinKeluarItem>[
+      IzinKeluarItem(
+        id: 2,
+        employeeId: 3,
+        tanggal: '2026-11-26',
+        jamKeluar: '10:00',
+        jamKembali: '12:00',
+        kembaliKeKantor: true,
+        kategori: 'Keperluan Pribadi',
+        alasan: 'Acara keluarga',
+        status: 'pending',
+        catatanHr: '',
+        namaKaryawan: 'Andi Pratama',
+        createdAt: '2026-11-26T09:00:00',
+      ),
+    ];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LayananCutiScreen(
+          httpClient: client,
+          cutiLoader: () async => cuti,
+          izinLoader: () async => izin,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final Finder kartuCuti = find.ancestor(
+      of: find.text('Pengajuan Cuti'),
+      matching: find.byType(Card),
+    );
+    final Finder kartuIzin = find.ancestor(
+      of: find.text('Izin Keluar'),
+      matching: find.byType(Card),
+    );
+    expect(
+      find.descendant(of: kartuCuti, matching: find.text('Disetujui')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: kartuIzin, matching: find.text('Menunggu')),
+      findsOneWidget,
+    );
+    final Text badgeIzin = tester.widget<Text>(
+      find.descendant(of: kartuIzin, matching: find.text('Menunggu')),
+    );
+    expect(badgeIzin.style?.color, AppColors.pending);
+  });
+
+  testWidgets('tombol aksi tanpa pengajuan tidak menampilkan badge', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LayananCutiScreen(
+          httpClient: _statusClient(),
+          cutiLoader: () async => const <RiwayatCutiItem>[],
+          izinLoader: () async => const <IzinKeluarItem>[],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final Finder kartuCuti = find.ancestor(
+      of: find.text('Pengajuan Cuti'),
+      matching: find.byType(Card),
+    );
+    final Finder kartuIzin = find.ancestor(
+      of: find.text('Izin Keluar'),
+      matching: find.byType(Card),
+    );
+    expect(
+      find.descendant(of: kartuCuti, matching: find.text('Menunggu')),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: kartuIzin, matching: find.text('Menunggu')),
+      findsNothing,
+    );
+  });
+}
+
+http.Client _statusClient() {
+  return MockClient((http.Request request) async => http.Response('', 404));
 }
 
 double _y(WidgetTester tester, String teks) {
