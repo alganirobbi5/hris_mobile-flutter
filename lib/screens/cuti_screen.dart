@@ -142,6 +142,7 @@ class _CutiScreenState extends State<CutiScreen>
   }
 
   Future<void> _fetchEmployees() async {
+    if (!mounted) return;
     LeaveEmployeeError.message = null;
     setState(() => _isLoadingEmployees = true);
     try {
@@ -425,6 +426,7 @@ class _CutiScreenState extends State<CutiScreen>
   }
 
   Future<void> _fetchRiwayatCuti() async {
+    if (!mounted) return;
     setState(() {
       _isLoadingRiwayat = true;
       _riwayatError = null;
@@ -1099,7 +1101,7 @@ class _CutiScreenState extends State<CutiScreen>
                       ),
                       const SizedBox(height: 18),
                       DropdownButtonFormField<int>(
-                        key: ValueKey<int>(_formResetToken),
+                        key: ValueKey<String>('leader_$_formResetToken'),
                         initialValue: _selectedLeaderId,
                         isExpanded: true,
                         decoration: const InputDecoration(
@@ -1166,7 +1168,7 @@ class _CutiScreenState extends State<CutiScreen>
                       ),
                       const SizedBox(height: 8),
                       DropdownButtonFormField<int>(
-                        key: ValueKey<int>(_formResetToken),
+                        key: ValueKey<String>('pengganti_$_formResetToken'),
                         initialValue: _replacementId,
                         isExpanded: true,
                         hint: Text(
