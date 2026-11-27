@@ -185,6 +185,10 @@ class SemuaAbsensiViewState extends State<SemuaAbsensiView> {
 
     return rawData
         .whereType<Map<String, dynamic>>()
+        .where((Map<String, dynamic> json) =>
+            (json['record_type'] ?? '').toString().toLowerCase() != 'holiday' &&
+            (json['nama'] ?? json['employee_name'] ?? '').toString().trim() !=
+                'Hari Libur')
         .map(_AbsensiItem.fromJson)
         .toList();
   }

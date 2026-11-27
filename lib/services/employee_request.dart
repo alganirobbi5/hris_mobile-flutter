@@ -105,10 +105,11 @@ class EmployeeRequest {
     String? nik,
     String? department,
     String? position,
+    bool allowMissingEmployee = false,
   }) {
-    _require(employeeId);
+    if (!allowMissingEmployee) _require(employeeId);
     return <String, dynamic>{
-      'employee_id': employeeId,
+      'employee_id': ?employeeId,
       'title': title,
       'start_date': startDate,
       'end_date': endDate,

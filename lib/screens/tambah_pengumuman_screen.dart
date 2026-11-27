@@ -104,6 +104,14 @@ class _TambahPengumumanScreenState extends State<TambahPengumumanScreen> {
         return 'image/webp';
       case 'txt':
         return 'text/plain';
+      case 'csv':
+        return 'text/csv';
+      case 'gif':
+        return 'image/gif';
+      case 'zip':
+        return 'application/zip';
+      case 'json':
+        return 'application/json';
       default:
         return 'application/octet-stream';
     }
