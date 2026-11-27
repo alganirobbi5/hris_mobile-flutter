@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -18,7 +18,6 @@ import '../services/profile_email_store.dart';
 import '../theme/app_theme.dart';
 import '../utils/whatsapp_helper.dart';
 import '../widgets/app_text_field.dart';
-import '../widgets/app_toast.dart';
 import '../widgets/avatar_picker_sheet.dart';
 import '../widgets/glass_app_bar.dart';
 import '../widgets/info_row.dart';
@@ -182,19 +181,20 @@ class _ProfilScreenState extends State<ProfilScreen> {
   Future<void> _applySessionProfile() async {
     final String? cachedEmail = await ProfileEmailStore.load(_userId);
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final String rawName = (AppSession.name ??
-            AppSession.username ??
-            prefs.getString('nama_lengkap') ??
-            '')
+    final String rawName =
+        (AppSession.name ??
+                AppSession.username ??
+                prefs.getString('nama_lengkap') ??
+                '')
+            .toString()
+            .trim();
+    final String rawUsername =
+        (AppSession.username ?? prefs.getString('username') ?? '')
+            .toString()
+            .trim();
+    final String rawRole = (AppSession.role ?? prefs.getString('role') ?? '')
         .toString()
         .trim();
-    final String rawUsername = (AppSession.username ??
-            prefs.getString('username') ??
-            '')
-        .toString()
-        .trim();
-    final String rawRole =
-        (AppSession.role ?? prefs.getString('role') ?? '').toString().trim();
     if (!mounted) return;
     setState(() {
       _profil = <String, dynamic>{
@@ -314,55 +314,55 @@ class _ProfilScreenState extends State<ProfilScreen> {
             child: Material(
               color: Colors.transparent,
               child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 10),
-                Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.border,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const ListTile(
-                  title: Text(
-                    'Ubah Foto Profil',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 10),
+                  Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: AppColors.border,
+                      borderRadius: BorderRadius.circular(4),
                     ),
                   ),
-                ),
-                ListTile(
-                  leading: const Icon(
-                    Icons.face_retouching_natural_outlined,
-                    color: AppColors.primary,
+                  const SizedBox(height: 8),
+                  const ListTile(
+                    title: Text(
+                      'Ubah Foto Profil',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
                   ),
-                  title: const Text('Pilih Avatar'),
-                  subtitle: const Text('Koleksi avatar bawaan aplikasi'),
-                  onTap: () => Navigator.pop(sheetContext, 'catalog'),
-                ),
-                ListTile(
-                  leading: const Icon(
-                    Icons.photo_camera_outlined,
-                    color: AppColors.primary,
+                  ListTile(
+                    leading: const Icon(
+                      Icons.face_retouching_natural_outlined,
+                      color: AppColors.primary,
+                    ),
+                    title: const Text('Pilih Avatar'),
+                    subtitle: const Text('Koleksi avatar bawaan aplikasi'),
+                    onTap: () => Navigator.pop(sheetContext, 'catalog'),
                   ),
-                  title: const Text('Kamera'),
-                  onTap: () => Navigator.pop(sheetContext, 'camera'),
-                ),
-                ListTile(
-                  leading: const Icon(
-                    Icons.photo_library_outlined,
-                    color: AppColors.primary,
+                  ListTile(
+                    leading: const Icon(
+                      Icons.photo_camera_outlined,
+                      color: AppColors.primary,
+                    ),
+                    title: const Text('Kamera'),
+                    onTap: () => Navigator.pop(sheetContext, 'camera'),
                   ),
-                  title: const Text('Galeri'),
-                  onTap: () => Navigator.pop(sheetContext, 'gallery'),
-                ),
-                const SizedBox(height: 8),
-              ],
+                  ListTile(
+                    leading: const Icon(
+                      Icons.photo_library_outlined,
+                      color: AppColors.primary,
+                    ),
+                    title: const Text('Galeri'),
+                    onTap: () => Navigator.pop(sheetContext, 'gallery'),
+                  ),
+                  const SizedBox(height: 8),
+                ],
               ),
             ),
           ),
@@ -591,39 +591,39 @@ class _ProfilScreenState extends State<ProfilScreen> {
             ),
           ),
           if (!readOnly)
-          Positioned(
-            right: -2,
-            bottom: -2,
-            child: Material(
-              color: AppColors.primary,
-              shape: const CircleBorder(),
-              elevation: 3,
-              child: InkWell(
-                customBorder: const CircleBorder(),
-                onTap: _isUploadingAvatar ? null : _pickAndUploadAvatar,
-                child: SizedBox(
-                  width: 30,
-                  height: 30,
-                  child: _isUploadingAvatar
-                      ? const Center(
-                          child: SizedBox(
-                            width: 15,
-                            height: 15,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
+            Positioned(
+              right: -2,
+              bottom: -2,
+              child: Material(
+                color: AppColors.primary,
+                shape: const CircleBorder(),
+                elevation: 3,
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: _isUploadingAvatar ? null : _pickAndUploadAvatar,
+                  child: SizedBox(
+                    width: 30,
+                    height: 30,
+                    child: _isUploadingAvatar
+                        ? const Center(
+                            child: SizedBox(
+                              width: 15,
+                              height: 15,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
                             ),
+                          )
+                        : const Icon(
+                            Icons.edit_rounded,
+                            size: 15,
+                            color: Colors.white,
                           ),
-                        )
-                      : const Icon(
-                          Icons.edit_rounded,
-                          size: 15,
-                          color: Colors.white,
-                        ),
+                  ),
                 ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -713,23 +713,36 @@ class _ProfilScreenState extends State<ProfilScreen> {
       builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: const Text('Ubah Email'),
-          content: Form(
-            key: formKey,
-            child: AppTextField(
-              label: 'Email',
-              hint: 'nama@perusahaan.com',
-              controller: emailController,
-              keyboardType: TextInputType.emailAddress,
-              prefixIcon: Icons.mail_outline_rounded,
-              validator: (String? value) {
-                final String text = (value ?? '').trim();
-                if (text.isEmpty) return 'Email wajib diisi';
-                final RegExp pattern = RegExp(
-                  r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
-                );
-                if (!pattern.hasMatch(text)) return 'Format email tidak valid';
-                return null;
-              },
+          content: IntrinsicHeight(
+            child: SingleChildScrollView(
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    AppTextField(
+                      label: 'Email',
+                      hint: 'nama@perusahaan.com',
+                      controller: emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      prefixIcon: Icons.mail_outline_rounded,
+                      validator: (String? value) {
+                        final String text = (value ?? '').trim();
+                        if (text.isEmpty) return 'Email wajib diisi';
+                        final RegExp pattern = RegExp(
+                          r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+                        );
+                        if (!pattern.hasMatch(text)) {
+                          return 'Format email tidak valid';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
             ),
           ),
           actions: [
@@ -758,10 +771,14 @@ class _ProfilScreenState extends State<ProfilScreen> {
     if (mounted) setState(() => _isSavingEmail = true);
     bool saved = false;
     String message = 'Gagal menyimpan email.';
+    final bool ownsClient = widget.httpClient == null;
+    final http.Client client = widget.httpClient ?? http.Client();
     try {
       final String? token = await AppSession.resolveToken();
-      final String bodyJson = jsonEncode(EmployeeRequest.profileUpdateBody(email));
-      http.Response response = await http
+      final String bodyJson = jsonEncode(
+        EmployeeRequest.profileUpdateBody(email),
+      );
+      http.Response response = await client
           .post(
             EmployeeRequest.profileUpdate(),
             headers: ApiConfig.authHeaders(token),
@@ -790,7 +807,8 @@ class _ProfilScreenState extends State<ProfilScreen> {
       final bool httpSukses =
           response.statusCode >= 200 && response.statusCode < 300;
       final String? statusTeks = body?['status']?.toString();
-      final bool serverTolak = body?['success'] == false ||
+      final bool serverTolak =
+          body?['success'] == false ||
           (statusTeks != null &&
               statusTeks.toLowerCase() != 'success' &&
               statusTeks.toLowerCase() != 'ok');
@@ -800,9 +818,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
         if (_profil != null) {
           _profil!['email'] = email.trim();
         }
-        message = serverMessage?.trim().isNotEmpty == true
-            ? serverMessage!.trim()
-            : 'Email profil berhasil disimpan.';
+        message = 'Email berhasil diperbarui';
       } else {
         message = (serverMessage != null && serverMessage.trim().isNotEmpty)
             ? serverMessage.trim()
@@ -811,6 +827,8 @@ class _ProfilScreenState extends State<ProfilScreen> {
     } catch (e) {
       saved = false;
       message = 'Gagal terhubung ke server: $e';
+    } finally {
+      if (ownsClient) client.close();
     }
     if (!mounted) return saved;
     setState(() => _isSavingEmail = false);
@@ -818,8 +836,113 @@ class _ProfilScreenState extends State<ProfilScreen> {
     return saved;
   }
 
-  bool get _bolehUbahUsername =>
-      AppSession.isSuperAdmin || AppSession.isHr;
+  Future<void> _showEditNameDialog() async {
+    final TextEditingController nameController = TextEditingController(
+      text: _name == 'Belum tersedia' ? '' : _name,
+    );
+    final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+    final String? namaBaru = await showDialog<String>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Ubah Nama'),
+          content: IntrinsicHeight(
+            child: SingleChildScrollView(
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    AppTextField(
+                      label: 'Nama Lengkap',
+                      hint: 'Masukkan nama lengkap',
+                      controller: nameController,
+                      prefixIcon: Icons.person_outline_rounded,
+                      validator: (String? value) =>
+                          (value == null || value.trim().isEmpty)
+                          ? 'Nama wajib diisi'
+                          : null,
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (!formKey.currentState!.validate()) return;
+                Navigator.of(dialogContext).pop(nameController.text.trim());
+              },
+              child: const Text('Simpan'),
+            ),
+          ],
+        );
+      },
+    );
+    if (namaBaru == null || namaBaru.isEmpty || !mounted) return;
+    await _saveName(namaBaru);
+    if (mounted) await _fetchProfil();
+  }
+
+  Future<void> _saveName(String nama) async {
+    final bool ownsClient = widget.httpClient == null;
+    final http.Client client = widget.httpClient ?? http.Client();
+    String message = 'Gagal menyimpan nama.';
+    try {
+      final String? token = await AppSession.resolveToken();
+      final http.Response response = await client
+          .post(
+            EmployeeRequest.profileUpdateFallback(),
+            headers: ApiConfig.authHeaders(token),
+            body: jsonEncode(<String, dynamic>{'nama_lengkap': nama.trim()}),
+          )
+          .timeout(const Duration(seconds: 20));
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(response.body);
+      } on FormatException {
+        decoded = null;
+      }
+      final Map<String, dynamic>? body = decoded is Map<String, dynamic>
+          ? decoded
+          : null;
+      final String? serverMessage = body?['message']?.toString();
+      final String? statusTeks = body?['status']?.toString().toLowerCase();
+      final bool serverTolak =
+          body?['success'] == false ||
+          (statusTeks != null && statusTeks != 'success' && statusTeks != 'ok');
+      final bool sukses =
+          response.statusCode >= 200 &&
+          response.statusCode < 300 &&
+          !serverTolak;
+      if (sukses) {
+        final SharedPreferences prefs = await SharedPreferences.getInstance();
+        await prefs.setString('nama_lengkap', nama.trim());
+        AppSession.name = nama.trim();
+        if (_profil != null) _profil!['nama_lengkap'] = nama.trim();
+        message = 'Nama berhasil diperbarui';
+      } else {
+        message = (serverMessage != null && serverMessage.trim().isNotEmpty)
+            ? serverMessage.trim()
+            : 'Gagal menyimpan nama (HTTP ${response.statusCode}).';
+      }
+    } catch (_) {
+      message = 'Gagal terhubung ke server.';
+    } finally {
+      if (ownsClient) client.close();
+    }
+    if (!mounted) return;
+    _showMessage(message);
+  }
+
+  bool get _bolehUbahUsername => AppSession.isSuperAdmin || AppSession.isHr;
 
   Widget _buildCredentialRow({
     required IconData icon,
@@ -1001,16 +1124,27 @@ class _ProfilScreenState extends State<ProfilScreen> {
       builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: const Text('Ubah No. HP (WhatsApp)'),
-          content: Form(
-            key: formKey,
-            child: AppTextField(
-              label: 'No. HP (WhatsApp)',
-              hint: 'Contoh: 08123456789 atau 628123456789',
-              controller: phoneController,
-              keyboardType: TextInputType.phone,
-              maxLength: 15,
-              prefixIcon: Icons.phone_outlined,
-              validator: WhatsAppHelper.validatePhone,
+          content: IntrinsicHeight(
+            child: SingleChildScrollView(
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    AppTextField(
+                      label: 'No. HP (WhatsApp)',
+                      hint: 'Contoh: 08123456789 atau 628123456789',
+                      controller: phoneController,
+                      keyboardType: TextInputType.phone,
+                      maxLength: 15,
+                      prefixIcon: Icons.phone_outlined,
+                      validator: WhatsAppHelper.validatePhone,
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
             ),
           ),
           actions: [
@@ -1040,12 +1174,14 @@ class _ProfilScreenState extends State<ProfilScreen> {
     setState(() => _isSavingPhone = true);
     bool saved = false;
     String message = 'Gagal menyimpan nomor HP.';
+    final bool ownsClient = widget.httpClient == null;
+    final http.Client client = widget.httpClient ?? http.Client();
     try {
       final String? token = await AppSession.resolveToken();
       final String bodyJson = jsonEncode(
         EmployeeRequest.profilePhoneUpdateBody(phone),
       );
-      http.Response response = await http
+      http.Response response = await client
           .post(
             EmployeeRequest.profilePhoneUpdate(),
             headers: ApiConfig.authHeaders(token),
@@ -1053,7 +1189,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
           )
           .timeout(const Duration(seconds: 20));
       if (response.statusCode == 404 || response.statusCode == 405) {
-        response = await http
+        response = await client
             .post(
               EmployeeRequest.profileUpdateFallback(),
               headers: ApiConfig.authHeaders(token),
@@ -1074,7 +1210,8 @@ class _ProfilScreenState extends State<ProfilScreen> {
       final bool httpSukses =
           response.statusCode >= 200 && response.statusCode < 300;
       final String? statusTeks = body?['status']?.toString();
-      final bool serverTolak = body?['success'] == false ||
+      final bool serverTolak =
+          body?['success'] == false ||
           (statusTeks != null &&
               statusTeks.toLowerCase() != 'success' &&
               statusTeks.toLowerCase() != 'ok');
@@ -1084,9 +1221,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
           _profil!['mobile_no'] = phone.trim();
           _profil!['no_hp'] = phone.trim();
         }
-        message = serverMessage?.trim().isNotEmpty == true
-            ? serverMessage!.trim()
-            : 'No. HP profil berhasil disimpan.';
+        message = 'No. HP (WhatsApp) berhasil diperbarui';
       } else {
         message = (serverMessage != null && serverMessage.trim().isNotEmpty)
             ? serverMessage.trim()
@@ -1095,6 +1230,8 @@ class _ProfilScreenState extends State<ProfilScreen> {
     } catch (_) {
       saved = false;
       message = 'Gagal terhubung ke server.';
+    } finally {
+      if (ownsClient) client.close();
     }
     if (!mounted) return;
     setState(() => _isSavingPhone = false);
@@ -1111,17 +1248,29 @@ class _ProfilScreenState extends State<ProfilScreen> {
       builder: (BuildContext dialogContext) {
         return AlertDialog(
           title: const Text('Ubah Username'),
-          content: Form(
-            key: formKey,
-            child: AppTextField(
-              label: 'Username',
-              hint: 'Masukkan username',
-              controller: usernameController,
-              maxLength: 30,
-              prefixIcon: Icons.person_outline_rounded,
-              validator: (String? value) => (value == null || value.trim().isEmpty)
-                  ? 'Username wajib diisi'
-                  : null,
+          content: IntrinsicHeight(
+            child: SingleChildScrollView(
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    AppTextField(
+                      label: 'Username',
+                      hint: 'Masukkan username',
+                      controller: usernameController,
+                      maxLength: 30,
+                      prefixIcon: Icons.person_outline_rounded,
+                      validator: (String? value) =>
+                          (value == null || value.trim().isEmpty)
+                          ? 'Username wajib diisi'
+                          : null,
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ),
             ),
           ),
           actions: [
@@ -1182,20 +1331,19 @@ class _ProfilScreenState extends State<ProfilScreen> {
           : null;
       final String? serverMessage = body?['message']?.toString();
       final String? statusTeks = body?['status']?.toString().toLowerCase();
-      final bool serverTolak = body?['success'] == false ||
-          (statusTeks != null &&
-              statusTeks != 'success' &&
-              statusTeks != 'ok');
+      final bool serverTolak =
+          body?['success'] == false ||
+          (statusTeks != null && statusTeks != 'success' && statusTeks != 'ok');
       final bool sukses =
-          response.statusCode >= 200 && response.statusCode < 300 && !serverTolak;
+          response.statusCode >= 200 &&
+          response.statusCode < 300 &&
+          !serverTolak;
       if (sukses) {
         final SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString('username', username);
         AppSession.username = username;
         if (_profil != null) _profil!['username'] = username;
-        message = serverMessage?.trim().isNotEmpty == true
-            ? serverMessage!.trim()
-            : 'Username berhasil disimpan.';
+        message = 'Username berhasil diperbarui';
       } else {
         message = (serverMessage != null && serverMessage.trim().isNotEmpty)
             ? serverMessage.trim()
@@ -1227,15 +1375,14 @@ class _ProfilScreenState extends State<ProfilScreen> {
       final String username = _username == 'Belum tersedia'
           ? (AppSession.getUsername() ?? '')
           : _username;
-      final ProfileCredentialResult result =
-          await ProfileCredentialService.update(
+      await ProfileCredentialService.update(
         username: username,
         oldPassword: hasil.oldPassword,
         newPassword: hasil.newPassword,
         confirmPassword: hasil.confirmPassword,
         client: widget.httpClient,
       );
-      if (mounted) _showMessage(result.message);
+      if (mounted) _showMessage('Password berhasil diperbarui');
     } on ProfileCredentialException catch (e) {
       if (mounted) _showMessage(e.message);
     } catch (_) {
@@ -1246,7 +1393,9 @@ class _ProfilScreenState extends State<ProfilScreen> {
   }
 
   void _showMessage(String message) {
-    AppToast.show(message, type: AppToast.typeFromMessage(message));
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _showLogoutConfirmation() {
@@ -1270,9 +1419,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
                 Navigator.of(dialogContext).pop();
                 if (!mounted) return;
                 Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const LoginScreen(),
-                  ),
+                  MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
                   (route) => false,
                 );
               },
@@ -1426,10 +1573,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
               const Text(
                 'Mode tampilan — untuk mengubah data, tekan Hide.',
                 textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textSecondary,
-                ),
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
               ),
             ],
           ),
@@ -1443,130 +1587,152 @@ class _ProfilScreenState extends State<ProfilScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 120),
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 26, horizontal: 16),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(28),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: <Color>[
-                  AppColors.primary.withValues(alpha: 0.10),
-                  AppColors.blue.withValues(alpha: 0.05),
-                  Colors.white.withValues(alpha: 0.75),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 26, horizontal: 16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(28),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: <Color>[
+                    AppColors.primary.withValues(alpha: 0.10),
+                    AppColors.blue.withValues(alpha: 0.05),
+                    Colors.white.withValues(alpha: 0.75),
+                  ],
+                ),
+                border: Border.all(
+                  color: AppColors.primary.withValues(alpha: 0.14),
+                  width: 1.2,
+                ),
+                boxShadow: <BoxShadow>[
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.10),
+                    blurRadius: 22,
+                    offset: const Offset(0, 10),
+                  ),
                 ],
               ),
-              border: Border.all(
-                color: AppColors.primary.withValues(alpha: 0.14),
-                width: 1.2,
+              child: Column(
+                children: [
+                  _buildAvatar(),
+                  const SizedBox(height: 12),
+                  Semantics(
+                    key: const Key('ubah-nama'),
+                    button: true,
+                    label: 'Ubah Nama',
+                    child: InkWell(
+                      onTap: _showEditNameDialog,
+                      borderRadius: BorderRadius.circular(12),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Flexible(
+                            child: Text(
+                              _name,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.3,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Icon(
+                            Icons.edit_outlined,
+                            size: 17,
+                            color: AppColors.primary,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.09),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.16),
+                      ),
+                    ),
+                    child: Text(
+                      _role,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              boxShadow: <BoxShadow>[
-                BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.10),
-                  blurRadius: 22,
-                  offset: const Offset(0, 10),
-                ),
-              ],
             ),
-            child: Column(
-              children: [
-                _buildAvatar(),
-                const SizedBox(height: 12),
-                Text(
-                  _name,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.3,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.09),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: AppColors.primary.withValues(alpha: 0.16),
-                    ),
-                  ),
-                  child: Text(
-                    _role,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ),
-              ],
+            const SizedBox(height: 28),
+            const Text(
+              'INFORMASI KARYAWAN',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+                color: AppColors.textSecondary,
+              ),
             ),
-          ),
-          const SizedBox(height: 28),
-          const Text(
-            'INFORMASI KARYAWAN',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.8,
-              color: AppColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 10),
-          SectionCard(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
-            child: Column(
-              children: [
-                InfoRow(
-                  icon: Icons.apartment_rounded,
-                  label: 'Nama Perusahaan',
-                  value: _companyName,
-                ),
-                InfoRow(
-                  icon: Icons.badge_outlined,
-                  label: 'Kode Perusahaan',
-                  value: _companyCode,
-                ),
-                _buildEmailRow(),
-                _buildUsernameRow(),
-                _buildPasswordRow(),
-                _buildPhoneRow(),
-                if (!AppSession.isSuperAdmin)
+            const SizedBox(height: 10),
+            SectionCard(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+              child: Column(
+                children: [
                   InfoRow(
-                    icon: Icons.beach_access_outlined,
-                    label: 'Sisa Kuota Cuti',
-                    value: _leaveQuota,
-                    valueColor: AppColors.primary,
-                    isLast: true,
+                    icon: Icons.apartment_rounded,
+                    label: 'Nama Perusahaan',
+                    value: _companyName,
                   ),
-              ],
+                  InfoRow(
+                    icon: Icons.badge_outlined,
+                    label: 'Kode Perusahaan',
+                    value: _companyCode,
+                  ),
+                  _buildEmailRow(),
+                  _buildUsernameRow(),
+                  _buildPasswordRow(),
+                  _buildPhoneRow(),
+                  if (!AppSession.isSuperAdmin)
+                    InfoRow(
+                      icon: Icons.beach_access_outlined,
+                      label: 'Sisa Kuota Cuti',
+                      value: _leaveQuota,
+                      valueColor: AppColors.primary,
+                      isLast: true,
+                    ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 14),
+            const SizedBox(height: 14),
 
-          // TOMBOL KELUAR (Dengan konfirmasi & hapus sesi)
-          DangerButton(
-            label: 'Keluar',
-            icon: Icons.logout_rounded,
-            onPressed: _showLogoutConfirmation,
-          ),
-          const SizedBox(height: 18),
-          const Center(
-            child: Text(
-              'HRIS Dignity V2.7',
-              style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+            // TOMBOL KELUAR (Dengan konfirmasi & hapus sesi)
+            DangerButton(
+              label: 'Keluar',
+              icon: Icons.logout_rounded,
+              onPressed: _showLogoutConfirmation,
             ),
-          ),
-        ],
-      ),
+            const SizedBox(height: 18),
+            const Center(
+              child: Text(
+                'HRIS Dignity V2.7',
+                style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1610,54 +1776,59 @@ class _PasswordDialogState extends State<_PasswordDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Ubah Password'),
-      content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              AppTextField(
-                label: 'Password Lama',
-                hint: 'Masukkan password saat ini',
-                controller: _oldPasswordController,
-                obscureText: true,
-                prefixIcon: Icons.lock_outline_rounded,
-                validator: (String? value) => (value == null || value.isEmpty)
-                    ? 'Password lama wajib diisi'
-                    : null,
-              ),
-              const SizedBox(height: 14),
-              AppTextField(
-                label: 'Password Baru',
-                hint: 'Minimal 6 karakter',
-                controller: _newPasswordController,
-                obscureText: true,
-                prefixIcon: Icons.lock_outline_rounded,
-                validator: (String? value) {
-                  final String text = value ?? '';
-                  if (text.isEmpty) return 'Password baru wajib diisi';
-                  if (text.length < 6) return 'Password baru minimal 6 karakter';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 14),
-              AppTextField(
-                label: 'Konfirmasi Password Baru',
-                hint: 'Ulangi password baru',
-                controller: _confirmPasswordController,
-                obscureText: true,
-                prefixIcon: Icons.lock_outline_rounded,
-                validator: (String? value) {
-                  final String baru = _newPasswordController.text;
-                  if ((value ?? '').isEmpty) {
-                    return 'Konfirmasi password wajib diisi';
-                  }
-                  if (value != baru) return 'Konfirmasi password tidak cocok';
-                  return null;
-                },
-              ),
-            ],
+      content: IntrinsicHeight(
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                AppTextField(
+                  label: 'Password Lama',
+                  hint: 'Masukkan password saat ini',
+                  controller: _oldPasswordController,
+                  obscureText: true,
+                  prefixIcon: Icons.lock_outline_rounded,
+                  validator: (String? value) => (value == null || value.isEmpty)
+                      ? 'Password lama wajib diisi'
+                      : null,
+                ),
+                const SizedBox(height: 14),
+                AppTextField(
+                  label: 'Password Baru',
+                  hint: 'Minimal 6 karakter',
+                  controller: _newPasswordController,
+                  obscureText: true,
+                  prefixIcon: Icons.lock_outline_rounded,
+                  validator: (String? value) {
+                    final String text = value ?? '';
+                    if (text.isEmpty) return 'Password baru wajib diisi';
+                    if (text.length < 6) {
+                      return 'Password baru minimal 6 karakter';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 14),
+                AppTextField(
+                  label: 'Konfirmasi Password Baru',
+                  hint: 'Ulangi password baru',
+                  controller: _confirmPasswordController,
+                  obscureText: true,
+                  prefixIcon: Icons.lock_outline_rounded,
+                  validator: (String? value) {
+                    final String baru = _newPasswordController.text;
+                    if ((value ?? '').isEmpty) {
+                      return 'Konfirmasi password wajib diisi';
+                    }
+                    if (value != baru) return 'Konfirmasi password tidak cocok';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
           ),
         ),
       ),

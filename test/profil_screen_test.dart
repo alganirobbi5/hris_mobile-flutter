@@ -49,10 +49,9 @@ void main() {
       EmployeeRequest.usernameUpdate().path,
       endsWith('/update_username.php'),
     );
-    expect(
-      EmployeeRequest.usernameUpdateBody('baru'),
-      <String, dynamic>{'username': 'baru'},
-    );
+    expect(EmployeeRequest.usernameUpdateBody('baru'), <String, dynamic>{
+      'username': 'baru',
+    });
   });
 
   test('body update nomor HP profil memuat mobile_no dan no_hp', () {
@@ -160,10 +159,7 @@ void main() {
     await tester.enterText(find.byType(TextFormField).last, '12345');
     await tester.tap(find.text('Simpan'));
     await tester.pump();
-    expect(
-      find.text('No. HP harus diawali 08 atau 628'),
-      findsOneWidget,
-    );
+    expect(find.text('No. HP harus diawali 08 atau 628'), findsOneWidget);
     await tester.tap(find.text('Batal'));
     await tester.pumpAndSettle();
   });
@@ -268,6 +264,158 @@ void main() {
       'confirm_password': 'rahasia123',
     });
   });
+
+  testWidgets('semua dialog edit profil tampil ringkas dan dapat digulir', (
+    WidgetTester tester,
+  ) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('role', 'hr');
+    AppSession.role = 'hr';
+    await tester.pumpWidget(
+      MaterialApp(home: ProfilScreen(httpClient: _profilClient())),
+    );
+    await tester.pumpAndSettle();
+
+    await _expectDialogRingkas(
+      tester,
+      _tombolUbahNama(),
+      'Ubah Nama',
+      maksTinggi: 360,
+    );
+    await _expectDialogRingkas(
+      tester,
+      _editIcon(tester, 'Email'),
+      'Ubah Email',
+      maksTinggi: 360,
+    );
+    await _expectDialogRingkas(
+      tester,
+      _editIcon(tester, 'Username'),
+      'Ubah Username',
+      maksTinggi: 360,
+    );
+    await _expectDialogRingkas(
+      tester,
+      _editIcon(tester, 'Password'),
+      'Ubah Password',
+      maksTinggi: 520,
+    );
+    await _expectDialogRingkas(
+      tester,
+      _editIcon(tester, 'No. HP (WhatsApp)'),
+      'Ubah No. HP (WhatsApp)',
+      maksTinggi: 400,
+    );
+  });
+
+  testWidgets('pesan sukses Ubah Nama spesifik', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(home: ProfilScreen(httpClient: _profilClient())),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(_tombolUbahNama());
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField).last, 'Nama Baru');
+    await tester.tap(find.text('Simpan'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Nama berhasil diperbarui'), findsOneWidget);
+    expect(find.text('Nama berhasil disimpan.'), findsNothing);
+  });
+
+  testWidgets('pesan sukses Ubah Email spesifik', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(home: ProfilScreen(httpClient: _profilClient())),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(_editIcon(tester, 'Email'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byType(TextFormField).last,
+      'baru@perusahaan.com',
+    );
+    await tester.tap(find.text('Simpan'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Email berhasil diperbarui'), findsOneWidget);
+    expect(find.text('Email profil berhasil disimpan.'), findsNothing);
+  });
+
+  testWidgets('pesan sukses Ubah Username mengabaikan pesan server', (
+    WidgetTester tester,
+  ) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('role', 'hr');
+    AppSession.role = 'hr';
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ProfilScreen(
+          httpClient: _profilClient('Username berhasil disimpan.'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(_editIcon(tester, 'Username'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField).last, 'baru');
+    await tester.tap(find.text('Simpan'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Username berhasil diperbarui'), findsOneWidget);
+    expect(find.text('Username berhasil disimpan.'), findsNothing);
+  });
+
+  testWidgets('pesan sukses Ubah Password spesifik', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ProfilScreen(
+          httpClient: _profilClient(
+            'Username dan password berhasil diperbarui.',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final Finder tombolPassword = _editIcon(tester, 'Password');
+    await tester.ensureVisible(tombolPassword);
+    await tester.tap(tombolPassword);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField).at(0), 'lama123');
+    await tester.enterText(find.byType(TextFormField).at(1), 'rahasia123');
+    await tester.enterText(find.byType(TextFormField).at(2), 'rahasia123');
+    await tester.tap(find.text('Simpan'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Password berhasil diperbarui'), findsOneWidget);
+    expect(
+      find.text('Username dan password berhasil diperbarui.'),
+      findsNothing,
+    );
+  });
+
+  testWidgets('pesan sukses Ubah No. HP spesifik', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      MaterialApp(home: ProfilScreen(httpClient: _profilClient())),
+    );
+    await tester.pumpAndSettle();
+
+    final Finder tombolHp = _editIcon(tester, 'No. HP (WhatsApp)');
+    await tester.ensureVisible(tombolHp);
+    await tester.tap(tombolHp);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField).last, '08123456789');
+    await tester.tap(find.text('Simpan'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('No. HP (WhatsApp) berhasil diperbarui'), findsOneWidget);
+    expect(find.text('No. HP profil berhasil disimpan.'), findsNothing);
+  });
 }
 
 Finder _editIcon(WidgetTester tester, String label) {
@@ -276,4 +424,77 @@ Finder _editIcon(WidgetTester tester, String label) {
     matching: find.byType(Row),
   );
   return find.descendant(of: baris, matching: find.byIcon(Icons.edit_outlined));
+}
+
+Finder _tombolUbahNama() => find.byKey(const Key('ubah-nama'));
+
+http.Client _profilClient([String? serverMessage]) {
+  return MockClient((http.Request request) async {
+    if (request.method == 'GET') {
+      return http.Response(
+        jsonEncode(<String, dynamic>{
+          'success': true,
+          'data': <String, dynamic>{
+            'nama_lengkap': 'Pengguna Profil',
+            'role': 'employee',
+            'username': 'lama',
+            'email': 'lama@perusahaan.com',
+            'mobile_no': '08123456789',
+          },
+        }),
+        200,
+      );
+    }
+    return http.Response(
+      jsonEncode(<String, dynamic>{
+        'success': true,
+        'message': serverMessage ?? 'Data tersimpan.',
+      }),
+      200,
+    );
+  });
+}
+
+Future<void> _expectDialogRingkas(
+  WidgetTester tester,
+  Finder pembuka,
+  String judul, {
+  double maksTinggi = 400,
+}) async {
+  await tester.ensureVisible(pembuka);
+  await tester.tap(pembuka);
+  await tester.pumpAndSettle();
+
+  final Finder dialog = find.byType(AlertDialog);
+  expect(dialog, findsOneWidget);
+  expect(find.text(judul), findsOneWidget);
+  final Finder kartuDialog = find.descendant(
+    of: dialog,
+    matching: find.byType(IntrinsicWidth),
+  );
+  expect(tester.getRect(kartuDialog).height, lessThan(maksTinggi));
+  expect(
+    find.descendant(of: dialog, matching: find.byType(SingleChildScrollView)),
+    findsOneWidget,
+  );
+  final List<Column> kolom = tester
+      .widgetList<Column>(
+        find.descendant(of: dialog, matching: find.byType(Column)),
+      )
+      .toList();
+  expect(
+    kolom.any((Column widget) => widget.mainAxisSize == MainAxisSize.min),
+    isTrue,
+  );
+  expect(
+    find.descendant(of: dialog, matching: find.byType(Spacer)),
+    findsNothing,
+  );
+  expect(
+    find.descendant(of: dialog, matching: find.byType(Expanded)),
+    findsNothing,
+  );
+
+  await tester.tap(find.text('Batal'));
+  await tester.pumpAndSettle();
 }
