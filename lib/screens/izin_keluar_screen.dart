@@ -175,21 +175,27 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
   }
 
   String _statusLabel(String status) {
-    switch (status.toLowerCase()) {
-      case 'approved':
-        return 'Disetujui';
-      case 'rejected':
-        return 'Ditolak';
-      default:
-        return 'Menunggu';
+    final String value = status.trim().toLowerCase();
+    if (value == '2' ||
+        value == 'disetujui' ||
+        value == 'approved' ||
+        value == 'approve') {
+      return 'Disetujui';
     }
+    if (value == '3' ||
+        value == 'ditolak' ||
+        value == 'rejected' ||
+        value == 'reject') {
+      return 'Ditolak';
+    }
+    return 'Menunggu';
   }
 
   Color _statusColor(String status) {
-    switch (status.toLowerCase()) {
-      case 'approved':
+    switch (_statusLabel(status)) {
+      case 'Disetujui':
         return AppColors.success;
-      case 'rejected':
+      case 'Ditolak':
         return AppColors.danger;
       default:
         return AppColors.pending;

@@ -153,10 +153,16 @@ class _RiwayatCutiIzinKeluarState extends State<RiwayatCutiIzinKeluar> {
 
   static String _statusLabel(String status) {
     final String value = status.trim().toLowerCase();
-    if (value == 'approved' || value == 'approve' || value == '2') {
+    if (value == '2' ||
+        value == 'disetujui' ||
+        value == 'approved' ||
+        value == 'approve') {
       return 'Disetujui';
     }
-    if (value == 'rejected' || value == 'reject' || value == '3') {
+    if (value == '3' ||
+        value == 'ditolak' ||
+        value == 'rejected' ||
+        value == 'reject') {
       return 'Ditolak';
     }
     return 'Menunggu';
