@@ -99,6 +99,52 @@ void main() {
     expect(find.text('Ditolak oleh Admin HR'), findsOneWidget);
   });
 
+  testWidgets('riwayat tidak menampilkan pengajuan yang masih menunggu', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LayananCutiScreen(
+          cutiLoader: () async => <RiwayatCutiItem>[
+            const RiwayatCutiItem(
+              id: 12,
+              type: 'Cuti Menunggu',
+              leavFrom: '2026-11-26',
+              leavTo: '2026-11-26',
+              status: '1',
+              createdAt: '2026-11-25T10:00:00Z',
+            ),
+          ],
+          izinLoader: () async => <IzinKeluarItem>[
+            IzinKeluarItem(
+              id: 22,
+              employeeId: 3,
+              tanggal: '2026-11-26',
+              jamKeluar: '08:00:00',
+              jamKembali: '10:00:00',
+              kembaliKeKantor: true,
+              kategori: 'Izin Menunggu',
+              alasan: 'Urusan pribadi',
+              status: 'pending',
+              catatanHr: '',
+              namaKaryawan: 'Andi Pratama',
+              createdAt: '2026-11-25T10:00:00Z',
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('Cuti Menunggu'), findsNothing);
+    expect(find.text('Izin Menunggu'), findsNothing);
+    expect(
+      find.text('Belum ada riwayat cuti & izin keluar'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('empty state saat kedua riwayat kosong', (
     WidgetTester tester,
   ) async {
@@ -152,7 +198,7 @@ Future<void> _expectFormPengajuanUntukRole(
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 400));
 
-  expect(find.text('Pengajuan Izin Keluar'), findsOneWidget);
+  expect(find.text('Pengajuan Izin Keluar'), findsWidgets);
   expect(find.text('Persetujuan Izin Keluar'), findsNothing);
   expect(find.text('Pilih Leader Pemberi Persetujuan'), findsOneWidget);
   expect(find.text('Tanggal'), findsOneWidget);
@@ -163,7 +209,7 @@ Future<void> _expectFormPengajuanUntukRole(
   expect(find.text('ALASAN / KETERANGAN'), findsOneWidget);
   expect(find.text('Kirim Pengajuan Izin Keluar'), findsOneWidget);
 
-  await tester.drag(find.byType(ListView).last, const Offset(0, -1000));
-  await tester.pump();
+  await tester.drag(find.byType(ListView).last, const Offset(0, -1400));
+  await tester.pumpAndSettle();
   expect(find.text('Riwayat Izin Keluar'), findsOneWidget);
 }

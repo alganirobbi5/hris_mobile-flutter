@@ -27,6 +27,7 @@ class _EditKaryawanScreenState extends State<EditKaryawanScreen> {
   final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _mobileController = TextEditingController();
+  final _passwordController = TextEditingController();
 
   http.Client? _ownedClient;
 
@@ -55,6 +56,7 @@ class _EditKaryawanScreenState extends State<EditKaryawanScreen> {
     _usernameController.dispose();
     _emailController.dispose();
     _mobileController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
@@ -86,7 +88,10 @@ class _EditKaryawanScreenState extends State<EditKaryawanScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.surface,
-      builder: (_) => _KaryawanPickerSheet(items: _karyawan),
+      builder: (_) => _KaryawanPickerSheet(
+        items: _karyawan,
+        onToggleStatus: _toggleStatusCepat,
+      ),
     );
     if (hasil == null || !mounted) return;
     setState(() {
@@ -96,6 +101,7 @@ class _EditKaryawanScreenState extends State<EditKaryawanScreen> {
       _emailController.text = hasil.email;
       _mobileController.text = hasil.mobileNo;
       _status = hasil.statusAktif ? '1' : '0';
+      _passwordController.clear();
     });
   }
 
@@ -123,6 +129,7 @@ class _EditKaryawanScreenState extends State<EditKaryawanScreen> {
         email: _emailController.text.trim(),
         mobileNo: _mobileController.text.trim(),
         statusAktif: _status == '1',
+        password: _passwordController.text,
         client: _httpClient,
       );
       if (!mounted) return;
@@ -133,6 +140,47 @@ class _EditKaryawanScreenState extends State<EditKaryawanScreen> {
       if (mounted) AppToast.error('Terjadi kesalahan koneksi ke server');
     } finally {
       if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  Future<bool> _toggleStatusCepat(KaryawanItem item) async {
+    final bool statusBaru = !item.statusAktif;
+    try {
+      await EmployeeService.update(
+        id: item.id,
+        employeeId: item.id,
+        userId: item.userId > 0 ? item.userId : item.id,
+        namaLengkap: item.namaLengkap,
+        username: item.username,
+        email: item.email,
+        mobileNo: item.mobileNo,
+        statusAktif: statusBaru,
+        client: _httpClient,
+      );
+      if (!mounted) return statusBaru;
+      setState(() {
+        _karyawan = _karyawan
+            .map(
+              (KaryawanItem existing) => existing.id == item.id
+                  ? existing.copyWith(statusAktif: statusBaru)
+                  : existing,
+            )
+            .toList();
+        if (_selected?.id == item.id) {
+          _selected = _selected!.copyWith(statusAktif: statusBaru);
+          _status = statusBaru ? '1' : '0';
+        }
+      });
+      AppToast.success(
+        statusBaru ? 'Akun karyawan diaktifkan' : 'Akun karyawan dinonaktifkan',
+      );
+      return true;
+    } on EmployeeServiceException catch (e) {
+      if (mounted) AppToast.error(e.message);
+      return false;
+    } catch (_) {
+      if (mounted) AppToast.error('Gagal terhubung ke server');
+      return false;
     }
   }
 
@@ -244,6 +292,23 @@ class _EditKaryawanScreenState extends State<EditKaryawanScreen> {
                       validator: WhatsAppHelper.validatePhone,
                     ),
                     const SizedBox(height: 16),
+                    AppTextField(
+                      label: 'Password Baru (Opsional)',
+                      hint: 'Kosongkan jika tidak diubah',
+                      controller: _passwordController,
+                      obscureText: true,
+                      maxLength: 20,
+                      prefixIcon: Icons.lock_outline_rounded,
+                      validator: (String? value) {
+                        final String teks = value ?? '';
+                        if (teks.isEmpty) return null;
+                        if (teks.length < 6) {
+                          return 'Password minimal 6 karakter';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
                     AppFormDropdown<String>(
                       label: 'Status Aktif',
                       value: _status,
@@ -294,9 +359,13 @@ class _EditKaryawanScreenState extends State<EditKaryawanScreen> {
 }
 
 class _KaryawanPickerSheet extends StatefulWidget {
-  const _KaryawanPickerSheet({required this.items});
+  const _KaryawanPickerSheet({
+    required this.items,
+    required this.onToggleStatus,
+  });
 
   final List<KaryawanItem> items;
+  final Future<bool> Function(KaryawanItem item) onToggleStatus;
 
   @override
   State<_KaryawanPickerSheet> createState() => _KaryawanPickerSheetState();
@@ -305,6 +374,34 @@ class _KaryawanPickerSheet extends StatefulWidget {
 class _KaryawanPickerSheetState extends State<_KaryawanPickerSheet> {
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
+  late List<KaryawanItem> _items;
+  final Set<int> _processing = <int>{};
+
+  @override
+  void initState() {
+    super.initState();
+    _items = List<KaryawanItem>.from(widget.items);
+  }
+
+  Future<void> _toggle(KaryawanItem item) async {
+    if (_processing.contains(item.id)) return;
+    setState(() => _processing.add(item.id));
+    final bool berhasil = await widget.onToggleStatus(item);
+    if (!mounted) return;
+    if (berhasil) {
+      setState(() {
+        final int index = _items.indexWhere(
+          (KaryawanItem existing) => existing.id == item.id,
+        );
+        if (index >= 0) {
+          _items[index] = _items[index].copyWith(
+            statusAktif: !item.statusAktif,
+          );
+        }
+      });
+    }
+    setState(() => _processing.remove(item.id));
+  }
 
   @override
   void dispose() {
@@ -314,8 +411,8 @@ class _KaryawanPickerSheetState extends State<_KaryawanPickerSheet> {
 
   List<KaryawanItem> get _filtered {
     final String keyword = _query.trim().toLowerCase();
-    if (keyword.isEmpty) return widget.items;
-    return widget.items
+    if (keyword.isEmpty) return _items;
+    return _items
         .where(
           (KaryawanItem item) =>
               item.username.toLowerCase().contains(keyword) ||
@@ -364,7 +461,7 @@ class _KaryawanPickerSheetState extends State<_KaryawanPickerSheet> {
               ),
               const SizedBox(height: 4),
               const Text(
-                'Ketuk username karyawan yang ingin diedit',
+                'Ketuk nama untuk edit, ikon kanan untuk aktif/nonaktif',
                 style: TextStyle(
                   fontSize: 12.5,
                   color: AppColors.textSecondary,
@@ -421,6 +518,31 @@ class _KaryawanPickerSheetState extends State<_KaryawanPickerSheet> {
                               ),
                             ),
                             subtitle: Text(item.namaLengkap),
+                            trailing: _processing.contains(item.id)
+                                ? const Padding(
+                                    padding: EdgeInsets.all(12),
+                                    child: SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                  )
+                                : IconButton(
+                                    tooltip: item.statusAktif
+                                        ? 'Nonaktifkan akun'
+                                        : 'Aktifkan akun',
+                                    icon: Icon(
+                                      item.statusAktif
+                                          ? Icons.person_off_outlined
+                                          : Icons.person_outline_rounded,
+                                      color: item.statusAktif
+                                          ? AppColors.danger
+                                          : AppColors.success,
+                                    ),
+                                    onPressed: () => _toggle(item),
+                                  ),
                           );
                         },
                       ),

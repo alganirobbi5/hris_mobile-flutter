@@ -7,7 +7,6 @@ import 'package:hris_mobile/screens/main_screen.dart';
 import 'package:hris_mobile/services/app_session.dart';
 import 'package:hris_mobile/services/izin_keluar_service.dart';
 import 'package:hris_mobile/services/riwayat_cuti_service.dart';
-import 'package:hris_mobile/theme/app_theme.dart';
 import 'package:hris_mobile/widgets/glass_bottom_nav.dart';
 import 'package:hris_mobile/widgets/profile_avatar_button.dart';
 import 'package:hris_mobile/widgets/status_badge.dart';
@@ -103,7 +102,7 @@ void main() {
     expect(find.text('Username / Jabatan'), findsNothing);
   });
 
-  testWidgets('badge status hanya tampil pada tombol Pengajuan Cuti', (
+  testWidgets('tombol aksi tidak menampilkan badge status', (
     WidgetTester tester,
   ) async {
     final http.Client client = _statusClient();
@@ -154,15 +153,7 @@ void main() {
       matching: find.byType(Card),
     );
     expect(
-      find.descendant(of: kartuCuti, matching: find.text('Disetujui')),
-      findsOneWidget,
-    );
-    final Text badgeCuti = tester.widget<Text>(
-      find.descendant(of: kartuCuti, matching: find.text('Disetujui')),
-    );
-    expect(badgeCuti.style?.color, AppColors.success);
-    expect(
-      find.descendant(of: kartuIzin, matching: find.text('Menunggu')),
+      find.descendant(of: kartuCuti, matching: find.byType(StatusBadge)),
       findsNothing,
     );
     expect(

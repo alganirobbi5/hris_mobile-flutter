@@ -299,7 +299,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 32),
                     AppTextField(
-                      label: 'Kode Perusahaan (Kosongkan jika Super Admin)',
+                      label: 'Kode Perusahaan',
                       hint: 'Masukkan kode perusahaan',
                       controller: _companyController,
                       prefixIcon: Icons.business_outlined,

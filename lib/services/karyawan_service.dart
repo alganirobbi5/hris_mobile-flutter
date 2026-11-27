@@ -37,6 +37,20 @@ class KaryawanItem {
   final bool isLeader;
   final int userId;
 
+  KaryawanItem copyWith({bool? statusAktif}) {
+    return KaryawanItem(
+      id: id,
+      username: username,
+      namaLengkap: namaLengkap,
+      email: email,
+      mobileNo: mobileNo,
+      statusAktif: statusAktif ?? this.statusAktif,
+      role: role,
+      isLeader: isLeader,
+      userId: userId,
+    );
+  }
+
   String get roleLabel {
     final String value = role.trim().toLowerCase();
     if (isLeader || value == 'leader') return 'LEADER';

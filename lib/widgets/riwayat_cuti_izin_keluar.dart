@@ -71,8 +71,11 @@ class _RiwayatCutiIzinKeluarState extends State<RiwayatCutiIzinKeluar> {
       final List<_RiwayatItem> merged = <_RiwayatItem>[
         ...(results[0] as List<RiwayatCutiItem>).map(_dariCuti),
         ...(results[1] as List<IzinKeluarItem>).map(_dariIzin),
-      ]..sort((_RiwayatItem a, _RiwayatItem b) =>
-          b.urutan.compareTo(a.urutan));
+      ]
+        ..removeWhere((_RiwayatItem item) =>
+            item.status != 'Disetujui' && item.status != 'Ditolak')
+        ..sort((_RiwayatItem a, _RiwayatItem b) =>
+            b.urutan.compareTo(a.urutan));
       if (!mounted) return;
       setState(() {
         _items = merged;

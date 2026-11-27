@@ -26,6 +26,7 @@ class EmployeeService {
     required String email,
     required String mobileNo,
     required bool statusAktif,
+    String password = '',
     http.Client? client,
   }) async {
     final http.Client httpClient = client ?? http.Client();
@@ -40,6 +41,7 @@ class EmployeeService {
       'email': email.trim(),
       'mobile_no': mobileNo.trim(),
       'status': statusAktif ? '1' : '0',
+      if (password.trim().isNotEmpty) 'password': password,
     };
     try {
       final String? token = await AppSession.resolveToken();

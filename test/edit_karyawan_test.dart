@@ -70,6 +70,32 @@ void main() {
     expect(body!['user_id'], 17);
   });
 
+  test('EmployeeService.update mengirim password baru saat diisi', () async {
+    Map<String, dynamic>? body;
+    final http.Client client = MockClient((http.Request request) async {
+      body = jsonDecode(request.body) as Map<String, dynamic>;
+      return http.Response(
+        jsonEncode(<String, dynamic>{'success': true}),
+        200,
+      );
+    });
+
+    await EmployeeService.update(
+      id: 7,
+      employeeId: 7,
+      userId: 17,
+      namaLengkap: 'Andi Pratama',
+      username: 'andi.hr',
+      email: 'andi@example.com',
+      mobileNo: '08123456789',
+      statusAktif: true,
+      password: 'rahasia123',
+      client: client,
+    );
+
+    expect(body!['password'], 'rahasia123');
+  });
+
   testWidgets('Settings HR menampilkan Edit Karyawan setelah Tambah Karyawan', (
     WidgetTester tester,
   ) async {
