@@ -1,19 +1,12 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../widgets/glass_app_bar.dart';
 
-import '../config/company_config.dart';
-import '../services/company_profile.dart';
 import '../theme/app_theme.dart';
-import '../widgets/app_form_field.dart';
-import '../widgets/app_text_field.dart';
-import '../widgets/app_toast.dart';
 import 'approval_cuti_screen.dart';
 import 'atur_jam_screen.dart';
 import 'edit_karyawan_screen.dart';
+import 'edit_perusahaan_screen.dart';
 import 'kelola_hr_admin_screen.dart';
 import 'kelola_kuota_cuti_screen.dart';
 import 'kelola_perusahaan_screen.dart';
@@ -38,181 +31,12 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  String _companyName = CompanyConfig.namaPerusahaan;
-  String _companyCode = CompanyConfig.kodePerusahaan;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadCompany();
-  }
-
-  Future<void> _loadCompany() async {
-    final CompanyProfileData local = await CompanyProfile.load();
-    if (!mounted) return;
-    setState(() {
-      _companyName = local.name;
-      _companyCode = local.code;
-    });
-  }
-
-  Future<void> _showEditCompanyDialog() async {
-    final TextEditingController nameController =
-        TextEditingController(text: _companyName);
-    final TextEditingController codeController =
-        TextEditingController(text: _companyCode);
-    final GlobalKey<FormState> formKey = GlobalKey<FormState>();
-    String logo = CompanyProfile.current.logo;
-
-    Future<void> pilihLogo(StateSetter setState) async {
-      final XFile? file = await ImagePicker().pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 70,
-        maxWidth: 512,
-        maxHeight: 512,
-      );
-      if (file == null) return;
-      final List<int> bytes = await file.readAsBytes();
-      setState(() {
-        logo = 'data:${file.mimeType ?? 'image/png'};base64,${base64Encode(bytes)}';
-      });
-    }
-
-    Widget previewLogo(String value) {
-      final int comma = value.indexOf(',');
-      if (value.startsWith('data:image/') && comma > 0) {
-        try {
-          return Padding(
-            padding: const EdgeInsets.all(6),
-            child: Image.memory(
-              base64Decode(value.substring(comma + 1)),
-              fit: BoxFit.contain,
-              errorBuilder: (_, _, _) => const Icon(Icons.business_outlined),
-            ),
-          );
-        } catch (_) {}
-      }
-      return const Icon(Icons.business_outlined, color: AppColors.primary);
-    }
-
-    final Map<String, String>? hasil = await showDialog<Map<String, String>>(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setState) {
-            return AlertDialog(
-              title: const Text('Edit Profil Perusahaan'),
-              content: SingleChildScrollView(
-                child: Form(
-                  key: formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const FormSectionHeader(
-                        title: 'Profil Perusahaan',
-                        icon: Icons.business_outlined,
-                      ),
-                      AppTextField(
-                        label: 'Nama Perusahaan',
-                        hint: 'Masukkan nama perusahaan',
-                        controller: nameController,
-                        prefixIcon: Icons.business_outlined,
-                        validator: (String? value) =>
-                            (value == null || value.trim().isEmpty)
-                                ? 'Nama perusahaan wajib diisi'
-                                : null,
-                      ),
-                      const SizedBox(height: 14),
-                      AppTextField(
-                        label: 'Kode Perusahaan',
-                        hint: 'Masukkan kode perusahaan',
-                        controller: codeController,
-                        prefixIcon: Icons.qr_code_2_outlined,
-                        validator: (String? value) =>
-                            (value == null || value.trim().isEmpty)
-                                ? 'Kode perusahaan wajib diisi'
-                                : null,
-                      ),
-                      const SizedBox(height: 16),
-                      const FormSectionHeader(
-                        title: 'Logo Perusahaan',
-                        icon: Icons.image_outlined,
-                      ),
-                      InkWell(
-                        onTap: () => pilihLogo(setState),
-                        borderRadius: BorderRadius.circular(14),
-                        child: Container(
-                          height: 80,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: AppColors.field,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: AppColors.border),
-                          ),
-                          child: logo.isNotEmpty
-                              ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(12),
-                                  child: previewLogo(logo),
-                                )
-                              : const Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.add_photo_alternate_outlined,
-                                        color: AppColors.primary),
-                                    SizedBox(height: 4),
-                                    Text('Pilih logo perusahaan',
-                                        style: TextStyle(
-                                            fontSize: 12,
-                                            color: AppColors.textSecondary)),
-                                  ],
-                                ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Batal'),
-                ),
-                FilledButton(
-                  onPressed: () {
-                    if (!formKey.currentState!.validate()) return;
-                    Navigator.of(dialogContext).pop(<String, String>{
-                      'name': nameController.text.trim(),
-                      'code': codeController.text.trim(),
-                      'logo': logo,
-                    });
-                  },
-                  child: const Text('Simpan'),
-                ),
-              ],
-            );
-          },
-        );
-      },
+  Future<void> _bukaEditPerusahaan() async {
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => const EditPerusahaanScreen(),
+      ),
     );
-
-    if (hasil == null || !mounted) return;
-    await _saveCompany(hasil['name'] ?? '', hasil['code'] ?? '', hasil['logo'] ?? '');
-  }
-
-  Future<bool> _saveCompany(String name, String code, [String logo = '']) async {
-    final bool saved = await CompanyProfile.update(
-      name: name,
-      code: code,
-      logo: logo,
-    );
-    if (!mounted) return saved;
-    final String message = saved
-        ? 'Profil perusahaan berhasil disimpan.'
-        : (CompanyProfile.lastError ?? 'Gagal menyimpan profil perusahaan.');
-    AppToast.show(message, type: AppToast.typeFromMessage(message));
-    if (saved) await _loadCompany();
-    return saved;
   }
 
   @override
@@ -310,7 +134,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 icon: Icons.business_center_outlined,
                 label: 'Edit Perusahaan',
                 subtitle: 'Ubah nama dan kode perusahaan',
-                onTap: _showEditCompanyDialog,
+                onTap: _bukaEditPerusahaan,
               ),
               _buildMenuCard(
                 context: context,
