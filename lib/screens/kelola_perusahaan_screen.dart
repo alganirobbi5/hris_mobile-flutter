@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 
 import '../services/super_admin_service.dart';
 import '../theme/app_theme.dart';
@@ -77,10 +80,36 @@ class _KelolaPerusahaanScreenState extends State<KelolaPerusahaanScreen> {
       await SuperAdminService.tambahPerusahaan(
         code: hasil.code,
         name: hasil.name,
+        logo: hasil.logo,
         client: _httpClient,
       );
       if (!mounted) return;
       AppToast.success('Perusahaan berhasil ditambahkan');
+      await _fetch();
+    } on SuperAdminException catch (e) {
+      if (mounted) AppToast.error(e.message);
+    } catch (_) {
+      if (mounted) AppToast.error('Gagal terhubung ke server');
+    }
+  }
+
+  Future<void> _edit(PerusahaanItem item) async {
+    final _PerusahaanResult? hasil = await showDialog<_PerusahaanResult>(
+      context: context,
+      builder: (BuildContext dialogContext) =>
+          _PerusahaanDialog(item: item),
+    );
+    if (hasil == null || !mounted) return;
+    try {
+      await SuperAdminService.editPerusahaan(
+        id: item.id,
+        code: hasil.code,
+        name: hasil.name,
+        logo: hasil.logo,
+        client: _httpClient,
+      );
+      if (!mounted) return;
+      AppToast.success('Perusahaan berhasil diperbarui');
       await _fetch();
     } on SuperAdminException catch (e) {
       if (mounted) AppToast.error(e.message);
@@ -201,6 +230,14 @@ class _KelolaPerusahaanScreenState extends State<KelolaPerusahaanScreen> {
                             ),
                             const SizedBox(width: 4),
                             IconButton(
+                              tooltip: 'Edit perusahaan',
+                              icon: const Icon(
+                                Icons.edit_outlined,
+                                color: AppColors.primary,
+                              ),
+                              onPressed: () => _edit(item),
+                            ),
+                            IconButton(
                               tooltip: 'Hapus perusahaan',
                               icon: _deletingIds.contains(item.id)
                                   ? const SizedBox(
@@ -233,14 +270,17 @@ class _KelolaPerusahaanScreenState extends State<KelolaPerusahaanScreen> {
 }
 
 class _PerusahaanResult {
-  const _PerusahaanResult(this.code, this.name);
+  const _PerusahaanResult(this.code, this.name, this.logo);
 
   final String code;
   final String name;
+  final String logo;
 }
 
 class _PerusahaanDialog extends StatefulWidget {
-  const _PerusahaanDialog();
+  const _PerusahaanDialog({this.item});
+
+  final PerusahaanItem? item;
 
   @override
   State<_PerusahaanDialog> createState() => _PerusahaanDialogState();
@@ -248,8 +288,49 @@ class _PerusahaanDialog extends StatefulWidget {
 
 class _PerusahaanDialogState extends State<_PerusahaanDialog> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  final TextEditingController _codeController = TextEditingController();
-  final TextEditingController _nameController = TextEditingController();
+  late final TextEditingController _codeController =
+      TextEditingController(text: widget.item?.code ?? '');
+  late final TextEditingController _nameController =
+      TextEditingController(text: widget.item?.name ?? '');
+  String _logo = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _logo = widget.item?.logo ?? '';
+  }
+
+  Future<void> _pilihLogo() async {
+    final XFile? file = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 70,
+      maxWidth: 512,
+      maxHeight: 512,
+    );
+    if (file == null || !mounted) return;
+    final List<int> bytes = await file.readAsBytes();
+    final String mime = file.mimeType ?? 'image/png';
+    setState(() {
+      _logo = 'data:$mime;base64,${base64Encode(bytes)}';
+    });
+  }
+
+  Widget _logoPreview() {
+    final int comma = _logo.indexOf(',');
+    if (!_logo.startsWith('data:image/') || comma < 0) {
+      return const Icon(Icons.broken_image_outlined);
+    }
+    try {
+      return Image.memory(
+        base64Decode(_logo.substring(comma + 1)),
+        height: 80,
+        fit: BoxFit.contain,
+        errorBuilder: (_, _, _) => const Icon(Icons.broken_image_outlined),
+      );
+    } catch (_) {
+      return const Icon(Icons.broken_image_outlined);
+    }
+  }
 
   @override
   void dispose() {
@@ -275,7 +356,7 @@ class _PerusahaanDialogState extends State<_PerusahaanDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Tambah Perusahaan'),
+      title: Text(widget.item == null ? 'Tambah Perusahaan' : 'Edit Perusahaan'),
       content: SingleChildScrollView(
         child: Form(
           key: _formKey,
@@ -302,6 +383,46 @@ class _PerusahaanDialogState extends State<_PerusahaanDialog> {
                 prefixIcon: Icons.business_outlined,
                 validator: (String? value) => _wajib(value, 'Nama perusahaan'),
               ),
+              const SizedBox(height: 16),
+              const FormSectionHeader(
+                title: 'Logo Perusahaan',
+                icon: Icons.image_outlined,
+              ),
+              InkWell(
+                onTap: _pilihLogo,
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  height: 90,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppColors.field,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: _logo.isNotEmpty
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: _logoPreview(),
+                        )
+                      : const Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: <Widget>[
+                            Icon(
+                              Icons.add_photo_alternate_outlined,
+                              color: AppColors.primary,
+                            ),
+                            SizedBox(height: 6),
+                            Text(
+                              'Pilih logo perusahaan',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              ),
             ],
           ),
         ),
@@ -318,6 +439,7 @@ class _PerusahaanDialogState extends State<_PerusahaanDialog> {
               _PerusahaanResult(
                 _codeController.text.trim(),
                 _nameController.text.trim(),
+                _logo,
               ),
             );
           },

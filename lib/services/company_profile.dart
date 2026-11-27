@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -8,10 +10,15 @@ import '../config/company_config.dart';
 import 'app_session.dart';
 
 class CompanyProfileData {
-  const CompanyProfileData({required this.name, required this.code});
+  const CompanyProfileData({
+    required this.name,
+    required this.code,
+    this.logo = '',
+  });
 
   final String name;
   final String code;
+  final String logo;
 }
 
 /// Data profil perusahaan yang dipakai halaman profil dan validasi login.
@@ -21,9 +28,12 @@ class CompanyProfile {
 
   static const String nameKey = 'company_name';
   static const String codeKey = 'company_code';
+  static const String logoKey = 'company_logo';
 
   /// Pesan error terakhir dari [update], dipakai UI untuk penjelasan spesifik.
   static String? lastError;
+
+  static final ValueNotifier<int> revision = ValueNotifier<int>(0);
 
   static CompanyProfileData current = const CompanyProfileData(
     name: CompanyConfig.namaPerusahaan,
@@ -34,7 +44,8 @@ class CompanyProfile {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     final String name = _text(prefs.getString(nameKey)) ?? current.name;
     final String code = _text(prefs.getString(codeKey)) ?? current.code;
-    current = CompanyProfileData(name: name, code: code);
+    final String logo = _text(prefs.getString(logoKey)) ?? current.logo;
+    current = CompanyProfileData(name: name, code: code, logo: logo);
     return current;
   }
 
@@ -42,7 +53,9 @@ class CompanyProfile {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setString(nameKey, data.name);
     await prefs.setString(codeKey, data.code);
+    await prefs.setString(logoKey, data.logo);
     current = data;
+    revision.value++;
   }
 
   static Future<CompanyProfileData?> fetch({http.Client? client}) async {
@@ -71,9 +84,13 @@ class CompanyProfile {
       if (name == null && code == null) return null;
 
       final CompanyProfileData base = await load();
+      final String? logo = _text(
+        data['logo'] ?? data['company_logo'],
+      );
       final CompanyProfileData result = CompanyProfileData(
         name: name ?? base.name,
         code: code ?? base.code,
+        logo: logo ?? base.logo,
       );
       await save(result);
       return result;
@@ -136,7 +153,11 @@ class CompanyProfile {
       // berbeda antar versi backend, jadi jangan menggagalkan hanya karena
       // body tidak bisa diparse.
       await save(
-        CompanyProfileData(name: cleanedName, code: cleanedCode),
+        CompanyProfileData(
+          name: cleanedName,
+          code: cleanedCode,
+          logo: current.logo,
+        ),
       );
       lastError = null;
       return true;

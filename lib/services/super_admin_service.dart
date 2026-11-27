@@ -12,6 +12,7 @@ class PerusahaanItem {
     required this.name,
     this.address = '',
     this.statusAktif = true,
+    this.logo = '',
   });
 
   final int id;
@@ -19,6 +20,7 @@ class PerusahaanItem {
   final String name;
   final String address;
   final bool statusAktif;
+  final String logo;
 
   String get statusLabel => statusAktif ? 'Aktif' : 'Nonaktif';
 
@@ -38,6 +40,7 @@ class PerusahaanItem {
         json['is_active'] ?? json['status'],
         fallback: true,
       ),
+      logo: SuperAdminService.textValue(json['logo']),
     );
   }
 }
@@ -113,6 +116,7 @@ class SuperAdminService {
   static Future<void> tambahPerusahaan({
     required String code,
     required String name,
+    String logo = '',
     http.Client? client,
   }) async {
     await _post(
@@ -120,6 +124,7 @@ class SuperAdminService {
       <String, dynamic>{
         'company_code': code.trim(),
         'company_name': name.trim(),
+        if (logo.trim().isNotEmpty) 'logo': logo.trim(),
       },
       'Gagal menambahkan perusahaan.',
       client: client,
@@ -146,6 +151,26 @@ class SuperAdminService {
         'password': password,
       },
       'Gagal menambahkan akun HR/Admin.',
+      client: client,
+    );
+  }
+
+  static Future<void> editPerusahaan({
+    required int id,
+    required String code,
+    required String name,
+    String logo = '',
+    http.Client? client,
+  }) async {
+    await _put(
+      'companies.php',
+      <String, dynamic>{
+        'id': id,
+        'company_code': code.trim(),
+        'company_name': name.trim(),
+        if (logo.trim().isNotEmpty) 'logo': logo.trim(),
+      },
+      'Gagal memperbarui perusahaan.',
       client: client,
     );
   }
@@ -247,6 +272,38 @@ class SuperAdminService {
             body: jsonEncode(body),
           )
           .timeout(ApiConfig.requestTimeout);
+    } finally {
+      if (ownsClient) httpClient.close();
+    }
+    final Map<String, dynamic> envelope = _decode(response.body);
+    if ((response.statusCode != 200 && response.statusCode != 201) ||
+        envelope['success'] == false) {
+      throw SuperAdminException(
+        textValue(envelope['message']).isEmpty
+            ? fallbackMessage
+            : textValue(envelope['message']),
+      );
+    }
+  }
+
+  static Future<void> _put(
+    String endpoint,
+    Map<String, dynamic> body,
+    String fallbackMessage, {
+    http.Client? client,
+  }) async {
+    final String? token = await AppSession.resolveToken();
+    final http.Request request = http.Request('PUT', ApiConfig.uri(endpoint));
+    request.headers.addAll(ApiConfig.authHeaders(token));
+    request.body = jsonEncode(body);
+    final bool ownsClient = client == null;
+    final http.Client httpClient = client ?? http.Client();
+    final http.Response response;
+    try {
+      final http.StreamedResponse streamed = await httpClient
+          .send(request)
+          .timeout(ApiConfig.requestTimeout);
+      response = await http.Response.fromStream(streamed);
     } finally {
       if (ownsClient) httpClient.close();
     }
