@@ -169,7 +169,7 @@ class _RiwayatCutiIzinKeluarState extends State<RiwayatCutiIzinKeluar> {
       case 'Ditolak':
         return AppColors.danger;
       default:
-        return AppColors.warning;
+        return AppColors.pending;
     }
   }
 
@@ -262,7 +262,7 @@ class _RiwayatCutiIzinKeluarState extends State<RiwayatCutiIzinKeluar> {
 
   Widget _buildCard(_RiwayatItem item) {
     final Color jenisColor =
-        item.jenis == 'Cuti' ? AppColors.primary : AppColors.success;
+        item.jenis == 'Cuti' ? AppColors.primary : AppColors.blue;
     return SectionCard(
       padding: const EdgeInsets.all(16),
       child: Column(

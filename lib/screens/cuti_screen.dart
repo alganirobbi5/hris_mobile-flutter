@@ -615,7 +615,7 @@ class _CutiScreenState extends State<CutiScreen>
       case 'Ditolak':
         return AppColors.danger;
       default:
-        return AppColors.warning;
+        return AppColors.pending;
     }
   }
 
@@ -1349,7 +1349,7 @@ class _StatusSummary extends StatelessWidget {
                 child: _StatusCount(
                   label: 'Menunggu',
                   count: menunggu,
-                  color: AppColors.warning,
+                  color: AppColors.pending,
                 ),
               ),
               const SizedBox(width: 8),

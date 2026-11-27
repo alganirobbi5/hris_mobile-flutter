@@ -75,6 +75,12 @@ class LeaveBalanceService {
               'id': item['id'],
               'name': (item['name'] ?? '').toString(),
               'nik': (item['nik'] ?? '').toString(),
+              'phone': (item['mobile_no'] ??
+                      item['no_hp'] ??
+                      item['phone'] ??
+                      item['whatsapp'] ??
+                      '')
+                  .toString(),
             },
           )
           .toList();

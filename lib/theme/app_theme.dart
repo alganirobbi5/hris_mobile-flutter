@@ -15,6 +15,7 @@ class AppColors {
   static const Color success = Color(0xFF1BA97F);
   static const Color warning = Color(0xFFF2A33C);
   static const Color danger = Color(0xFFE5484D);
+  static const Color pending = Color(0xFFEAB308);
 
   static const LinearGradient primaryGradient = LinearGradient(
     colors: [Color(0xFF6C4DFF), Color(0xFF3B82F6)],

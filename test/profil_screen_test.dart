@@ -6,6 +6,7 @@ import 'package:hris_mobile/screens/profil_screen.dart';
 import 'package:hris_mobile/services/app_session.dart';
 import 'package:hris_mobile/services/employee_request.dart';
 import 'package:hris_mobile/services/profile_credential_service.dart';
+import 'package:hris_mobile/utils/whatsapp_helper.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -41,6 +42,18 @@ void main() {
       'new_password': 'rahasia123',
       'confirm_password': 'rahasia123',
     });
+  });
+
+  test('body update nomor HP profil memuat mobile_no dan no_hp', () {
+    expect(
+      EmployeeRequest.profilePhoneUpdate().path,
+      endsWith('/update_no_hp.php'),
+    );
+    expect(
+      EmployeeRequest.profilePhoneUpdateBody('08123456789'),
+      <String, dynamic>{'mobile_no': '08123456789', 'no_hp': '08123456789'},
+    );
+    expect(WhatsAppHelper.validatePhone('08123456789'), isNull);
   });
 
   test('service kredensial memakai pesan error dari server', () async {
@@ -94,7 +107,33 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Sisa Kuota Cuti'), findsOneWidget);
+    expect(find.text('No. HP (WhatsApp)'), findsOneWidget);
     expect(find.text('Ubah Username & Password'), findsOneWidget);
+  });
+
+  testWidgets('No. HP profil dapat diisi sendiri oleh karyawan', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: ProfilScreen()));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.byIcon(Icons.edit_outlined).at(1));
+    await tester.tap(find.byIcon(Icons.edit_outlined).at(1));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ubah No. HP (WhatsApp)'), findsOneWidget);
+    expect(find.text('NO. HP (WHATSAPP)'), findsOneWidget);
+    expect(find.text('PASSWORD'), findsNothing);
+
+    await tester.enterText(find.byType(TextFormField).last, '12345');
+    await tester.tap(find.text('Simpan'));
+    await tester.pump();
+    expect(
+      find.text('No. HP harus diawali 08 atau 628'),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Batal'));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('validasi dan simpan ubah username & password', (

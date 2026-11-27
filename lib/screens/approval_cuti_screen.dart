@@ -15,6 +15,7 @@ import '../services/izin_keluar_service.dart';
 import '../services/leave_balance.dart';
 import '../services/leave_leader_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/whatsapp_helper.dart';
 import '../widgets/app_form_field.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/app_toast.dart';
@@ -246,6 +247,14 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
       position: item.position,
       replacementName: item.replacementName,
       days: item.days,
+      phone: item.phone.isNotEmpty
+          ? item.phone
+          : (karyawan['phone'] ?? '').toString().trim(),
+      targetLeaderName: item.targetLeaderName,
+      approvedByName: item.approvedByName,
+      catatanLeader: item.catatanLeader,
+      leaderUserId: item.leaderUserId,
+      approvedByUserId: item.approvedByUserId,
     );
   }
 
@@ -611,7 +620,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
               _buildRingkasanStat(
                 label: 'Menunggu',
                 value: _izinStatusCount('pending'),
-                color: AppColors.warning,
+                color: AppColors.pending,
                 icon: Icons.schedule_rounded,
                 filterKey: 'pending',
               ),
@@ -753,6 +762,17 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
           ),
         ),
         actions: [
+          if (_isHr && item.phone.isNotEmpty)
+            TextButton.icon(
+              onPressed: () => WhatsAppHelper.openChat(
+                context,
+                phone: item.phone,
+                message: 'Halo ${item.namaKaryawan}, terkait pengajuan izin '
+                    'keluar Anda.',
+              ),
+              icon: const Icon(Icons.chat_bubble_outline, size: 18),
+              label: const Text('Chat WhatsApp'),
+            ),
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Tutup'),
@@ -1311,7 +1331,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
               _buildRingkasanStat(
                 label: 'Menunggu',
                 value: ringkasan.pending,
-                color: AppColors.warning,
+                color: AppColors.pending,
                 icon: Icons.schedule_rounded,
                 filterKey: 'pending',
               ),
@@ -1640,7 +1660,7 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
       case 3:
         return AppColors.danger;
       default:
-        return AppColors.warning;
+        return AppColors.pending;
     }
   }
 
@@ -1878,6 +1898,17 @@ class _ApprovalCutiScreenState extends State<ApprovalCutiScreen> {
           ),
         ),
         actions: [
+          if (_isHr && item.phone.isNotEmpty)
+            TextButton.icon(
+              onPressed: () => WhatsAppHelper.openChat(
+                context,
+                phone: item.phone,
+                message: 'Halo ${item.employeeName}, terkait pengajuan cuti '
+                    'Anda.',
+              ),
+              icon: const Icon(Icons.chat_bubble_outline, size: 18),
+              label: const Text('Chat WhatsApp'),
+            ),
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Tutup'),
@@ -2174,6 +2205,7 @@ class _PengajuanCuti {
     this.catatanLeader = '',
     this.leaderUserId = 0,
     this.approvedByUserId = 0,
+    this.phone = '',
   });
 
   factory _PengajuanCuti.fromJson(Map<String, dynamic> json) {
@@ -2243,6 +2275,10 @@ class _PengajuanCuti {
       catatanLeader: _stringValue(json['catatan_leader'], ''),
       leaderUserId: _intValue(json['leader_user_id']),
       approvedByUserId: _intValue(json['approved_by_user_id']),
+      phone: _stringValue(
+        json['mobile_no'] ?? json['no_hp'] ?? json['phone'] ?? json['whatsapp'],
+        '',
+      ),
     );
   }
 
@@ -2267,6 +2303,7 @@ class _PengajuanCuti {
   final String catatanLeader;
   final int leaderUserId;
   final int approvedByUserId;
+  final String phone;
 
   static String _stringValue(dynamic value, String fallback) {
     if (value == null) return fallback;

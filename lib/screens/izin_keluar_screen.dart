@@ -192,7 +192,7 @@ class _IzinKeluarScreenState extends State<IzinKeluarScreen> {
       case 'rejected':
         return AppColors.danger;
       default:
-        return AppColors.warning;
+        return AppColors.pending;
     }
   }
 

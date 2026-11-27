@@ -11,6 +11,7 @@ import '../services/app_session.dart';
 import '../services/location_name_service.dart';
 import '../services/work_duration.dart';
 import '../theme/app_theme.dart';
+import '../utils/whatsapp_helper.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/osm_map_preview.dart';
 import '../widgets/section_card.dart';
@@ -34,6 +35,7 @@ class DetailAbsensiScreen extends StatefulWidget {
     this.recordType = '',
     this.jamMasukLengkap = '',
     this.jamPulangLengkap = '',
+    this.noHp = '',
     this.namaLokasiResolver,
   });
 
@@ -46,6 +48,7 @@ class DetailAbsensiScreen extends StatefulWidget {
   final String recordType;
   final String jamMasukLengkap;
   final String jamPulangLengkap;
+  final String noHp;
   final String nama;
   final String tanggal;
   final String jamMasuk;
@@ -338,6 +341,21 @@ class _DetailAbsensiScreenState extends State<DetailAbsensiScreen> {
                           ? '-'
                           : _teksNamaLokasi,
                     ),
+                    if (AppSession.isHr && widget.noHp.isNotEmpty) ...<Widget>[
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () => WhatsAppHelper.openChat(
+                            context,
+                            phone: widget.noHp,
+                            message: 'Halo ${widget.nama}, terkait absensi Anda.',
+                          ),
+                          icon: const Icon(Icons.chat_bubble_outline, size: 18),
+                          label: const Text('Chat WhatsApp'),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

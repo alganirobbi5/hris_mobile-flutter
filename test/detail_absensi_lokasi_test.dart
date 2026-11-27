@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hris_mobile/screens/detail_absensi_screen.dart';
+import 'package:hris_mobile/services/app_session.dart';
 import 'package:hris_mobile/services/location_name_service.dart';
 import 'package:hris_mobile/services/work_duration.dart';
 import 'package:hris_mobile/widgets/osm_map_preview.dart';
@@ -214,5 +215,43 @@ void main() {
 
     expect(find.text('Durasi Kerja'), findsOneWidget);
     expect(find.text('00:00:00'), findsOneWidget);
+  });
+
+  testWidgets('HR melihat Chat WhatsApp saat nomor HP tersedia', (
+    WidgetTester tester,
+  ) async {
+    AppSession.role = 'hr';
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DetailAbsensiScreen(
+          nama: 'Andi Pratama',
+          tanggal: '25 November 2026',
+          jamMasuk: '08:00',
+          jamKeluar: '17:00',
+          latitude: '-6.2088',
+          longitude: '106.8456',
+          noHp: '08123456789',
+          namaLokasiResolver: (double lat, double lon) async => 'Kantor Pusat',
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('Chat WhatsApp'), findsOneWidget);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DetailAbsensiScreen(
+          nama: 'Andi Pratama',
+          tanggal: '25 November 2026',
+          jamMasuk: '08:00',
+          jamKeluar: '17:00',
+          latitude: '-6.2088',
+          longitude: '106.8456',
+          namaLokasiResolver: (double lat, double lon) async => 'Kantor Pusat',
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('Chat WhatsApp'), findsNothing);
   });
 }

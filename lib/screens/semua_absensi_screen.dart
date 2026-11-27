@@ -471,6 +471,7 @@ class SemuaAbsensiViewState extends State<SemuaAbsensiView> {
               recordType: item.recordType,
               jamMasukLengkap: item.jamMasukLengkap,
               jamPulangLengkap: item.jamPulangLengkap,
+              noHp: item.noHp,
             ),
           ),
         );
@@ -670,6 +671,7 @@ class _AbsensiItem {
     this.recordType = '',
     this.jamMasukLengkap = '',
     this.jamPulangLengkap = '',
+    this.noHp = '',
   });
 
   final int id;
@@ -688,6 +690,7 @@ class _AbsensiItem {
   final String recordType;
   final String jamMasukLengkap;
   final String jamPulangLengkap;
+  final String noHp;
 
   factory _AbsensiItem.fromJson(Map<String, dynamic> json) {
     final String firstName = _textOf(json['first_name'], '');
@@ -767,6 +770,10 @@ class _AbsensiItem {
             json['jam_pulang'] ??
             json['jam_keluar'] ??
             json['check_out'],
+        '',
+      ),
+      noHp: _textOf(
+        json['mobile_no'] ?? json['no_hp'] ?? json['phone'] ?? json['whatsapp'],
         '',
       ),
     );

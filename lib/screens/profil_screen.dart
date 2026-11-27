@@ -16,6 +16,7 @@ import '../services/profile_avatar_store.dart';
 import '../services/profile_credential_service.dart';
 import '../services/profile_email_store.dart';
 import '../theme/app_theme.dart';
+import '../utils/whatsapp_helper.dart';
 import '../widgets/app_form_field.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/app_toast.dart';
@@ -45,6 +46,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
   bool _isLoading = true;
   bool _isUploadingAvatar = false;
   bool _isSavingEmail = false;
+  bool _isSavingPhone = false;
   bool _isSavingCredential = false;
   bool _isLanyard = false;
   String? _error;
@@ -245,6 +247,21 @@ class _ProfilScreenState extends State<ProfilScreen> {
   String get _role => _profileValue('role');
   String get _email => _profileValue('email');
   String get _username => _profileValue('username');
+
+  String get _phone {
+    final Map<String, dynamic>? data = _profil;
+    if (data == null) return 'Belum tersedia';
+    for (final String key in <String>[
+      'mobile_no',
+      'no_hp',
+      'phone',
+      'whatsapp',
+    ]) {
+      final String value = data[key]?.toString().trim() ?? '';
+      if (value.isNotEmpty && value.toLowerCase() != 'null') return value;
+    }
+    return 'Belum tersedia';
+  }
 
   String get _leaveQuota {
     final Map<String, dynamic>? data = _profil;
@@ -802,6 +819,190 @@ class _ProfilScreenState extends State<ProfilScreen> {
     return saved;
   }
 
+  Widget _buildPhoneRow() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: <Widget>[
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: const Icon(
+              Icons.phone_outlined,
+              size: 19,
+              color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                const Text(
+                  'No. HP (WhatsApp)',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  _phone,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    height: 1.3,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Material(
+            color: AppColors.primary.withValues(alpha: 0.08),
+            shape: const CircleBorder(),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: _isSavingPhone ? null : _showEditPhoneDialog,
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: _isSavingPhone
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(
+                        Icons.edit_outlined,
+                        size: 18,
+                        color: AppColors.primary,
+                      ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showEditPhoneDialog() async {
+    final TextEditingController phoneController = TextEditingController(
+      text: _phone == 'Belum tersedia' ? '' : _phone,
+    );
+    final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+
+    final String? phoneBaru = await showDialog<String>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Ubah No. HP (WhatsApp)'),
+          content: Form(
+            key: formKey,
+            child: AppTextField(
+              label: 'No. HP (WhatsApp)',
+              hint: 'Contoh: 08123456789 atau 628123456789',
+              controller: phoneController,
+              keyboardType: TextInputType.phone,
+              maxLength: 15,
+              prefixIcon: Icons.phone_outlined,
+              validator: WhatsAppHelper.validatePhone,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (!formKey.currentState!.validate()) return;
+                Navigator.of(dialogContext).pop(phoneController.text.trim());
+              },
+              child: const Text('Simpan'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (phoneBaru == null || !mounted) return;
+    await _savePhone(phoneBaru);
+    if (mounted) await _fetchProfil();
+  }
+
+  Future<void> _savePhone(String phone) async {
+    if (!mounted) return;
+    setState(() => _isSavingPhone = true);
+    bool saved = false;
+    String message = 'Gagal menyimpan nomor HP.';
+    try {
+      final String? token = await AppSession.resolveToken();
+      final String bodyJson = jsonEncode(
+        EmployeeRequest.profilePhoneUpdateBody(phone),
+      );
+      http.Response response = await http
+          .post(
+            EmployeeRequest.profilePhoneUpdate(),
+            headers: ApiConfig.authHeaders(token),
+            body: bodyJson,
+          )
+          .timeout(const Duration(seconds: 20));
+      if (response.statusCode == 404 || response.statusCode == 405) {
+        response = await http
+            .post(
+              EmployeeRequest.profileUpdateFallback(),
+              headers: ApiConfig.authHeaders(token),
+              body: bodyJson,
+            )
+            .timeout(const Duration(seconds: 20));
+      }
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(response.body);
+      } on FormatException {
+        decoded = null;
+      }
+      final Map<String, dynamic>? body = decoded is Map<String, dynamic>
+          ? decoded
+          : null;
+      final String? serverMessage = body?['message']?.toString();
+      final bool httpSukses =
+          response.statusCode >= 200 && response.statusCode < 300;
+      final String? statusTeks = body?['status']?.toString();
+      final bool serverTolak = body?['success'] == false ||
+          (statusTeks != null &&
+              statusTeks.toLowerCase() != 'success' &&
+              statusTeks.toLowerCase() != 'ok');
+      saved = httpSukses && !serverTolak;
+      if (saved) {
+        if (_profil != null) {
+          _profil!['mobile_no'] = phone.trim();
+          _profil!['no_hp'] = phone.trim();
+        }
+        message = serverMessage?.trim().isNotEmpty == true
+            ? serverMessage!.trim()
+            : 'No. HP profil berhasil disimpan.';
+      } else {
+        message = (serverMessage != null && serverMessage.trim().isNotEmpty)
+            ? serverMessage.trim()
+            : 'Gagal menyimpan nomor HP (HTTP ${response.statusCode}).';
+      }
+    } catch (_) {
+      saved = false;
+      message = 'Gagal terhubung ke server.';
+    }
+    if (!mounted) return;
+    setState(() => _isSavingPhone = false);
+    _showMessage(message);
+  }
+
   Future<void> _showEditCredentialDialog() async {
     final _CredentialResult? hasil = await showDialog<_CredentialResult>(
       context: context,
@@ -1138,6 +1339,7 @@ class _ProfilScreenState extends State<ProfilScreen> {
                   label: 'Username',
                   value: _username,
                 ),
+                _buildPhoneRow(),
                 if (!AppSession.isSuperAdmin)
                   InfoRow(
                     icon: Icons.beach_access_outlined,

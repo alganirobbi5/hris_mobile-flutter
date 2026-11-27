@@ -7,8 +7,8 @@ import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
 import '../services/app_session.dart';
-import '../services/karyawan_option_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/whatsapp_helper.dart';
 import '../widgets/app_form_field.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/app_text_field.dart';
@@ -41,18 +41,7 @@ class _TambahKaryawanScreenState extends State<TambahKaryawanScreen> {
   }
 
   bool _isLoading = false;
-  bool _isLoadingOptions = true;
   String? _gender;
-  int? _departmentId;
-  int? _designationId;
-  List<KaryawanOption> _departments = const <KaryawanOption>[];
-  List<KaryawanOption> _designations = const <KaryawanOption>[];
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchOptions();
-  }
 
   @override
   void dispose() {
@@ -64,20 +53,6 @@ class _TambahKaryawanScreenState extends State<TambahKaryawanScreen> {
     _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
-  }
-
-  Future<void> _fetchOptions() async {
-    if (!mounted) return;
-    setState(() => _isLoadingOptions = true);
-    final KaryawanOptionsResult hasil = await KaryawanOptionService.fetchAll(
-      client: widget.httpClient,
-    );
-    if (!mounted) return;
-    setState(() {
-      _departments = hasil.departments;
-      _designations = hasil.designations;
-      _isLoadingOptions = false;
-    });
   }
 
   String? _wajib(String? value, String label) {
@@ -102,8 +77,6 @@ class _TambahKaryawanScreenState extends State<TambahKaryawanScreen> {
               'gender': _gender,
               'email': _emailController.text.trim(),
               'mobile_no': _mobileNoController.text.trim(),
-              'department_id': _departmentId,
-              'designation_id': _designationId,
               'status': '1',
               'user_name': _usernameController.text.trim(),
               'password': _passwordController.text,
@@ -218,72 +191,13 @@ class _TambahKaryawanScreenState extends State<TambahKaryawanScreen> {
                     ),
                     const SizedBox(height: 16),
                     AppTextField(
-                      label: 'No. HP',
-                      hint: 'Contoh: 08123456789',
+                      label: 'No. HP (WhatsApp)',
+                      hint: 'Contoh: 08123456789 atau 628123456789',
                       controller: _mobileNoController,
                       keyboardType: TextInputType.phone,
                       maxLength: 15,
                       prefixIcon: Icons.phone_outlined,
-                      validator: (String? value) => _wajib(value, 'No. HP'),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-              SectionCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const FormSectionHeader(
-                      title: 'Data Kepegawaian',
-                      icon: Icons.work_outline_rounded,
-                    ),
-                    AppFormDropdown<int>(
-                      label: 'Departemen',
-                      value: _departmentId,
-                      hint: _isLoadingOptions
-                          ? 'Memuat departemen...'
-                          : 'Pilih Departemen',
-                      prefixIcon: Icons.domain_outlined,
-                      items: _departments
-                          .map(
-                            (KaryawanOption option) => DropdownMenuItem<int>(
-                              value: option.id,
-                              child: Text(
-                                option.name,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          )
-                          .toList(),
-                      validator: (int? value) =>
-                          value == null ? 'Departemen wajib dipilih' : null,
-                      onChanged: (int? value) =>
-                          setState(() => _departmentId = value),
-                    ),
-                    const SizedBox(height: 16),
-                    AppFormDropdown<int>(
-                      label: 'Jabatan',
-                      value: _designationId,
-                      hint: _isLoadingOptions
-                          ? 'Memuat jabatan...'
-                          : 'Pilih Jabatan',
-                      prefixIcon: Icons.workspace_premium_outlined,
-                      items: _designations
-                          .map(
-                            (KaryawanOption option) => DropdownMenuItem<int>(
-                              value: option.id,
-                              child: Text(
-                                option.name,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          )
-                          .toList(),
-                      validator: (int? value) =>
-                          value == null ? 'Jabatan wajib dipilih' : null,
-                      onChanged: (int? value) =>
-                          setState(() => _designationId = value),
+                      validator: WhatsAppHelper.validatePhone,
                     ),
                   ],
                 ),

@@ -46,6 +46,13 @@ class EmployeeRequest {
   static Map<String, dynamic> profileUpdateBody(String email) =>
       <String, dynamic>{'email': email.trim()};
 
+  /// Simpan nomor HP/WhatsApp profil. Endpoint baru memetakan nomor ke
+  /// employees.mobile_no; endpoint lama menerima POST ke profil.php.
+  static Uri profilePhoneUpdate() => ApiConfig.uri('update_no_hp.php');
+
+  static Map<String, dynamic> profilePhoneUpdateBody(String phone) =>
+      <String, dynamic>{'mobile_no': phone.trim(), 'no_hp': phone.trim()};
+
   static Uri credentialUpdate() =>
       ApiConfig.uri('update_username_password.php');
 

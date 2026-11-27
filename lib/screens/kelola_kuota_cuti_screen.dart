@@ -13,7 +13,9 @@ import '../widgets/app_toast.dart';
 import '../widgets/section_card.dart';
 
 class KelolaKuotaCutiScreen extends StatefulWidget {
-  const KelolaKuotaCutiScreen({super.key});
+  const KelolaKuotaCutiScreen({super.key, this.httpClient});
+
+  final http.Client? httpClient;
 
   @override
   State<KelolaKuotaCutiScreen> createState() => _KelolaKuotaCutiScreenState();
@@ -21,8 +23,17 @@ class KelolaKuotaCutiScreen extends StatefulWidget {
 
 class _KelolaKuotaCutiScreenState extends State<KelolaKuotaCutiScreen> {
   final TextEditingController _hariController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
   final Set<int> _selectedIds = <int>{};
 
+  http.Client? _ownedClient;
+
+  http.Client get _httpClient {
+    if (widget.httpClient != null) return widget.httpClient!;
+    return _ownedClient ??= http.Client();
+  }
+
+  String _query = '';
   bool _isLoading = true;
   bool _isSaving = false;
   String _mode = 'tambah';
@@ -37,7 +48,9 @@ class _KelolaKuotaCutiScreenState extends State<KelolaKuotaCutiScreen> {
 
   @override
   void dispose() {
+    _ownedClient?.close();
     _hariController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -50,7 +63,7 @@ class _KelolaKuotaCutiScreenState extends State<KelolaKuotaCutiScreen> {
 
     try {
       final String? token = await AppSession.resolveToken();
-      final http.Response response = await http
+      final http.Response response = await _httpClient
           .get(
             ApiConfig.uri('get_employees_kuota.php'),
             headers: ApiConfig.authHeaders(token),
@@ -151,7 +164,7 @@ class _KelolaKuotaCutiScreenState extends State<KelolaKuotaCutiScreen> {
     setState(() => _isSaving = true);
     try {
       final String? token = await AppSession.resolveToken();
-      final http.Response response = await http
+      final http.Response response = await _httpClient
           .post(
             ApiConfig.uri('update_kuota_cuti.php'),
             headers: ApiConfig.authHeaders(token),
@@ -223,15 +236,33 @@ class _KelolaKuotaCutiScreenState extends State<KelolaKuotaCutiScreen> {
     return body.length <= 140 ? body : fallback;
   }
 
-  bool get _semuaTerpilih =>
-      _karyawan.isNotEmpty && _selectedIds.length == _karyawan.length;
+  List<_KaryawanKuota> get _filteredKaryawan {
+    final String keyword = _query.trim().toLowerCase();
+    if (keyword.isEmpty) return _karyawan;
+    return _karyawan
+        .where(
+          (_KaryawanKuota item) =>
+              item.nama.toLowerCase().contains(keyword) ||
+              item.username.toLowerCase().contains(keyword),
+        )
+        .toList();
+  }
+
+  bool get _semuaTerpilih {
+    final List<_KaryawanKuota> tampil = _filteredKaryawan;
+    return tampil.isNotEmpty &&
+        tampil.every((_KaryawanKuota item) => _selectedIds.contains(item.id));
+  }
 
   void _toggleSelectAll() {
     setState(() {
+      final List<_KaryawanKuota> tampil = _filteredKaryawan;
       if (_semuaTerpilih) {
-        _selectedIds.clear();
+        _selectedIds.removeWhere(
+          (int id) => tampil.any((_KaryawanKuota item) => item.id == id),
+        );
       } else {
-        _selectedIds.addAll(_karyawan.map((_KaryawanKuota item) => item.id));
+        _selectedIds.addAll(tampil.map((_KaryawanKuota item) => item.id));
       }
     });
   }
@@ -251,19 +282,6 @@ class _KelolaKuotaCutiScreenState extends State<KelolaKuotaCutiScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    OutlinedButton.icon(
-                      onPressed: _toggleSelectAll,
-                      icon: Icon(
-                        _semuaTerpilih
-                            ? Icons.deselect_rounded
-                            : Icons.select_all_rounded,
-                        size: 18,
-                      ),
-                      label: Text(
-                        _semuaTerpilih ? 'Deselect All' : 'Select All',
-                      ),
-                    ),
-                    const SizedBox(height: 14),
                     TextField(
                       controller: _hariController,
                       keyboardType: TextInputType.number,
@@ -302,6 +320,44 @@ class _KelolaKuotaCutiScreenState extends State<KelolaKuotaCutiScreen> {
                                   },
                             icon: const Icon(Icons.remove_rounded, size: 18),
                             label: const Text('Kurangi'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: <Widget>[
+                        Expanded(
+                          child: TextField(
+                            controller: _searchController,
+                            onChanged: (String value) =>
+                                setState(() => _query = value),
+                            textInputAction: TextInputAction.search,
+                            decoration: InputDecoration(
+                              hintText: 'Cari nama atau username karyawan...',
+                              prefixIcon: const Icon(Icons.search_rounded),
+                              suffixIcon: _query.isEmpty
+                                  ? null
+                                  : IconButton(
+                                      tooltip: 'Bersihkan pencarian',
+                                      onPressed: () {
+                                        _searchController.clear();
+                                        setState(() => _query = '');
+                                      },
+                                      icon: const Icon(Icons.close_rounded),
+                                    ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        OutlinedButton(
+                          onPressed: _toggleSelectAll,
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            minimumSize: const Size(0, 48),
+                          ),
+                          child: Text(
+                            _semuaTerpilih ? 'Deselect All' : 'Select All',
                           ),
                         ),
                       ],
@@ -384,10 +440,26 @@ class _KelolaKuotaCutiScreenState extends State<KelolaKuotaCutiScreen> {
       );
     }
 
+    final List<_KaryawanKuota> tampil = _filteredKaryawan;
+    if (tampil.isEmpty) {
+      return const SectionCard(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 28),
+          child: Center(
+            child: Text(
+              'Tidak ada karyawan yang cocok',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+            ),
+          ),
+        ),
+      );
+    }
+
     return ListView.builder(
-      itemCount: _karyawan.length,
+      itemCount: tampil.length,
       itemBuilder: (BuildContext context, int index) {
-        final _KaryawanKuota item = _karyawan[index];
+        final _KaryawanKuota item = tampil[index];
         return Card(
           margin: const EdgeInsets.only(bottom: 8),
           shape: RoundedRectangleBorder(
@@ -433,11 +505,13 @@ class _KaryawanKuota {
     required this.id,
     required this.nama,
     required this.sisaKuota,
+    this.username = '',
   });
 
   final int id;
   final String nama;
   final String sisaKuota;
+  final String username;
 
   factory _KaryawanKuota.fromJson(Map<String, dynamic> json) {
     final int id = _asInt(
@@ -466,6 +540,7 @@ class _KaryawanKuota {
       id: id,
       nama: nama.isEmpty ? 'Karyawan #$id' : nama,
       sisaKuota: sisaTeks.isEmpty ? '0' : sisaTeks,
+      username: (json['username'] ?? json['user_name'] ?? '').toString().trim(),
     );
   }
 

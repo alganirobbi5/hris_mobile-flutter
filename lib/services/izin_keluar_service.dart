@@ -32,6 +32,7 @@ class IzinKeluarItem {
     this.approvedByName = '',
     this.targetLeaderName = '',
     this.createdAt = '',
+    this.phone = '',
   });
 
   final int id;
@@ -49,6 +50,7 @@ class IzinKeluarItem {
   final String approvedByName;
   final String targetLeaderName;
   final String createdAt;
+  final String phone;
 
   String get jamKeluarPendek => _jamPendek(jamKeluar);
   String get jamKembaliPendek => _jamPendek(jamKembali);
@@ -90,6 +92,9 @@ class IzinKeluarItem {
       ),
       createdAt: _text(
         json['created_at'] ?? json['tanggal_pengajuan'] ?? json['tanggal'],
+      ),
+      phone: _text(
+        json['mobile_no'] ?? json['no_hp'] ?? json['phone'] ?? json['whatsapp'],
       ),
     );
   }

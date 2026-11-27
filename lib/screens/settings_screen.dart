@@ -10,6 +10,7 @@ import '../widgets/app_text_field.dart';
 import '../widgets/app_toast.dart';
 import 'approval_cuti_screen.dart';
 import 'atur_jam_screen.dart';
+import 'edit_karyawan_screen.dart';
 import 'kelola_hr_admin_screen.dart';
 import 'kelola_hari_libur_screen.dart';
 import 'kelola_kuota_cuti_screen.dart';
@@ -250,6 +251,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onTap: () => Navigator.of(context).push<void>(
                   MaterialPageRoute<void>(
                     builder: (_) => const TambahKaryawanScreen(),
+                  ),
+                ),
+              ),
+              _buildMenuCard(
+                context: context,
+                icon: Icons.person_outline_rounded,
+                label: 'Edit Karyawan',
+                subtitle: 'Ubah data karyawan perusahaan',
+                onTap: () => Navigator.of(context).push<void>(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const EditKaryawanScreen(),
                   ),
                 ),
               ),
