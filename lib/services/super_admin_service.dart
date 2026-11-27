@@ -150,6 +150,62 @@ class SuperAdminService {
     );
   }
 
+  static Future<void> hapusPerusahaan({
+    required int id,
+    http.Client? client,
+  }) async {
+    await _delete(
+      'companies.php',
+      id,
+      'Gagal menghapus perusahaan.',
+      client: client,
+    );
+  }
+
+  static Future<void> hapusHrAdmin({
+    required int id,
+    http.Client? client,
+  }) async {
+    await _delete(
+      'super_admin_hr.php',
+      id,
+      'Gagal menghapus akun HR/Admin.',
+      client: client,
+    );
+  }
+
+  static Future<void> _delete(
+    String endpoint,
+    int id,
+    String fallbackMessage, {
+    http.Client? client,
+  }) async {
+    final String? token = await AppSession.resolveToken();
+    final http.Request request = http.Request('DELETE', ApiConfig.uri(endpoint));
+    request.headers.addAll(ApiConfig.authHeaders(token));
+    request.body = jsonEncode(<String, dynamic>{'action': 'delete', 'id': id});
+    final bool ownsClient = client == null;
+    final http.Client httpClient = client ?? http.Client();
+    final http.Response response;
+    try {
+      final http.StreamedResponse streamed = await httpClient
+          .send(request)
+          .timeout(ApiConfig.requestTimeout);
+      response = await http.Response.fromStream(streamed);
+    } finally {
+      if (ownsClient) httpClient.close();
+    }
+    final Map<String, dynamic> envelope = _decode(response.body);
+    if ((response.statusCode != 200 && response.statusCode != 201) ||
+        envelope['success'] == false) {
+      throw SuperAdminException(
+        textValue(envelope['message']).isEmpty
+            ? fallbackMessage
+            : textValue(envelope['message']),
+      );
+    }
+  }
+
   static Future<List<dynamic>> _fetchList(
     String endpoint,
     List<String> keys, {

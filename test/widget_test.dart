@@ -1,13 +1,18 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hris_mobile/main.dart';
 import 'package:hris_mobile/screens/absen_success_screen.dart';
 import 'package:hris_mobile/screens/main_screen.dart';
 import 'package:hris_mobile/services/app_session.dart';
+import 'package:hris_mobile/screens/login_screen.dart';
 import 'package:hris_mobile/services/company_profile.dart';
 import 'package:hris_mobile/widgets/glass_bottom_nav.dart';
 import 'package:hris_mobile/widgets/primary_button.dart';
 import 'package:hris_mobile/widgets/profile_avatar_button.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -30,17 +35,28 @@ void main() {
     expect(find.text('Masuk'), findsOneWidget);
   });
 
-  testWidgets('Login menolak kode perusahaan yang tidak sesuai HR', (
+  testWidgets('Login meneruskan kode perusahaan apa pun ke server', (
     WidgetTester tester,
   ) async {
+    Map<String, dynamic>? terkirim;
+    final http.Client client = MockClient((http.Request request) async {
+      terkirim = jsonDecode(request.body) as Map<String, dynamic>;
+      return http.Response(
+        jsonEncode(<String, dynamic>{'success': false, 'message': 'ditolak'}),
+        401,
+      );
+    });
+
     tester.view.physicalSize = const Size(360, 740);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const HrisApp(isLoggedIn: false));
+    await tester.pumpWidget(
+      MaterialApp(home: LoginScreen(httpClient: client)),
+    );
 
-    await tester.enterText(find.byType(TextFormField).at(0), 'SALAH-2026');
+    await tester.enterText(find.byType(TextFormField).at(0), 'DGN-2026');
     await tester.enterText(find.byType(TextFormField).at(1), 'razu');
     await tester.enterText(find.byType(TextFormField).at(2), 'rahasia');
     await tester.ensureVisible(find.text('Masuk'));
@@ -50,8 +66,11 @@ void main() {
 
     expect(
       find.text('Kode perusahaan tidak sesuai dengan data HR'),
-      findsOneWidget,
+      findsNothing,
     );
+    expect(terkirim, isNotNull);
+    expect(terkirim!['company_code'], 'DGN-2026');
+    expect(terkirim!['username'], 'razu');
   });
 
   testWidgets('Navigasi tab beranda berjalan tanpa error', (

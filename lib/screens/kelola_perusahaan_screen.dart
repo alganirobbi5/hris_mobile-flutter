@@ -28,6 +28,7 @@ class _KelolaPerusahaanScreenState extends State<KelolaPerusahaanScreen> {
   bool _isLoading = true;
   String? _error;
   List<PerusahaanItem> _items = const <PerusahaanItem>[];
+  final Set<int> _deletingIds = <int>{};
 
   @override
   void initState() {
@@ -83,6 +84,44 @@ class _KelolaPerusahaanScreenState extends State<KelolaPerusahaanScreen> {
       if (mounted) AppToast.error(e.message);
     } catch (_) {
       if (mounted) AppToast.error('Gagal terhubung ke server');
+    }
+  }
+
+  Future<void> _hapus(PerusahaanItem item) async {
+    final bool? konfirmasi = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('Hapus perusahaan?'),
+        content: Text('${item.code} • ${item.name} akan dihapus.'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+    if (konfirmasi != true || !mounted) return;
+    setState(() => _deletingIds.add(item.id));
+    try {
+      await SuperAdminService.hapusPerusahaan(
+        id: item.id,
+        client: _httpClient,
+      );
+      if (!mounted) return;
+      AppToast.success('Perusahaan berhasil dihapus');
+      await _fetch();
+    } on SuperAdminException catch (e) {
+      if (mounted) AppToast.error(e.message);
+    } catch (_) {
+      if (mounted) AppToast.error('Gagal terhubung ke server');
+    } finally {
+      if (mounted) setState(() => _deletingIds.remove(item.id));
     }
   }
 
@@ -149,11 +188,35 @@ class _KelolaPerusahaanScreenState extends State<KelolaPerusahaanScreen> {
                             fontWeight: FontWeight.w800,
                           ),
                         ),
-                        trailing: StatusBadge(
-                          label: item.statusLabel,
-                          color: item.statusAktif
-                              ? AppColors.success
-                              : AppColors.danger,
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            StatusBadge(
+                              label: item.statusLabel,
+                              color: item.statusAktif
+                                  ? AppColors.success
+                                  : AppColors.danger,
+                            ),
+                            const SizedBox(width: 4),
+                            IconButton(
+                              tooltip: 'Hapus perusahaan',
+                              icon: _deletingIds.contains(item.id)
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(
+                                      Icons.delete_outline_rounded,
+                                      color: AppColors.danger,
+                                    ),
+                              onPressed: _deletingIds.contains(item.id)
+                                  ? null
+                                  : () => _hapus(item),
+                            ),
+                          ],
                         ),
                       ),
                     ),

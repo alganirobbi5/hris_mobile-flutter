@@ -188,12 +188,68 @@ void main() {
       'password': 'rahasia',
     });
   });
+
+  testWidgets('super admin dapat menghapus perusahaan', (
+    WidgetTester tester,
+  ) async {
+    final List<Map<String, dynamic>> terkirim = <Map<String, dynamic>>[];
+    final http.Client client = _client(terkirim: terkirim);
+    await tester.pumpWidget(
+      MaterialApp(home: KelolaPerusahaanScreen(httpClient: client)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Hapus perusahaan'), findsNWidgets(2));
+
+    await tester.tap(find.byTooltip('Hapus perusahaan').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Hapus'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(terkirim, hasLength(1));
+    expect(terkirim.single, <String, dynamic>{
+      'action': 'delete',
+      'id': 1,
+    });
+  });
+
+  testWidgets('super admin dapat menghapus akun HR/Admin', (
+    WidgetTester tester,
+  ) async {
+    final List<Map<String, dynamic>> terkirim = <Map<String, dynamic>>[];
+    final http.Client client = _client(terkirim: terkirim);
+    await tester.pumpWidget(
+      MaterialApp(home: KelolaHrAdminScreen(httpClient: client)),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byTooltip('Hapus akun HR/Admin'), findsOneWidget);
+    await tester.tap(find.byTooltip('Hapus akun HR/Admin'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Hapus'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(terkirim, hasLength(1));
+    expect(terkirim.single, <String, dynamic>{
+      'action': 'delete',
+      'id': 5,
+    });
+  });
 }
 
 http.Client _client({required List<Map<String, dynamic>> terkirim}) {
   return MockClient((http.Request request) async {
     final String path = request.url.path;
     if (path.endsWith('/companies.php')) {
+      if (request.method == 'DELETE') {
+        terkirim.add(jsonDecode(request.body) as Map<String, dynamic>);
+        return http.Response(
+          jsonEncode(<String, dynamic>{'success': true}),
+          200,
+        );
+      }
       if (request.method == 'POST') {
         terkirim.add(jsonDecode(request.body) as Map<String, dynamic>);
         return http.Response(
@@ -224,6 +280,13 @@ http.Client _client({required List<Map<String, dynamic>> terkirim}) {
       );
     }
     if (path.endsWith('/super_admin_hr.php')) {
+      if (request.method == 'DELETE') {
+        terkirim.add(jsonDecode(request.body) as Map<String, dynamic>);
+        return http.Response(
+          jsonEncode(<String, dynamic>{'success': true}),
+          200,
+        );
+      }
       if (request.method == 'POST') {
         terkirim.add(jsonDecode(request.body) as Map<String, dynamic>);
         return http.Response(

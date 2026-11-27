@@ -28,6 +28,7 @@ class _KelolaHrAdminScreenState extends State<KelolaHrAdminScreen> {
   String? _error;
   List<PerusahaanItem> _companies = const <PerusahaanItem>[];
   List<HrAdminItem> _items = const <HrAdminItem>[];
+  final Set<int> _deletingIds = <int>{};
 
   @override
   void initState() {
@@ -93,6 +94,45 @@ class _KelolaHrAdminScreenState extends State<KelolaHrAdminScreen> {
       if (mounted) AppToast.error(e.message);
     } catch (_) {
       if (mounted) AppToast.error('Gagal terhubung ke server');
+    }
+  }
+
+  Future<void> _hapus(HrAdminItem item) async {
+    final String nama = item.name.isEmpty ? item.username : item.name;
+    final bool? konfirmasi = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) => AlertDialog(
+        title: const Text('Hapus akun HR/Admin?'),
+        content: Text('$nama (${item.username}) akan dihapus.'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+            child: const Text('Hapus'),
+          ),
+        ],
+      ),
+    );
+    if (konfirmasi != true || !mounted) return;
+    setState(() => _deletingIds.add(item.id));
+    try {
+      await SuperAdminService.hapusHrAdmin(
+        id: item.id,
+        client: _httpClient,
+      );
+      if (!mounted) return;
+      AppToast.success('Akun HR/Admin berhasil dihapus');
+      await _fetch();
+    } on SuperAdminException catch (e) {
+      if (mounted) AppToast.error(e.message);
+    } catch (_) {
+      if (mounted) AppToast.error('Gagal terhubung ke server');
+    } finally {
+      if (mounted) setState(() => _deletingIds.remove(item.id));
     }
   }
 
@@ -166,6 +206,25 @@ class _KelolaHrAdminScreenState extends State<KelolaHrAdminScreen> {
                             item.companyName,
                           ].where((String value) => value.isNotEmpty).join(' • '),
                         ),
+                        trailing: _deletingIds.contains(item.id)
+                            ? const Padding(
+                                padding: EdgeInsets.all(12),
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              )
+                            : IconButton(
+                                tooltip: 'Hapus akun HR/Admin',
+                                icon: const Icon(
+                                  Icons.delete_outline_rounded,
+                                  color: AppColors.danger,
+                                ),
+                                onPressed: () => _hapus(item),
+                              ),
                       ),
                     ),
                   ),

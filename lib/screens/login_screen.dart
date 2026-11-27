@@ -7,7 +7,6 @@ import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
 import '../services/app_session.dart';
-import '../services/company_profile.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/app_toast.dart';
@@ -15,7 +14,9 @@ import '../widgets/primary_button.dart';
 import 'splash_after_login_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({super.key, this.httpClient});
+
+  final http.Client? httpClient;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -32,12 +33,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
 
   @override
-  void initState() {
-    super.initState();
-    CompanyProfile.load();
-  }
-
-  @override
   void dispose() {
     _companyController.dispose();
     _usernameController.dispose();
@@ -48,16 +43,6 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _required(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'Kolom ini wajib diisi';
-    }
-    return null;
-  }
-
-  String? _validateCompany(String? value) {
-    final String kode = value?.trim() ?? '';
-    if (kode.isEmpty) return null;
-
-    if (kode.toUpperCase() != CompanyProfile.current.code.toUpperCase()) {
-      return 'Kode perusahaan tidak sesuai dengan data HR';
     }
     return null;
   }
@@ -125,29 +110,29 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final String kodePerusahaan = _companyController.text.trim();
-    if (kodePerusahaan.isNotEmpty &&
-        kodePerusahaan.toUpperCase() !=
-            CompanyProfile.current.code.toUpperCase()) {
-      AppToast.error('Kode perusahaan tidak sesuai dengan data HR.');
-      return;
-    }
 
     setState(() => _isLoading = true);
 
     try {
       debugPrint('Login URL: $_loginUrl');
 
-      final http.Response response = await http
-          .post(
-            _loginUrl,
-            headers: <String, String>{'Content-Type': 'application/json'},
-            body: jsonEncode(<String, String>{
-              'company_code': kodePerusahaan,
-              'username': _usernameController.text.trim(),
-              'password': _passwordController.text,
-            }),
-          )
-          .timeout(ApiConfig.requestTimeout);
+      final http.Client httpClient = widget.httpClient ?? http.Client();
+      final http.Response response;
+      try {
+        response = await httpClient
+            .post(
+              _loginUrl,
+              headers: <String, String>{'Content-Type': 'application/json'},
+              body: jsonEncode(<String, String>{
+                'company_code': kodePerusahaan,
+                'username': _usernameController.text.trim(),
+                'password': _passwordController.text,
+              }),
+            )
+            .timeout(ApiConfig.requestTimeout);
+      } finally {
+        if (widget.httpClient == null) httpClient.close();
+      }
 
       debugPrint('Login status code: ${response.statusCode}');
 
@@ -315,11 +300,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 32),
                     AppTextField(
                       label: 'Kode Perusahaan (Kosongkan jika Super Admin)',
-                      hint: 'Contoh: CMJ-2026',
+                      hint: 'Masukkan kode perusahaan',
                       controller: _companyController,
                       prefixIcon: Icons.business_outlined,
                       textInputAction: TextInputAction.next,
-                      validator: _validateCompany,
                     ),
                     const SizedBox(height: 18),
                     AppTextField(
