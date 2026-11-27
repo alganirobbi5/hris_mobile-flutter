@@ -17,7 +17,6 @@ import '../services/profile_credential_service.dart';
 import '../services/profile_email_store.dart';
 import '../theme/app_theme.dart';
 import '../utils/whatsapp_helper.dart';
-import '../widgets/app_form_field.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/avatar_picker_sheet.dart';
@@ -819,6 +818,105 @@ class _ProfilScreenState extends State<ProfilScreen> {
     return saved;
   }
 
+  bool get _bolehUbahUsername =>
+      AppSession.isSuperAdmin || AppSession.isHr;
+
+  Widget _buildCredentialRow({
+    required IconData icon,
+    required String label,
+    required String value,
+    required VoidCallback? onEdit,
+    required bool isSaving,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: <Widget>[
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: Icon(icon, size: 19, color: AppColors.primary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    height: 1.3,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (onEdit != null)
+            Material(
+              color: AppColors.primary.withValues(alpha: 0.08),
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: isSaving ? null : onEdit,
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: isSaving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(
+                          Icons.edit_outlined,
+                          size: 18,
+                          color: AppColors.primary,
+                        ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUsernameRow() {
+    return _buildCredentialRow(
+      icon: Icons.person_outline_rounded,
+      label: 'Username',
+      value: _username,
+      onEdit: _bolehUbahUsername ? _showEditUsernameDialog : null,
+      isSaving: _isSavingCredential,
+    );
+  }
+
+  Widget _buildPasswordRow() {
+    return _buildCredentialRow(
+      icon: Icons.lock_outline_rounded,
+      label: 'Password',
+      value: '••••••••',
+      onEdit: _showEditPasswordDialog,
+      isSaving: _isSavingCredential,
+    );
+  }
+
   Widget _buildPhoneRow() {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -1003,37 +1101,141 @@ class _ProfilScreenState extends State<ProfilScreen> {
     _showMessage(message);
   }
 
-  Future<void> _showEditCredentialDialog() async {
-    final _CredentialResult? hasil = await showDialog<_CredentialResult>(
-      context: context,
-      builder: (BuildContext dialogContext) => _CredentialDialog(
-        username: _username == 'Belum tersedia' ? '' : _username,
-      ),
+  Future<void> _showEditUsernameDialog() async {
+    final TextEditingController usernameController = TextEditingController(
+      text: _username == 'Belum tersedia' ? '' : _username,
     );
-    if (hasil == null || !mounted) return;
-    await _saveCredential(hasil);
+    final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+    final String? usernameBaru = await showDialog<String>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Ubah Username'),
+          content: Form(
+            key: formKey,
+            child: AppTextField(
+              label: 'Username',
+              hint: 'Masukkan username',
+              controller: usernameController,
+              maxLength: 30,
+              prefixIcon: Icons.person_outline_rounded,
+              validator: (String? value) => (value == null || value.trim().isEmpty)
+                  ? 'Username wajib diisi'
+                  : null,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (!formKey.currentState!.validate()) return;
+                Navigator.of(dialogContext).pop(usernameController.text.trim());
+              },
+              child: const Text('Simpan'),
+            ),
+          ],
+        );
+      },
+    );
+    if (usernameBaru == null || usernameBaru.isEmpty || !mounted) return;
+    await _saveUsername(usernameBaru);
   }
 
-  Future<void> _saveCredential(_CredentialResult hasil) async {
+  Future<void> _saveUsername(String username) async {
+    if (!mounted) return;
+    setState(() => _isSavingCredential = true);
+    String message = 'Gagal menyimpan username.';
+    final bool ownsClient = widget.httpClient == null;
+    final http.Client client = widget.httpClient ?? http.Client();
+    try {
+      final String? token = await AppSession.resolveToken();
+      final String bodyJson = jsonEncode(
+        EmployeeRequest.usernameUpdateBody(username),
+      );
+      http.Response response = await client
+          .post(
+            EmployeeRequest.usernameUpdate(),
+            headers: ApiConfig.authHeaders(token),
+            body: bodyJson,
+          )
+          .timeout(const Duration(seconds: 20));
+      if (response.statusCode == 404 || response.statusCode == 405) {
+        response = await client
+            .post(
+              EmployeeRequest.profileUpdateFallback(),
+              headers: ApiConfig.authHeaders(token),
+              body: bodyJson,
+            )
+            .timeout(const Duration(seconds: 20));
+      }
+      dynamic decoded;
+      try {
+        decoded = jsonDecode(response.body);
+      } on FormatException {
+        decoded = null;
+      }
+      final Map<String, dynamic>? body = decoded is Map<String, dynamic>
+          ? decoded
+          : null;
+      final String? serverMessage = body?['message']?.toString();
+      final String? statusTeks = body?['status']?.toString().toLowerCase();
+      final bool serverTolak = body?['success'] == false ||
+          (statusTeks != null &&
+              statusTeks != 'success' &&
+              statusTeks != 'ok');
+      final bool sukses =
+          response.statusCode >= 200 && response.statusCode < 300 && !serverTolak;
+      if (sukses) {
+        final SharedPreferences prefs = await SharedPreferences.getInstance();
+        await prefs.setString('username', username);
+        AppSession.username = username;
+        if (_profil != null) _profil!['username'] = username;
+        message = serverMessage?.trim().isNotEmpty == true
+            ? serverMessage!.trim()
+            : 'Username berhasil disimpan.';
+      } else {
+        message = (serverMessage != null && serverMessage.trim().isNotEmpty)
+            ? serverMessage.trim()
+            : 'Gagal menyimpan username (HTTP ${response.statusCode}).';
+      }
+    } catch (_) {
+      message = 'Gagal terhubung ke server.';
+    } finally {
+      if (ownsClient) client.close();
+    }
+    if (!mounted) return;
+    setState(() => _isSavingCredential = false);
+    _showMessage(message);
+  }
+
+  Future<void> _showEditPasswordDialog() async {
+    final _PasswordResult? hasil = await showDialog<_PasswordResult>(
+      context: context,
+      builder: (BuildContext dialogContext) => const _PasswordDialog(),
+    );
+    if (hasil == null || !mounted) return;
+    await _savePassword(hasil);
+  }
+
+  Future<void> _savePassword(_PasswordResult hasil) async {
     if (!mounted) return;
     setState(() => _isSavingCredential = true);
     try {
+      final String username = _username == 'Belum tersedia'
+          ? (AppSession.getUsername() ?? '')
+          : _username;
       final ProfileCredentialResult result =
           await ProfileCredentialService.update(
-        username: hasil.username,
+        username: username,
         oldPassword: hasil.oldPassword,
         newPassword: hasil.newPassword,
         confirmPassword: hasil.confirmPassword,
         client: widget.httpClient,
       );
-      final SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setString('username', result.username);
-      AppSession.username = result.username;
-      if (!mounted) return;
-      setState(() {
-        if (_profil != null) _profil!['username'] = result.username;
-      });
-      _showMessage(result.message);
+      if (mounted) _showMessage(result.message);
     } on ProfileCredentialException catch (e) {
       if (mounted) _showMessage(e.message);
     } catch (_) {
@@ -1334,11 +1536,8 @@ class _ProfilScreenState extends State<ProfilScreen> {
                   value: _companyCode,
                 ),
                 _buildEmailRow(),
-                InfoRow(
-                  icon: Icons.person_outline_rounded,
-                  label: 'Username',
-                  value: _username,
-                ),
+                _buildUsernameRow(),
+                _buildPasswordRow(),
                 _buildPhoneRow(),
                 if (!AppSession.isSuperAdmin)
                   InfoRow(
@@ -1349,17 +1548,6 @@ class _ProfilScreenState extends State<ProfilScreen> {
                     isLast: true,
                   ),
               ],
-            ),
-          ),
-          const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: _isSavingCredential
-                  ? null
-                  : _showEditCredentialDialog,
-              icon: const Icon(Icons.manage_accounts_outlined),
-              label: const Text('Ubah Username & Password'),
             ),
           ),
           const SizedBox(height: 14),
@@ -1384,33 +1572,27 @@ class _ProfilScreenState extends State<ProfilScreen> {
   }
 }
 
-class _CredentialResult {
-  const _CredentialResult(
-    this.username,
+class _PasswordResult {
+  const _PasswordResult(
     this.oldPassword,
     this.newPassword,
     this.confirmPassword,
   );
 
-  final String username;
   final String oldPassword;
   final String newPassword;
   final String confirmPassword;
 }
 
-class _CredentialDialog extends StatefulWidget {
-  const _CredentialDialog({required this.username});
-
-  final String username;
+class _PasswordDialog extends StatefulWidget {
+  const _PasswordDialog();
 
   @override
-  State<_CredentialDialog> createState() => _CredentialDialogState();
+  State<_PasswordDialog> createState() => _PasswordDialogState();
 }
 
-class _CredentialDialogState extends State<_CredentialDialog> {
+class _PasswordDialogState extends State<_PasswordDialog> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  late final TextEditingController _usernameController =
-      TextEditingController(text: widget.username);
   final TextEditingController _oldPasswordController = TextEditingController();
   final TextEditingController _newPasswordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
@@ -1418,7 +1600,6 @@ class _CredentialDialogState extends State<_CredentialDialog> {
 
   @override
   void dispose() {
-    _usernameController.dispose();
     _oldPasswordController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
@@ -1428,7 +1609,7 @@ class _CredentialDialogState extends State<_CredentialDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Ubah Username & Password'),
+      title: const Text('Ubah Password'),
       content: SingleChildScrollView(
         child: Form(
           key: _formKey,
@@ -1436,46 +1617,26 @@ class _CredentialDialogState extends State<_CredentialDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              const FormSectionHeader(
-                title: 'Akun',
-                icon: Icons.person_outline_rounded,
-              ),
-              AppTextField(
-                label: 'Username',
-                hint: 'Masukkan username',
-                controller: _usernameController,
-                prefixIcon: Icons.person_outline_rounded,
-                validator: (String? value) =>
-                    (value == null || value.trim().isEmpty)
-                        ? 'Username wajib diisi'
-                        : null,
-              ),
-              const SizedBox(height: 20),
-              const FormSectionHeader(
-                title: 'Keamanan',
-                icon: Icons.lock_outline_rounded,
-              ),
               AppTextField(
                 label: 'Password Lama',
                 hint: 'Masukkan password saat ini',
                 controller: _oldPasswordController,
                 obscureText: true,
                 prefixIcon: Icons.lock_outline_rounded,
-                validator: (String? value) =>
-                    (value == null || value.isEmpty)
-                        ? 'Password lama wajib diisi'
-                        : null,
+                validator: (String? value) => (value == null || value.isEmpty)
+                    ? 'Password lama wajib diisi'
+                    : null,
               ),
               const SizedBox(height: 14),
               AppTextField(
-                label: 'Password Baru (opsional)',
-                hint: 'Kosongkan jika tidak diubah',
+                label: 'Password Baru',
+                hint: 'Minimal 6 karakter',
                 controller: _newPasswordController,
                 obscureText: true,
                 prefixIcon: Icons.lock_outline_rounded,
                 validator: (String? value) {
                   final String text = value ?? '';
-                  if (text.isEmpty) return null;
+                  if (text.isEmpty) return 'Password baru wajib diisi';
                   if (text.length < 6) return 'Password baru minimal 6 karakter';
                   return null;
                 },
@@ -1489,7 +1650,6 @@ class _CredentialDialogState extends State<_CredentialDialog> {
                 prefixIcon: Icons.lock_outline_rounded,
                 validator: (String? value) {
                   final String baru = _newPasswordController.text;
-                  if (baru.isEmpty) return null;
                   if ((value ?? '').isEmpty) {
                     return 'Konfirmasi password wajib diisi';
                   }
@@ -1510,8 +1670,7 @@ class _CredentialDialogState extends State<_CredentialDialog> {
           onPressed: () {
             if (!_formKey.currentState!.validate()) return;
             Navigator.of(context).pop(
-              _CredentialResult(
-                _usernameController.text.trim(),
+              _PasswordResult(
                 _oldPasswordController.text,
                 _newPasswordController.text,
                 _confirmPasswordController.text,

@@ -44,6 +44,17 @@ void main() {
     });
   });
 
+  test('body update username memakai endpoint profil', () {
+    expect(
+      EmployeeRequest.usernameUpdate().path,
+      endsWith('/update_username.php'),
+    );
+    expect(
+      EmployeeRequest.usernameUpdateBody('baru'),
+      <String, dynamic>{'username': 'baru'},
+    );
+  });
+
   test('body update nomor HP profil memuat mobile_no dan no_hp', () {
     expect(
       EmployeeRequest.profilePhoneUpdate().path,
@@ -85,30 +96,51 @@ void main() {
     );
   });
 
-  testWidgets('super admin tidak melihat kuota cuti', (
+  testWidgets('super admin melihat baris username dan password di kartu', (
     WidgetTester tester,
   ) async {
     final SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setString('role', 'super_admin');
-    AppSession.role = null;
+    AppSession.role = 'super_admin';
 
     await tester.pumpWidget(const MaterialApp(home: ProfilScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Ubah Username & Password'), findsOneWidget);
+    expect(find.text('Ubah Username & Password'), findsNothing);
+    expect(find.text('Username'), findsOneWidget);
+    expect(find.text('Password'), findsOneWidget);
+    expect(find.text('••••••••'), findsOneWidget);
+    expect(_editIcon(tester, 'Username'), findsOneWidget);
+    expect(_editIcon(tester, 'Password'), findsOneWidget);
     expect(find.text('Sisa Kuota Cuti'), findsNothing);
-    expect(find.text('Sisa Kuota'), findsNothing);
   });
 
-  testWidgets('role lain tetap melihat kuota cuti', (
+  testWidgets('employee tidak bisa mengubah username sendiri', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(const MaterialApp(home: ProfilScreen()));
     await tester.pumpAndSettle();
 
+    expect(find.text('Ubah Username & Password'), findsNothing);
+    expect(find.text('Username'), findsOneWidget);
+    expect(find.text('Password'), findsOneWidget);
+    expect(_editIcon(tester, 'Username'), findsNothing);
+    expect(_editIcon(tester, 'Password'), findsOneWidget);
     expect(find.text('Sisa Kuota Cuti'), findsOneWidget);
-    expect(find.text('No. HP (WhatsApp)'), findsOneWidget);
-    expect(find.text('Ubah Username & Password'), findsOneWidget);
+  });
+
+  testWidgets('leader tidak bisa mengubah username sendiri', (
+    WidgetTester tester,
+  ) async {
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('role', 'leader');
+    AppSession.role = 'leader';
+
+    await tester.pumpWidget(const MaterialApp(home: ProfilScreen()));
+    await tester.pumpAndSettle();
+
+    expect(_editIcon(tester, 'Username'), findsNothing);
+    expect(_editIcon(tester, 'Password'), findsOneWidget);
   });
 
   testWidgets('No. HP profil dapat diisi sendiri oleh karyawan', (
@@ -117,13 +149,13 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: ProfilScreen()));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.byIcon(Icons.edit_outlined).at(1));
-    await tester.tap(find.byIcon(Icons.edit_outlined).at(1));
+    final Finder tombolEditHp = _editIcon(tester, 'No. HP (WhatsApp)');
+    await tester.ensureVisible(tombolEditHp);
+    await tester.tap(tombolEditHp);
     await tester.pumpAndSettle();
 
     expect(find.text('Ubah No. HP (WhatsApp)'), findsOneWidget);
     expect(find.text('NO. HP (WHATSAPP)'), findsOneWidget);
-    expect(find.text('PASSWORD'), findsNothing);
 
     await tester.enterText(find.byType(TextFormField).last, '12345');
     await tester.tap(find.text('Simpan'));
@@ -136,7 +168,54 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('validasi dan simpan ubah username & password', (
+  testWidgets('HR mengubah username lewat dialog khusus', (
+    WidgetTester tester,
+  ) async {
+    final List<Map<String, dynamic>> terkirim = <Map<String, dynamic>>[];
+    final http.Client client = MockClient((http.Request request) async {
+      if (request.url.path.endsWith('/update_username.php')) {
+        terkirim.add(jsonDecode(request.body) as Map<String, dynamic>);
+        return http.Response(
+          jsonEncode(<String, dynamic>{
+            'success': true,
+            'message': 'Username berhasil disimpan.',
+          }),
+          200,
+        );
+      }
+      return http.Response('', 404);
+    });
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('role', 'hr');
+    AppSession.role = 'hr';
+
+    await tester.pumpWidget(
+      MaterialApp(home: ProfilScreen(httpClient: client)),
+    );
+    await tester.pumpAndSettle();
+
+    final Finder tombolEditUsername = _editIcon(tester, 'Username');
+    await tester.ensureVisible(tombolEditUsername);
+    await tester.tap(tombolEditUsername);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ubah Username'), findsOneWidget);
+    expect(find.text('PASSWORD LAMA'), findsNothing);
+    await tester.enterText(find.byType(TextFormField).last, 'baru');
+    await tester.tap(find.text('Simpan'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(terkirim, hasLength(1));
+    expect(terkirim.single, <String, dynamic>{'username': 'baru'});
+    expect(AppSession.getUsername(), 'baru');
+    expect(
+      (await SharedPreferences.getInstance()).getString('username'),
+      'baru',
+    );
+  });
+
+  testWidgets('semua role bisa mengubah password lewat dialog', (
     WidgetTester tester,
   ) async {
     final List<Map<String, dynamic>> terkirim = <Map<String, dynamic>>[];
@@ -146,8 +225,8 @@ void main() {
         return http.Response(
           jsonEncode(<String, dynamic>{
             'success': true,
-            'message': 'Username dan password berhasil diubah',
-            'data': <String, dynamic>{'username': 'baru'},
+            'message': 'Password berhasil diubah',
+            'data': <String, dynamic>{'username': 'lama'},
           }),
           200,
         );
@@ -160,47 +239,41 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('Ubah Username & Password'));
-    await tester.tap(find.text('Ubah Username & Password'));
+    final Finder tombolEditPassword = _editIcon(tester, 'Password');
+    await tester.ensureVisible(tombolEditPassword);
+    await tester.tap(tombolEditPassword);
     await tester.pumpAndSettle();
 
-    expect(find.text('Ubah Username & Password'), findsWidgets);
+    expect(find.text('Ubah Password'), findsOneWidget);
     expect(find.text('PASSWORD LAMA'), findsOneWidget);
-    expect(find.text('PASSWORD BARU (OPSIONAL)'), findsOneWidget);
+    expect(find.text('PASSWORD BARU'), findsOneWidget);
     expect(find.text('KONFIRMASI PASSWORD BARU'), findsOneWidget);
 
     await tester.tap(find.text('Simpan'));
     await tester.pump();
     expect(find.text('Password lama wajib diisi'), findsOneWidget);
-    expect(terkirim, isEmpty);
 
-    await tester.enterText(find.byType(TextFormField).at(1), 'lama123');
-    await tester.enterText(find.byType(TextFormField).at(2), '123');
-    await tester.tap(find.text('Simpan'));
-    await tester.pump();
-    expect(find.text('Password baru minimal 6 karakter'), findsOneWidget);
-
+    await tester.enterText(find.byType(TextFormField).at(0), 'lama123');
+    await tester.enterText(find.byType(TextFormField).at(1), 'rahasia123');
     await tester.enterText(find.byType(TextFormField).at(2), 'rahasia123');
-    await tester.enterText(find.byType(TextFormField).at(3), 'tidakcocok');
-    await tester.tap(find.text('Simpan'));
-    await tester.pump();
-    expect(find.text('Konfirmasi password tidak cocok'), findsOneWidget);
-
-    await tester.enterText(find.byType(TextFormField).at(0), 'baru');
-    await tester.enterText(find.byType(TextFormField).at(3), 'rahasia123');
     await tester.tap(find.text('Simpan'));
     await tester.pump();
     await tester.pump();
 
     expect(terkirim, hasLength(1));
     expect(terkirim.single, <String, dynamic>{
-      'username': 'baru',
+      'username': 'lama',
       'old_password': 'lama123',
       'new_password': 'rahasia123',
       'confirm_password': 'rahasia123',
     });
-    expect(AppSession.getUsername(), 'baru');
-    final SharedPreferences prefs = await SharedPreferences.getInstance();
-    expect(prefs.getString('username'), 'baru');
   });
+}
+
+Finder _editIcon(WidgetTester tester, String label) {
+  final Finder baris = find.ancestor(
+    of: find.text(label),
+    matching: find.byType(Row),
+  );
+  return find.descendant(of: baris, matching: find.byIcon(Icons.edit_outlined));
 }

@@ -53,6 +53,12 @@ class EmployeeRequest {
   static Map<String, dynamic> profilePhoneUpdateBody(String phone) =>
       <String, dynamic>{'mobile_no': phone.trim(), 'no_hp': phone.trim()};
 
+  /// Simpan username profil tanpa mengubah kata sandi.
+  static Uri usernameUpdate() => ApiConfig.uri('update_username.php');
+
+  static Map<String, dynamic> usernameUpdateBody(String username) =>
+      <String, dynamic>{'username': username.trim()};
+
   static Uri credentialUpdate() =>
       ApiConfig.uri('update_username_password.php');
 
