@@ -350,7 +350,7 @@ void main() {
     expect(find.text('Gagal memuat hari libur'), findsNothing);
   });
 
-  testWidgets('Settings menampilkan menu hari libur sesuai peran', (
+  testWidgets('Settings tidak menampilkan menu kelola hari libur', (
     WidgetTester tester,
   ) async {
     _gunakanLayarTinggi(tester);
@@ -365,7 +365,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Kelola HR / Admin'), findsOneWidget);
-    expect(find.text('Hari Libur Nasional'), findsOneWidget);
+    expect(find.text('Hari Libur Nasional'), findsNothing);
 
     await tester.pumpWidget(
       const MaterialApp(

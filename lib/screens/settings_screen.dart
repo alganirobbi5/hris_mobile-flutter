@@ -12,7 +12,6 @@ import 'approval_cuti_screen.dart';
 import 'atur_jam_screen.dart';
 import 'edit_karyawan_screen.dart';
 import 'kelola_hr_admin_screen.dart';
-import 'kelola_hari_libur_screen.dart';
 import 'kelola_kuota_cuti_screen.dart';
 import 'kelola_perusahaan_screen.dart';
 import 'laporan_screen.dart';
@@ -174,17 +173,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onTap: () => Navigator.of(context).push<void>(
                   MaterialPageRoute<void>(
                     builder: (_) => const KelolaHrAdminScreen(),
-                  ),
-                ),
-              ),
-              _buildMenuCard(
-                context: context,
-                icon: Icons.event_note_outlined,
-                label: 'Hari Libur Nasional',
-                subtitle: 'Kelola tanggal libur nasional',
-                onTap: () => Navigator.of(context).push<void>(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const KelolaHariLiburScreen(),
                   ),
                 ),
               ),
