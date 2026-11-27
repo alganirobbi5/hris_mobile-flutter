@@ -298,17 +298,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
               ),
-              _buildMenuCard(
-                context: context,
-                icon: Icons.calendar_month_outlined,
-                label: 'Hari Libur',
-                subtitle: 'Kelola hari libur perusahaan',
-                onTap: () => Navigator.of(context).push<void>(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const KelolaHariLiburScreen(),
-                  ),
-                ),
-              ),
             ],
           ],
         ),

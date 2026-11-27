@@ -7,6 +7,16 @@ import 'app_session.dart';
 
 final DateTime _tanggalMaksimum = DateTime(9999, 12, 31);
 
+const List<String> _namaHari = <String>[
+  'Senin',
+  'Selasa',
+  'Rabu',
+  'Kamis',
+  'Jumat',
+  'Sabtu',
+  'Minggu',
+];
+
 const List<String> _namaBulanPendek = <String>[
   'Jan',
   'Feb',
@@ -55,6 +65,15 @@ class HolidayItem {
     return '${date.day} ${_namaBulanPendek[date.month - 1]} ${date.year}';
   }
 
+  String get tanggalIndonesia {
+    final DateTime? date = dateTime;
+    if (date == null || date.month < 1 || date.month > 12) {
+      return holidayDate.isEmpty ? '-' : holidayDate;
+    }
+    return '${_namaHari[date.weekday - 1]}, ${date.day} '
+        '${_namaBulanPendek[date.month - 1]} ${date.year}';
+  }
+
   factory HolidayItem.fromJson(Map<String, dynamic> json) {
     return HolidayItem(
       id: HolidayService.intValue(json['id'] ?? json['holiday_id']),
@@ -96,15 +115,28 @@ class HolidayException implements Exception {
 class HolidayService {
   const HolidayService._();
 
-  static Future<List<HolidayItem>> fetch({http.Client? client}) async {
+  static Future<List<HolidayItem>> fetch({http.Client? client}) =>
+      _fetch(client: client);
+
+  /// Mengambil hanya tanggal merah nasional yang akan datang dari backend.
+  static Future<List<HolidayItem>> fetchUpcoming({http.Client? client}) =>
+      _fetch(client: client, upcoming: true);
+
+  static Future<List<HolidayItem>> _fetch({
+    http.Client? client,
+    bool upcoming = false,
+  }) async {
     final String? token = await AppSession.resolveToken();
     final bool ownsClient = client == null;
     final http.Client httpClient = client ?? http.Client();
+    final Uri uri = ApiConfig.uri('holidays.php');
     final http.Response response;
     try {
       response = await httpClient
           .get(
-            ApiConfig.uri('holidays.php'),
+            upcoming
+                ? uri.replace(queryParameters: <String, String>{'upcoming': '1'})
+                : uri,
             headers: ApiConfig.authHeaders(token),
           )
           .timeout(ApiConfig.requestTimeout);

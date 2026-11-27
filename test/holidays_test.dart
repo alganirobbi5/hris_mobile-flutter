@@ -87,6 +87,26 @@ void main() {
     expect(deleted.single, <String, dynamic>{'action': 'delete', 'id': 7});
   });
 
+  test('HolidayService.fetchUpcoming meminta upcoming=1', () async {
+    Uri? diminta;
+    final http.Client client = MockClient((http.Request request) async {
+      diminta = request.url;
+      return http.Response(
+        jsonEncode(<String, dynamic>{
+          'success': true,
+          'holidays': <dynamic>[],
+        }),
+        200,
+      );
+    });
+
+    final List<HolidayItem> items =
+        await HolidayService.fetchUpcoming(client: client);
+    expect(items, isEmpty);
+    expect(diminta!.path, endsWith('/holidays.php'));
+    expect(diminta!.queryParameters['upcoming'], '1');
+  });
+
   testWidgets('Kelola Hari Libur menampilkan daftar urut beserta badge', (
     WidgetTester tester,
   ) async {
@@ -211,7 +231,7 @@ void main() {
         matches(RegExp(r'^\d{4}-\d{2}-\d{2}$')));
   });
 
-  testWidgets('Kartu Hari Libur Terdekat membatasi maksimal lima libur', (
+  testWidgets('Kartu Hari Libur Terdekat menampilkan empat tanggal merah', (
     WidgetTester tester,
   ) async {
     _gunakanLayarTinggi(tester);
@@ -229,15 +249,21 @@ void main() {
       HolidayItem(
         id: 2,
         holidayDate: tanggal(0),
-        title: 'Hari Ini',
-        isNational: false,
+        title: 'Libur Hari Ini',
+        isNational: true,
       ),
-      for (int i = 1; i <= 6; i++)
+      HolidayItem(
+        id: 3,
+        holidayDate: tanggal(1),
+        title: 'Libur Besok',
+        isNational: true,
+      ),
+      for (int i = 1; i <= 4; i++)
         HolidayItem(
           id: i + 10,
-          holidayDate: tanggal(i * 2),
+          holidayDate: tanggal(i * 7),
           title: 'Libur $i',
-          isNational: i.isOdd,
+          isNational: true,
         ),
     ];
     final http.Client client = MockClient((http.Request request) async {
@@ -268,11 +294,60 @@ void main() {
 
     expect(find.text('Hari Libur Terdekat'), findsOneWidget);
     expect(find.text('Libur Lalu'), findsNothing);
+    expect(find.text('Libur Hari Ini'), findsOneWidget);
+    expect(find.text('Libur Besok'), findsOneWidget);
+    expect(find.text('Libur 2'), findsOneWidget);
+    expect(find.text('Libur 3'), findsNothing);
+    expect(find.text('Libur 4'), findsNothing);
     expect(find.text('Hari Ini'), findsOneWidget);
-    expect(find.text('Libur 4'), findsOneWidget);
-    expect(find.text('Libur 5'), findsNothing);
-    expect(find.byType(HolidayBadge), findsNWidgets(5));
-    expect(_y(tester, 'Hari Ini'), lessThan(_y(tester, 'Libur 1')));
+    expect(find.text('Besok'), findsOneWidget);
+    expect(find.text('H-14'), findsOneWidget);
+    expect(
+      find.textContaining(
+        RegExp(r'^(Senin|Selasa|Rabu|Kamis|Jumat|Sabtu|Minggu), '
+            r'\d{1,2} [A-Za-z]+ \d{4}$'),
+      ),
+      findsWidgets,
+    );
+    expect(_y(tester, 'Libur Hari Ini'), lessThan(_y(tester, 'Libur Besok')));
+  });
+
+  testWidgets('Kartu libur offline menampilkan pesan kosong yang halus', (
+    WidgetTester tester,
+  ) async {
+    _gunakanLayarTinggi(tester);
+    final http.Client client = MockClient((http.Request request) async {
+      if (request.url.path.endsWith('/leave_leaders.php')) {
+        return http.Response(
+          jsonEncode(<String, dynamic>{
+            'success': true,
+            'leaders': <dynamic>[],
+            'eligible_users': <dynamic>[],
+          }),
+          200,
+        );
+      }
+      return http.Response('', 404);
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LayananCutiScreen(
+          httpClient: client,
+          cutiLoader: () async => const <RiwayatCutiItem>[],
+          izinLoader: () async => const <IzinKeluarItem>[],
+          holidayLoader: () async => throw const FormatException('offline'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('Belum ada hari libur nasional terdekat.'),
+      findsOneWidget,
+    );
+    expect(find.text('Coba lagi'), findsNothing);
+    expect(find.text('Gagal memuat hari libur'), findsNothing);
   });
 
   testWidgets('Settings menampilkan menu hari libur sesuai peran', (
@@ -299,7 +374,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('MENU HR'), findsOneWidget);
-    expect(find.text('Hari Libur'), findsOneWidget);
+    expect(find.text('Hari Libur'), findsNothing);
   });
 }
 

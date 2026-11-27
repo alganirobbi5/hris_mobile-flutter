@@ -9,7 +9,6 @@ import '../services/izin_keluar_service.dart';
 import '../services/leave_leader_service.dart';
 import '../services/riwayat_cuti_service.dart';
 import '../theme/app_theme.dart';
-import '../widgets/holiday_badge.dart';
 import '../widgets/riwayat_cuti_izin_keluar.dart';
 import '../widgets/section_card.dart';
 import 'cuti_screen.dart';
@@ -40,7 +39,6 @@ class _LayananCutiScreenState extends State<LayananCutiScreen> {
   bool _isLoading = true;
   bool _isHolidayLoading = true;
   String? _error;
-  String? _holidayError;
 
   @override
   void initState() {
@@ -84,12 +82,11 @@ class _LayananCutiScreenState extends State<LayananCutiScreen> {
     if (!mounted) return;
     setState(() {
       _isHolidayLoading = true;
-      _holidayError = null;
     });
     try {
       final List<HolidayItem> items = widget.holidayLoader != null
           ? await widget.holidayLoader!()
-          : await HolidayService.fetch(client: widget.httpClient);
+          : await HolidayService.fetchUpcoming(client: widget.httpClient);
       if (!mounted) return;
       setState(() {
         _holidays = items;
@@ -98,7 +95,7 @@ class _LayananCutiScreenState extends State<LayananCutiScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _holidayError = 'Gagal memuat hari libur';
+        _holidays = const <HolidayItem>[];
         _isHolidayLoading = false;
       });
     }
@@ -114,7 +111,36 @@ class _LayananCutiScreenState extends State<LayananCutiScreen> {
         })
         .toList()
       ..sort(HolidayItem.compareByDate);
-    return upcoming.take(5).toList();
+    return upcoming.take(4).toList();
+  }
+
+  String _countdownLabel(DateTime? date) {
+    if (date == null) return '-';
+    final DateTime now = DateTime.now();
+    final DateTime today = DateTime(now.year, now.month, now.day);
+    final DateTime target = DateTime(date.year, date.month, date.day);
+    final int hari = target.difference(today).inDays;
+    if (hari <= 0) return 'Hari Ini';
+    if (hari == 1) return 'Besok';
+    return 'H-$hari';
+  }
+
+  Widget _buildCountdownBadge(DateTime? date) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        _countdownLabel(date),
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: AppColors.primary,
+        ),
+      ),
+    );
   }
 
   Future<void> _onRefresh() async {
@@ -219,27 +245,9 @@ class _LayananCutiScreenState extends State<LayananCutiScreen> {
               padding: EdgeInsets.symmetric(vertical: 18),
               child: Center(child: CircularProgressIndicator()),
             )
-          else if (_holidayError != null)
-            Column(
-              children: <Widget>[
-                Text(
-                  _holidayError!,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 12.5,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-                TextButton.icon(
-                  onPressed: _fetchHolidays,
-                  icon: const Icon(Icons.refresh_rounded, size: 18),
-                  label: const Text('Coba lagi'),
-                ),
-              ],
-            )
           else if (upcoming.isEmpty)
             const Text(
-              'Tidak ada hari libur terdekat.',
+              'Belum ada hari libur nasional terdekat.',
               style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
             )
           else
@@ -268,7 +276,7 @@ class _LayananCutiScreenState extends State<LayananCutiScreen> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            item.tanggalRingkas,
+                            item.tanggalIndonesia,
                             style: const TextStyle(
                               fontSize: 11.5,
                               color: AppColors.textSecondary,
@@ -277,7 +285,8 @@ class _LayananCutiScreenState extends State<LayananCutiScreen> {
                         ],
                       ),
                     ),
-                    HolidayBadge(isNational: item.isNational),
+                    const SizedBox(width: 8),
+                    _buildCountdownBadge(item.dateTime),
                   ],
                 ),
               ),
