@@ -104,6 +104,7 @@ class CompanyProfile {
   static Future<bool> update({
     required String name,
     required String code,
+    String logo = '',
     http.Client? client,
   }) async {
     final http.Client httpClient = client ?? http.Client();
@@ -124,6 +125,7 @@ class CompanyProfile {
             body: jsonEncode(<String, String>{
               'nama_perusahaan': cleanedName,
               'kode_perusahaan': cleanedCode,
+              if (logo.trim().isNotEmpty) 'logo': logo.trim(),
             }),
           )
           .timeout(const Duration(seconds: 15));
@@ -152,11 +154,15 @@ class CompanyProfile {
       // HTTP 2xx berarti server menerima perubahan. Format balasan boleh
       // berbeda antar versi backend, jadi jangan menggagalkan hanya karena
       // body tidak bisa diparse.
+      final Map<String, dynamic>? data = body?['data'] is Map<String, dynamic>
+          ? body!['data'] as Map<String, dynamic>
+          : null;
+      final String? logoDariServer = _text(data?['logo']);
       await save(
         CompanyProfileData(
           name: cleanedName,
           code: cleanedCode,
-          logo: current.logo,
+          logo: logoDariServer ?? (logo.trim().isNotEmpty ? logo.trim() : current.logo),
         ),
       );
       lastError = null;

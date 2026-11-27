@@ -8,7 +8,9 @@ import '../theme/app_theme.dart';
 import '../screens/profil_screen.dart';
 
 class ProfileAvatarButton extends StatefulWidget {
-  const ProfileAvatarButton({super.key});
+  const ProfileAvatarButton({super.key, this.standalone = true});
+
+  final bool standalone;
 
   @override
   State<ProfileAvatarButton> createState() => _ProfileAvatarButtonState();
@@ -77,53 +79,51 @@ class _ProfileAvatarButtonState extends State<ProfileAvatarButton> {
 
   @override
   Widget build(BuildContext context) {
-    final double top = MediaQuery.of(context).padding.top;
-    return Positioned(
-      top: top + 10,
-      right: 16,
-      child: Material(
-        color: Colors.transparent,
-        child: Semantics(
-          button: true,
-          label: 'Profil',
-          child: InkWell(
-            onTap: () {
-              Navigator.of(context).push<void>(
-                MaterialPageRoute<void>(
-                  builder: (_) => const ProfilScreen(),
-                ),
-              );
-            },
-            customBorder: const CircleBorder(),
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.surface.withValues(alpha: 0.92),
-                border: Border.all(color: AppColors.border, width: 1.4),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.18),
-                    blurRadius: 16,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
+    final Widget badge = Material(
+      color: Colors.transparent,
+      child: Semantics(
+        button: true,
+        label: 'Profil',
+        child: InkWell(
+          onTap: () {
+            Navigator.of(context).push<void>(
+              MaterialPageRoute<void>(
+                builder: (_) => const ProfilScreen(),
               ),
-              clipBehavior: Clip.antiAlias,
-              alignment: Alignment.center,
-              child: DefaultTextStyle(
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.primary,
+            );
+          },
+          customBorder: const CircleBorder(),
+          child: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.surface.withValues(alpha: 0.92),
+              border: Border.all(color: AppColors.border, width: 1.4),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.18),
+                  blurRadius: 16,
+                  offset: const Offset(0, 5),
                 ),
-                child: _avatarContent(),
+              ],
+            ),
+            clipBehavior: Clip.antiAlias,
+            alignment: Alignment.center,
+            child: DefaultTextStyle(
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: AppColors.primary,
               ),
+              child: _avatarContent(),
             ),
           ),
         ),
       ),
     );
+    if (!widget.standalone) return badge;
+    final double top = MediaQuery.of(context).padding.top;
+    return Positioned(top: top + 10, right: 16, child: badge);
   }
 }

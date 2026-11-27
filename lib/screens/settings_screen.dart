@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../widgets/glass_app_bar.dart';
 
@@ -59,72 +62,150 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final TextEditingController codeController =
         TextEditingController(text: _companyCode);
     final GlobalKey<FormState> formKey = GlobalKey<FormState>();
+    String logo = CompanyProfile.current.logo;
 
-    final List<String>? hasil = await showDialog<List<String>>(
+    Future<void> pilihLogo(StateSetter setState) async {
+      final XFile? file = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 70,
+        maxWidth: 512,
+        maxHeight: 512,
+      );
+      if (file == null) return;
+      final List<int> bytes = await file.readAsBytes();
+      setState(() {
+        logo = 'data:${file.mimeType ?? 'image/png'};base64,${base64Encode(bytes)}';
+      });
+    }
+
+    Widget previewLogo(String value) {
+      final int comma = value.indexOf(',');
+      if (value.startsWith('data:image/') && comma > 0) {
+        try {
+          return Padding(
+            padding: const EdgeInsets.all(6),
+            child: Image.memory(
+              base64Decode(value.substring(comma + 1)),
+              fit: BoxFit.contain,
+              errorBuilder: (_, _, _) => const Icon(Icons.business_outlined),
+            ),
+          );
+        } catch (_) {}
+      }
+      return const Icon(Icons.business_outlined, color: AppColors.primary);
+    }
+
+    final Map<String, String>? hasil = await showDialog<Map<String, String>>(
       context: context,
       builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: const Text('Edit Profil Perusahaan'),
-          content: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const FormSectionHeader(
-                  title: 'Profil Perusahaan',
-                  icon: Icons.business_outlined,
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setState) {
+            return AlertDialog(
+              title: const Text('Edit Profil Perusahaan'),
+              content: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const FormSectionHeader(
+                        title: 'Profil Perusahaan',
+                        icon: Icons.business_outlined,
+                      ),
+                      AppTextField(
+                        label: 'Nama Perusahaan',
+                        hint: 'Masukkan nama perusahaan',
+                        controller: nameController,
+                        prefixIcon: Icons.business_outlined,
+                        validator: (String? value) =>
+                            (value == null || value.trim().isEmpty)
+                                ? 'Nama perusahaan wajib diisi'
+                                : null,
+                      ),
+                      const SizedBox(height: 14),
+                      AppTextField(
+                        label: 'Kode Perusahaan',
+                        hint: 'Masukkan kode perusahaan',
+                        controller: codeController,
+                        prefixIcon: Icons.qr_code_2_outlined,
+                        validator: (String? value) =>
+                            (value == null || value.trim().isEmpty)
+                                ? 'Kode perusahaan wajib diisi'
+                                : null,
+                      ),
+                      const SizedBox(height: 16),
+                      const FormSectionHeader(
+                        title: 'Logo Perusahaan',
+                        icon: Icons.image_outlined,
+                      ),
+                      InkWell(
+                        onTap: () => pilihLogo(setState),
+                        borderRadius: BorderRadius.circular(14),
+                        child: Container(
+                          height: 80,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: AppColors.field,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: logo.isNotEmpty
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: previewLogo(logo),
+                                )
+                              : const Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.add_photo_alternate_outlined,
+                                        color: AppColors.primary),
+                                    SizedBox(height: 4),
+                                    Text('Pilih logo perusahaan',
+                                        style: TextStyle(
+                                            fontSize: 12,
+                                            color: AppColors.textSecondary)),
+                                  ],
+                                ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                AppTextField(
-                  label: 'Nama Perusahaan',
-                  hint: 'Masukkan nama perusahaan',
-                  controller: nameController,
-                  prefixIcon: Icons.business_outlined,
-                  validator: (String? value) =>
-                      (value == null || value.trim().isEmpty)
-                          ? 'Nama perusahaan wajib diisi'
-                          : null,
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Batal'),
                 ),
-                const SizedBox(height: 14),
-                AppTextField(
-                  label: 'Kode Perusahaan',
-                  hint: 'Masukkan kode perusahaan',
-                  controller: codeController,
-                  prefixIcon: Icons.qr_code_2_outlined,
-                  validator: (String? value) =>
-                      (value == null || value.trim().isEmpty)
-                          ? 'Kode perusahaan wajib diisi'
-                          : null,
+                FilledButton(
+                  onPressed: () {
+                    if (!formKey.currentState!.validate()) return;
+                    Navigator.of(dialogContext).pop(<String, String>{
+                      'name': nameController.text.trim(),
+                      'code': codeController.text.trim(),
+                      'logo': logo,
+                    });
+                  },
+                  child: const Text('Simpan'),
                 ),
               ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Batal'),
-            ),
-            FilledButton(
-              onPressed: () {
-                if (!formKey.currentState!.validate()) return;
-                Navigator.of(dialogContext).pop(<String>[
-                  nameController.text.trim(),
-                  codeController.text.trim(),
-                ]);
-              },
-              child: const Text('Simpan'),
-            ),
-          ],
+            );
+          },
         );
       },
     );
 
-    if (hasil == null || hasil.length < 2 || !mounted) return;
-    await _saveCompany(hasil[0], hasil[1]);
+    if (hasil == null || !mounted) return;
+    await _saveCompany(hasil['name'] ?? '', hasil['code'] ?? '', hasil['logo'] ?? '');
   }
 
-  Future<bool> _saveCompany(String name, String code) async {
-    final bool saved = await CompanyProfile.update(name: name, code: code);
+  Future<bool> _saveCompany(String name, String code, [String logo = '']) async {
+    final bool saved = await CompanyProfile.update(
+      name: name,
+      code: code,
+      logo: logo,
+    );
     if (!mounted) return saved;
     final String message = saved
         ? 'Profil perusahaan berhasil disimpan.'

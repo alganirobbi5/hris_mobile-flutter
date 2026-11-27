@@ -6,9 +6,8 @@ import '../services/absen_polling_service.dart';
 import '../services/app_session.dart';
 import '../services/company_profile.dart';
 import '../services/notification_service.dart';
-import '../widgets/company_logo_badge.dart';
+import '../widgets/dashboard_identity_badges.dart';
 import '../widgets/glass_bottom_nav.dart';
-import '../widgets/profile_avatar_button.dart';
 import 'absen_screen.dart';
 import 'layanan_cuti_screen.dart';
 import 'pengumuman_screen.dart';
@@ -195,8 +194,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
                         _KeepAlivePage(child: screen),
                     ],
                   ),
-                  const CompanyLogoBadge(),
-                  const ProfileAvatarButton(),
+                  const DashboardIdentityBadges(),
                   Positioned(
                     left: 0,
                     right: 0,
