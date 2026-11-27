@@ -102,4 +102,27 @@ void main() {
     expect(headerOtorisasi, isNull);
     expect(rows, hasLength(1));
   });
+
+  test('baris laporan dengan status Libur tampil normal', () {
+    final LaporanAbsensiRow libur = LaporanAbsensiRow.fromJson(
+      <String, dynamic>{
+        'id': 3,
+        'date': '2026-11-27',
+        'nama': 'Andi Pratama',
+        'status': 'Libur',
+      },
+    );
+    expect(libur.statusTampil, 'Libur');
+    expect(libur.jamMasukTampil, '-');
+    expect(libur.jamKeluarTampil, '-');
+
+    final LaporanAbsensiRow tanpaStatus = LaporanAbsensiRow.fromJson(
+      <String, dynamic>{
+        'id': 4,
+        'date': '2026-11-27',
+        'nama': 'Budi Santoso',
+      },
+    );
+    expect(tanpaStatus.statusTampil, '-');
+  });
 }

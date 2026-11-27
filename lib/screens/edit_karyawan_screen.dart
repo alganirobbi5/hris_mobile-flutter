@@ -409,7 +409,7 @@ class _KaryawanPickerSheetState extends State<_KaryawanPickerSheet> {
                             onTap: () => Navigator.of(context).pop(item),
                             title: Text(
                               item.username.isEmpty
-                                  ? 'Karyawan #${item.id}'
+                                  ? 'Karyawan'
                                   : item.username,
                               style: const TextStyle(
                                 fontSize: 14,

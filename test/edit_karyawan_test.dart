@@ -160,4 +160,39 @@ void main() {
     expect(terkirim.single.containsKey('department_id'), isFalse);
     expect(terkirim.single.containsKey('designation_id'), isFalse);
   });
+
+  testWidgets('Daftar pilih karyawan tidak menampilkan tag #nomor', (
+    WidgetTester tester,
+  ) async {
+    final http.Client client = MockClient((http.Request request) async {
+      if (request.url.path.endsWith('/employees.php')) {
+        return http.Response(
+          jsonEncode(<String, dynamic>{
+            'success': true,
+            'data': <Map<String, dynamic>>[
+              <String, dynamic>{
+                'id': 7,
+                'username': '',
+                'nama_lengkap': 'Karyawan Tanpa Username',
+              },
+            ],
+          }),
+          200,
+        );
+      }
+      return http.Response('', 404);
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(home: EditKaryawanScreen(httpClient: client)),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Pilih Karyawan'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Karyawan'), findsOneWidget);
+    expect(find.text('Karyawan #7'), findsNothing);
+    expect(find.textContaining('#7'), findsNothing);
+  });
 }

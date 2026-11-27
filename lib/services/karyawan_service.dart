@@ -22,6 +22,7 @@ class KaryawanItem {
     required this.email,
     required this.mobileNo,
     required this.statusAktif,
+    this.role = '',
   });
 
   final int id;
@@ -30,6 +31,7 @@ class KaryawanItem {
   final String email;
   final String mobileNo;
   final bool statusAktif;
+  final String role;
 
   static KaryawanItem fromJson(Map<String, dynamic> json) {
     final String firstName = _text(json['first_name']);
@@ -59,6 +61,12 @@ class KaryawanItem {
           : statusText.isEmpty ||
               const <String>['1', 'true', 'active', 'aktif', 'yes']
                   .contains(statusText),
+      role: _text(
+        json['role'] ??
+            json['jabatan'] ??
+            json['designation_name'] ??
+            json['position'],
+      ),
     );
   }
 

@@ -16,6 +16,7 @@ import 'atur_jam_screen.dart';
 import 'edit_karyawan_screen.dart';
 import 'kelola_hr_admin_screen.dart';
 import 'kelola_kuota_cuti_screen.dart';
+import 'kontak_karyawan_screen.dart';
 import 'kelola_perusahaan_screen.dart';
 import 'laporan_screen.dart';
 import 'tambah_karyawan_screen.dart';
@@ -331,6 +332,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onTap: () => Navigator.of(context).push<void>(
                   MaterialPageRoute<void>(
                     builder: (_) => const EditKaryawanScreen(),
+                  ),
+                ),
+              ),
+              _buildMenuCard(
+                context: context,
+                icon: Icons.chat_bubble_outlined,
+                label: 'Hubungi Karyawan',
+                subtitle: 'ID Card dan chat WhatsApp karyawan',
+                onTap: () => Navigator.of(context).push<void>(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const KontakKaryawanScreen(),
                   ),
                 ),
               ),

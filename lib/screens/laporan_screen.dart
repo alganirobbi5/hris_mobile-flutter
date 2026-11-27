@@ -306,9 +306,11 @@ class _LaporanScreenState extends State<LaporanScreen>
               final String status = row.statusTampil;
               final Color statusColor = status == '-'
                   ? AppColors.textSecondary
-                  : row.terlambat
-                      ? AppColors.danger
-                      : AppColors.success;
+                  : status == 'Libur'
+                      ? AppColors.primary
+                      : row.terlambat
+                          ? AppColors.danger
+                          : AppColors.success;
               return DataRow(
                 cells: <DataCell>[
                   DataCell(Text(row.tanggalTampil)),

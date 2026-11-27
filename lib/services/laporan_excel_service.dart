@@ -37,6 +37,7 @@ class LaporanAbsensiRow {
     this.longitude = '',
     this.terlambatDariServer,
     this.jamMasukKerja = '',
+    this.status = '',
   });
 
   factory LaporanAbsensiRow.fromJson(Map<String, dynamic> json) {
@@ -100,6 +101,11 @@ class LaporanAbsensiRow {
                   ? false
                   : null)),
       jamMasukKerja: (json['jam_masuk_kerja'] ?? '').toString(),
+      status: (json['status'] ??
+              json['kehadiran'] ??
+              json['keterangan'] ??
+              '')
+          .toString(),
     );
   }
 
@@ -119,6 +125,7 @@ class LaporanAbsensiRow {
   final String longitude;
   final bool? terlambatDariServer;
   final String jamMasukKerja;
+  final String status;
 
   DateTime? get tanggalDate => DateTime.tryParse(tanggal);
 
@@ -158,6 +165,8 @@ class LaporanAbsensiRow {
   }
 
   String get statusTampil {
+    final String statusNormal = status.trim().toLowerCase();
+    if (statusNormal == 'libur' || statusNormal == 'holiday') return 'Libur';
     final String masuk = jamMasuk.trim();
     if (masuk.isEmpty || masuk.startsWith('00:00:00')) return '-';
     return terlambat ? 'Terlambat' : 'Tepat Waktu';

@@ -226,6 +226,8 @@ class SemuaAbsensiViewState extends State<SemuaAbsensiView> {
       case 'terlambat':
       case 'belum pulang':
         return AppColors.warning;
+      case 'libur':
+        return AppColors.primary;
       case 'tidak hadir':
       case 'alpha':
       case 'absen':
@@ -832,6 +834,7 @@ class _AbsensiItem {
       return 'Tidak Hadir';
     }
     if (status == 'terlambat') return 'Terlambat';
+    if (status == 'libur' || status == 'holiday') return 'Libur';
     if (status == 'izin') return 'Izin';
     if (status == 'sakit') return 'Sakit';
     if (status == 'cuti') return 'Cuti';
