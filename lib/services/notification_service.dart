@@ -132,6 +132,12 @@ class AppNotificationService {
         channelDescription: 'Pemberitahuan hasil persetujuan cuti',
       );
 
+  static NotificationDetails get _announcementDetails => _details(
+        channelId: 'announcement',
+        channelName: 'Pengumuman',
+        channelDescription: 'Pengumuman baru dari HR dan super admin',
+      );
+
   static Future<void> showNow({
     required int id,
     required String title,
@@ -209,6 +215,18 @@ class AppNotificationService {
         body: body,
         details: _leaveDetails,
         payload: 'leave_status',
+      );
+
+  static Future<void> showAnnouncement({
+    required String title,
+    required String body,
+  }) =>
+      showNow(
+        id: 4001,
+        title: title,
+        body: body,
+        details: _announcementDetails,
+        payload: 'announcement',
       );
 
   static Future<void> scheduleDaily({
